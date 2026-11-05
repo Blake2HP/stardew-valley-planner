@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: npc-gift-asks-for-data
+expected_outcome: |
+  说明项目数据库中没有 NPC 喜好、生日和好感度数据，不凭记忆给出具体礼物或数值，并请用户提供确切数据。

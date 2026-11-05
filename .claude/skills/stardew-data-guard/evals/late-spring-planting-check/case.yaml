@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: late-spring-planting-check
+expected_outcome: |
+  指出第20天种花椰菜来不及成熟（20+12=32>28，最晚第16天），按数据库数值规划草莓，第28天写入清理农场/停止种植，并给出换季警告。

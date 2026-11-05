@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: wine-vs-raw-profit
+expected_outcome: |
+  使用数据库中的草莓售价120g、产量1.02、果酒倍率3，按公式给出收获2次、直接卖与果酒收入及差额。

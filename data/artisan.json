@@ -1,0 +1,10 @@
+{
+  "_note": "Mock 数据：加工倍率规则。price = base_price * multiplier + bonus；fixed_price 不为 null 时直接使用固定价格。",
+  "rules": [
+    {"machine": "小桶",     "product": "果酒",   "input_category": "fruit",     "multiplier": 3.0,  "bonus": 0,  "fixed_price": null, "processing_days": 7.0},
+    {"machine": "小桶",     "product": "果汁",   "input_category": "vegetable", "multiplier": 2.25, "bonus": 0,  "fixed_price": null, "processing_days": 4.0},
+    {"machine": "小桶",     "product": "淡啤酒", "input_category": "special",   "multiplier": 0,    "bonus": 0,  "fixed_price": 300,  "processing_days": 1.5},
+    {"machine": "罐头瓶",   "product": "果酱",   "input_category": "fruit",     "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_days": 2.5},
+    {"machine": "罐头瓶",   "product": "腌菜",   "input_category": "vegetable", "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_days": 2.5}
+  ]
+}

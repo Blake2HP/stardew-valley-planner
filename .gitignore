@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 密钥与本地配置（.env.example 需要提交）
+.env
+.env.*
+!.env.example
+
+# Claude Code 本地设置与 skill 测试产物（可重新生成）
+.claude/settings.local.json
+.claude/skills/*-workspace/
+
+# 生成的攻略输出（sample_output.md 作为示例保留）
+output/
+*.log
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
