@@ -46,6 +46,7 @@ class Crop:
     category: str  # fruit / vegetable / flower / special
     harvest_yield: float = 1.0
     seed_source: str = "皮埃尔杂货店"
+    earliest_available_day: int = 1  # 当季最早能买到种子的日期（如草莓 = 13，复活节）
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ class ArtisanRule:
     multiplier: float
     bonus: int
     fixed_price: int | None
+    processing_minutes: int
     processing_days: float
 
     def price_for(self, crop: Crop) -> int:

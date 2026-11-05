@@ -22,6 +22,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(os.getenv("STARDEW_PROJECT_ROOT", Path(__file__).resolve().parents[4]))
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from stardew_planner.analysis import available_growing_days, effective_plant_day, season_profit  # noqa: E402
 from stardew_planner.data_loader import SEASON_ZH, Crop, GameData, load_game_data, normalize_season  # noqa: E402
 from stardew_planner.season_rules import (  # noqa: E402
     SEASON_DAYS, check_plantings, enforce_season_end, last_safe_plant_day,
@@ -57,6 +58,7 @@ def cmd_crop(data: GameData, a) -> None:
     print(f"  可种季节: {'/'.join(SEASON_ZH[s] for s in c.seasons)}")
     print(f"  种子价: {c.seed_price}g（{c.seed_source}）  售价: {c.sell_price}g  类别: {c.category}")
     print(f"  生长天数: {c.grow_days}  再生天数: {c.regrow_days or '不可再生'}  单次产量: {c.harvest_yield}")
+    print(f"  最早开售日: 第 {c.earliest_available_day} 天")
     for s in c.seasons:
         tail = "，可跨入下一季继续生长" if survives_season_change(c, s) else ""
         print(f"  {SEASON_ZH[s]}最晚种植日 = {SEASON_DAYS} − {c.grow_days} = {last_safe_plant_day(c)}{tail}")
@@ -90,27 +92,34 @@ def cmd_profit(data: GameData, a) -> None:
     if not 1 <= d <= SEASON_DAYS:
         print(f"❌ 种植日必须在 1-{SEASON_DAYS} 之间")
         sys.exit(EXIT_INVALID)
-    print(f"【{c.name} 收益计算】种植日 = 第 {d} 天，来源: data/crops.json")
+    print(f"【{c.name} 收益计算】计划种植日 = 第 {d} 天，来源: data/crops.json")
+    if d < c.earliest_available_day:
+        d = effective_plant_day(c, d)
+        print(f"  ⚠️ {c.name}种子第 {c.earliest_available_day} 天才开售（{c.seed_source}），"
+              f"实际种植日 = max(计划种植日, 最早开售日) = {d}")
+    n = available_growing_days(d)
+    print(f"  实际可用生长天数 = 28 − 种植日 {d} + 1 = {n}")
     single = c.sell_price * c.harvest_yield - c.seed_price
     print(f"  单轮日均利润 = (售价 {c.sell_price}{fmt_yield(c)} − 种子成本 {c.seed_price}) / 生长天数 {c.grow_days}"
           f" = {single:g} / {c.grow_days} = {single / c.grow_days:.2f}g/天")
 
-    if d + c.grow_days > SEASON_DAYS:
+    if c.grow_days > n - 1:
         print(f"  ⚠️ 成熟日 = {d} + {c.grow_days} = {d + c.grow_days} > {SEASON_DAYS}，本季无法收获")
         harvests, seeds = 0, 1
     elif c.regrow_days:
-        harvests, seeds = 1 + (SEASON_DAYS - d - c.grow_days) // c.regrow_days, 1
-        print(f"  收获次数 = 1 + ⌊(28 − 种植日 {d} − 生长 {c.grow_days}) / 再生 {c.regrow_days}⌋ = {harvests}（种子 1 份）")
+        harvests, seeds = 1 + (n - 1 - c.grow_days) // c.regrow_days, 1
+        print(f"  收获次数 = 1 + ⌊(可用天数 {n} − 1 − 生长 {c.grow_days}) / 再生 {c.regrow_days}⌋ = {harvests}（种子 1 份）")
     else:
-        harvests = seeds = (SEASON_DAYS - d) // c.grow_days
-        print(f"  收获次数 = ⌊(28 − 种植日 {d}) / 生长 {c.grow_days}⌋ = {harvests}（收获后立即补种，种子 {seeds} 份）")
+        harvests = seeds = (n - 1) // c.grow_days
+        print(f"  收获次数 = ⌊(可用天数 {n} − 1) / 生长 {c.grow_days}⌋ = {harvests}（收获后立即补种，种子 {seeds} 份）")
 
     revenue = harvests * c.sell_price * c.harvest_yield
     profit = revenue - seeds * c.seed_price
-    days = SEASON_DAYS - d + 1
+    # 与项目代码 analysis.season_profit 保持一致（它对净利取整）
+    assert (harvests, int(profit)) == season_profit(c, d), "sv.py 与 analysis.season_profit 计算不一致"
     print(f"  单格净利 = 收获次数 {harvests} × 售价 {c.sell_price}{fmt_yield(c)} − 种子数 {seeds} × 种子价 {c.seed_price}"
           f" = {revenue:g} − {seeds * c.seed_price} = {profit:g}g")
-    print(f"  占地日均 = 单格净利 {profit:g} / 占地天数 (28 − {d} + 1 = {days}) = {profit / days:.2f}g/天")
+    print(f"  占地日均 = 单格净利 {profit:g} / 可用天数 {n} = {profit / n:.2f}g/天")
     print("  注：未计入品质、职业加成与肥料，需要时请向用户确认加成数值。")
 
 

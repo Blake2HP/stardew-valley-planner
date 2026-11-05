@@ -10,7 +10,7 @@
 - 模型给出的日程会经过代码校验：种植时间来不及成熟、在本季种了非本季作物、第 28 天没有清理农场，都会报警或自动修正。
 - 模型输出的 JSON 格式有误时，先在本地修复，尽量不额外调用模型。
 
-> ⚠️ `data/` 中的游戏数值目前是 **mock 数据（近似值）**，用于搭建流程，和真实游戏可能有出入。
+> `data/` 中的作物和加工数值来自 [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops)（游戏 1.6 版本），核对日期 2026-11-05。
 
 ## 示例输出
 
@@ -107,7 +107,7 @@ data/guides/*.md ──► 关键词检索 ─┘   系统 + 用户 Prompt      
 ```
 
 1. **数据加载**：读取结构化数值（作物、加工规则、季节日历）和非结构化攻略文本。攻略文本按 `## 标题` 切块，并按关键词检索出与玩法相关的片段。
-2. **确定性计算**：调用模型前，先算出每种作物整季的收获次数、单格净利和最划算的加工方式。
+2. **确定性计算**：调用模型前，先算出每种作物整季的收获次数、单格净利和最划算的加工方式。种植日不早于种子最早开售日，实际可用生长天数 = 28 − 种植日 + 1（例如草莓种子第 13 天才开售，可用 16 天）。
 3. **Prompt**：系统 Prompt 规定输出顺序（宏观策略 → 关键节点 → 1–28 天日程），并要求数值以【数据参考】为准。
 4. **容错解析**：依次尝试 `strict`（标准解析）→ `cleaned`（修复多逗号、末尾逗号）→ `repaired`（交给 [json_repair](https://github.com/mangiucugna/json_repair) 处理漏括号、漏逗号、单引号等）。格式错误在本地修好，不会触发重试；只有内容不完整（比如缺了某一天）才会让模型重新输出。
 5. **跨季校验**：
@@ -147,10 +147,11 @@ data/guides/*.md ──► 关键词检索 ─┘   系统 + 用户 Prompt      
 ```json
 {"name": "向日葵", "name_en": "Sunflower", "seasons": ["summer", "fall"],
  "seed_price": 200, "sell_price": 80, "grow_days": 8, "regrow_days": null,
- "category": "flower", "harvest_yield": 1.0, "seed_source": "皮埃尔杂货店"}
+ "category": "flower", "harvest_yield": 1.0, "earliest_available_day": 1,
+ "seed_source": "皮埃尔杂货店"}
 ```
 
-`category` 决定适用哪些加工规则（`fruit` / `vegetable` / `flower` / `special`），`regrow_days` 为 `null` 表示只能收获一次。
+`category` 决定适用哪些加工规则（`fruit` / `vegetable` / `flower` / `special`），`regrow_days` 为 `null` 表示只能收获一次。`harvest_yield` 是单次收获的期望产量（基础产量 + p / (1 − p)，p 为额外产出几率）。`earliest_available_day` 是当季最早能买到种子的日期，普通作物为 1。
 
 **新增攻略文本**：在 `data/guides/` 下放 `.md` 或 `.txt` 文件。每个 `## 标题` 是一个片段，片段下方可以加一行 `标签: 春季, 钓鱼, 新手`，用于检索时匹配玩法。
 
@@ -160,7 +161,7 @@ data/guides/*.md ──► 关键词检索 ─┘   系统 + 用户 Prompt      
 python -m pytest
 ```
 
-目前有 72 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、生成流程的重试与兜底，以及 `sv.py` 的退出码。
+目前有 87 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
 
 ## Claude Code skill：`stardew-data-guard`
 
@@ -184,9 +185,10 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 
 ## 当前局限与计划
 
-- [ ] 用游戏解包出来的真实数据替换 mock 数据
+- [x] 用游戏 1.6 版本的真实数值替换 mock 数据（来源：Stardew Valley Wiki）
 - [ ] 补充 NPC 数据（喜好、生日、好感度）、品质与职业加成、肥料
-- [ ] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
+- [x] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
+- [ ] 补充更多作物（大蒜、蓝爵、小麦、向日葵、红叶卷心菜等），并记录只在第二年起出售的种子
 - [ ] 支持跨季、全年连续规划
 - [ ] 攻略文本检索从关键词匹配升级为向量检索
 - [ ] 用真实 API 测试模型输出的稳定性

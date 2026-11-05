@@ -1,10 +1,12 @@
 {
-  "_note": "Mock 数据：加工倍率规则。price = base_price * multiplier + bonus；fixed_price 不为 null 时直接使用固定价格。",
+  "_source": "Stardew Valley Wiki（1.6），https://stardewvalleywiki.com/Keg 与 https://stardewvalleywiki.com/Preserves_Jar，核对日期 2026-11-05。",
+  "_formula": "售价 = 基础售价 × multiplier + bonus；fixed_price 不为 null 时直接使用固定价格。加工品价格只看原料的基础售价，与原料品质无关。",
+  "_processing": "processing_minutes 为游戏内分钟数，processing_days = 分钟数 / 1600（wiki：一整天 = 1600 分钟）。",
   "rules": [
-    {"machine": "小桶",     "product": "果酒",   "input_category": "fruit",     "multiplier": 3.0,  "bonus": 0,  "fixed_price": null, "processing_days": 7.0},
-    {"machine": "小桶",     "product": "果汁",   "input_category": "vegetable", "multiplier": 2.25, "bonus": 0,  "fixed_price": null, "processing_days": 4.0},
-    {"machine": "小桶",     "product": "淡啤酒", "input_category": "special",   "multiplier": 0,    "bonus": 0,  "fixed_price": 300,  "processing_days": 1.5},
-    {"machine": "罐头瓶",   "product": "果酱",   "input_category": "fruit",     "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_days": 2.5},
-    {"machine": "罐头瓶",   "product": "腌菜",   "input_category": "vegetable", "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_days": 2.5}
+    {"machine": "小桶",   "product": "果酒",   "input_category": "fruit",     "multiplier": 3.0,  "bonus": 0,  "fixed_price": null, "processing_minutes": 10000, "processing_days": 6.25},
+    {"machine": "小桶",   "product": "果汁",   "input_category": "vegetable", "multiplier": 2.25, "bonus": 0,  "fixed_price": null, "processing_minutes": 6000,  "processing_days": 3.75},
+    {"machine": "小桶",   "product": "淡啤酒", "input_category": "special",   "multiplier": 0,    "bonus": 0,  "fixed_price": 300,  "processing_minutes": 2250,  "processing_days": 1.41},
+    {"machine": "罐头瓶", "product": "果酱",   "input_category": "fruit",     "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_minutes": 4000,  "processing_days": 2.5},
+    {"machine": "罐头瓶", "product": "腌菜",   "input_category": "vegetable", "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_minutes": 4000,  "processing_days": 2.5}
   ]
 }

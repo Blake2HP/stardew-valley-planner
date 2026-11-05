@@ -103,6 +103,13 @@ def test_sv_known_crop():
     assert r.returncode == 0 and "120 × 3.0 = 360g" in r.stdout
 
 
+def test_sv_profit_waits_for_seed_availability():
+    r = sv("profit", "草莓")
+    assert r.returncode == 0
+    assert "实际可用生长天数 = 28 − 种植日 13 + 1 = 16" in r.stdout
+    assert "= 2（种子 1 份）" in r.stdout
+
+
 def test_sv_missing_data_exit_2():
     assert sv("crop", "阿比盖尔").returncode == 2
 

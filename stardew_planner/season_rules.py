@@ -104,6 +104,12 @@ def check_plantings(daily_goals: dict[int, str], data: GameData, season: str) ->
                     f"{crop.name}不是{SEASON_ZH[season]}作物，种下会立即枯萎",
                     f"{crop.name}可种季节 = {allowed}",
                 ))
+            elif day < crop.earliest_available_day:
+                warnings.append(SeasonWarning(
+                    day, crop.name,
+                    f"{crop.name}种子要到第 {crop.earliest_available_day} 天才能买到（{crop.seed_source}）",
+                    f"种植日 {day} < 最早开售日 {crop.earliest_available_day}",
+                ))
             elif survives_season_change(crop, season):
                 continue
             elif day + crop.grow_days > SEASON_DAYS:

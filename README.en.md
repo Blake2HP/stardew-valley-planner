@@ -10,7 +10,7 @@ Unlike asking an LLM directly, this project lets **code handle the numbers and t
 - The model's schedule is checked by code: crops that can't mature before the season ends, out-of-season crops, and a missing farm cleanup on day 28 are all flagged or fixed automatically.
 - When the model returns malformed JSON, it is repaired locally so that no extra model call is needed.
 
-> ⚠️ The game values in `data/` are currently **mock data (approximations)** used to build the pipeline. They may differ from the real game.
+> Crop and artisan values in `data/` come from the [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops) (game version 1.6), checked on 2026-11-05.
 >
 > The game data, prompts and generated guides are in **Chinese**. Playstyle and pacing can be written in any language, but the output guide is in Chinese.
 
@@ -111,7 +111,7 @@ data/guides/*.md ──► keyword search ─┘   system + user prompt     tole
 ```
 
 1. **Data loading**: reads structured values (crops, artisan rules, seasonal calendar) and unstructured guide texts. Guide texts are split by `## heading` and searched by keyword for passages relevant to the playstyle.
-2. **Deterministic calculation**: before calling the model, the program computes each crop's harvest count for the season, net profit per tile, and best artisan product.
+2. **Deterministic calculation**: before calling the model, the program computes each crop's harvest count for the season, net profit per tile, and best artisan product. Planting never starts before the seeds go on sale, and available growing days = 28 − planting day + 1 (e.g. strawberry seeds go on sale on day 13, leaving 16 days).
 3. **Prompt**: the system prompt fixes the output order (high-level strategy → milestones → days 1–28) and requires all numbers to come from the data reference.
 4. **Tolerant parsing**: tries `strict` (standard parsing) → `cleaned` (fixes repeated and trailing commas) → `repaired` (hands off to [json_repair](https://github.com/mangiucugna/json_repair) for missing brackets, missing commas, single quotes, etc.). Syntax errors are fixed locally and don't trigger a retry; the model is only asked again when content is incomplete (for example, a missing day).
 5. **Season-change checks**:
@@ -151,10 +151,11 @@ data/guides/*.md ──► keyword search ─┘   system + user prompt     tole
 ```json
 {"name": "向日葵", "name_en": "Sunflower", "seasons": ["summer", "fall"],
  "seed_price": 200, "sell_price": 80, "grow_days": 8, "regrow_days": null,
- "category": "flower", "harvest_yield": 1.0, "seed_source": "皮埃尔杂货店"}
+ "category": "flower", "harvest_yield": 1.0, "earliest_available_day": 1,
+ "seed_source": "皮埃尔杂货店"}
 ```
 
-`category` decides which artisan rules apply (`fruit` / `vegetable` / `flower` / `special`). `regrow_days: null` means the crop is harvested only once. `name` is the Chinese name used in schedules; `name_en` is also accepted by the `sv.py` lookup tool.
+`category` decides which artisan rules apply (`fruit` / `vegetable` / `flower` / `special`). `regrow_days: null` means the crop is harvested only once. `harvest_yield` is the expected yield per harvest (base yield + p / (1 − p), where p is the chance of extra crops). `earliest_available_day` is the first day of the season the seeds can be bought; it is 1 for regular crops. `name` is the Chinese name used in schedules; `name_en` is also accepted by the `sv.py` lookup tool.
 
 **Add guide text**: put `.md` or `.txt` files in `data/guides/`. Each `## heading` becomes one passage. A line like `标签: 春季, 钓鱼, 新手` (tags: spring, fishing, beginner) under the heading is used to match playstyles during search.
 
@@ -164,7 +165,7 @@ data/guides/*.md ──► keyword search ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 72 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), retries and fallbacks in the generation pipeline, and `sv.py` exit codes.
+There are currently 87 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
 
 ## Claude Code skill: `stardew-data-guard`
 
@@ -188,9 +189,10 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 
 ## Limitations and roadmap
 
-- [ ] Replace the mock data with real values extracted from the game files
+- [x] Replace the mock data with real 1.6 values (source: Stardew Valley Wiki)
 - [ ] Add NPC data (gift preferences, birthdays, friendship), quality and profession bonuses, fertilizer
-- [ ] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
+- [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
+- [ ] Add more crops (Garlic, Blue Jazz, Wheat, Sunflower, Red Cabbage, etc.) and track seeds that are only sold from year 2
 - [ ] Support multi-season and full-year planning
 - [ ] Upgrade guide-text search from keyword matching to vector search
 - [ ] Test model output stability against real APIs
