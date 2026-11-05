@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import json
-import re
 from dataclasses import dataclass, field
 
 from .analysis import SEASON_DAYS, build_data_context
 from .data_loader import SEASON_ZH, GameData, load_game_data, normalize_season
+from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .llm_client import LLMClient, get_client
 from .prompts import REPAIR_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
 from .renderer import render_markdown
@@ -34,22 +33,20 @@ class StrategyResult:
     season_warnings: list[str] = field(default_factory=list)
     markdown: str = ""
     raw_response: str = ""
+    attempts: int = 1            # 调用模型的次数（1 = 没有重试）
+    json_parse_method: str = ""  # strict / cleaned / repaired
 
 
 # ---------------------------------------------------------------------------
 # 解析与校验
 # ---------------------------------------------------------------------------
 
-def extract_json(text: str) -> dict:
-    """容错地从模型输出中取出 JSON：去掉 ```json 代码块，截取第一个 { 到最后一个 }。"""
-    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.MULTILINE)
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end <= start:
-        raise StrategyParseError("输出中找不到 JSON 对象")
+def extract_json(text: str) -> ParsedJSON:
+    """容错解析模型输出（严格解析 → 常见错误清理 → json_repair），失败时抛出 StrategyParseError。"""
     try:
-        return json.loads(text[start:end + 1])
-    except json.JSONDecodeError as e:
-        raise StrategyParseError(f"JSON 语法错误: {e}") from e
+        return parse_llm_json(text, expect=dict)
+    except JSONParseError as e:
+        raise StrategyParseError(str(e)) from e
 
 
 def validate_payload(payload: dict) -> tuple[dict, list[dict], dict[int, str]]:
@@ -84,23 +81,33 @@ def validate_payload(payload: dict) -> tuple[dict, list[dict], dict[int, str]]:
     if errors:
         raise StrategyParseError("；".join(errors))
 
-    milestones = sorted(
-        (m for m in milestones if isinstance(m, dict) and "day" in m),
-        key=lambda m: int(m["day"]),
-    )
-    return macro, milestones, goals
+    return macro, _clean_milestones(milestones), goals
+
+
+def _clean_milestones(milestones) -> list[dict]:
+    """只保留 day 能转成 1-28 整数的节点，并按日期排序（修复后的 JSON 里 day 可能是字符串）。"""
+    cleaned = []
+    for m in milestones or []:
+        if not isinstance(m, dict):
+            continue
+        try:
+            day = int(m.get("day"))
+        except (TypeError, ValueError):
+            continue
+        if 1 <= day <= SEASON_DAYS:
+            cleaned.append({**m, "day": day})
+    return sorted(cleaned, key=lambda m: m["day"])
 
 
 def _lenient_parse(payload: dict) -> tuple[dict, list[dict], dict[int, str]]:
     """重试仍失败时的兜底：尽量保留能用的部分，缺失的天数填充占位。"""
     macro = payload.get("macro_strategy") if isinstance(payload.get("macro_strategy"), dict) else {}
-    milestones = [m for m in payload.get("key_milestones") or [] if isinstance(m, dict) and "day" in m]
     raw = payload.get("daily_goals") if isinstance(payload.get("daily_goals"), dict) else {}
     goals = {}
     for d in range(1, SEASON_DAYS + 1):
         v = raw.get(str(d), raw.get(d))
         goals[d] = v.strip() if isinstance(v, str) and v.strip() else FALLBACK_GOAL
-    return macro, sorted(milestones, key=lambda m: int(m["day"])), goals
+    return macro, _clean_milestones(payload.get("key_milestones")), goals
 
 
 # ---------------------------------------------------------------------------
@@ -140,13 +147,15 @@ def generate_strategy(
     messages = [{"role": "user", "content": user_prompt}]
 
     # 2) 调用模型 + 校验，失败时把错误回传给模型自我修正
-    raw = ""
+    raw, parse_method, attempts = "", "", 0
     payload: dict = {}
     for attempt in range(max_retries + 1):
+        attempts = attempt + 1
         raw = client.complete(SYSTEM_PROMPT, messages)
         payload = {}
         try:
-            payload = extract_json(raw)
+            parsed = extract_json(raw)  # 语法错误在本地修复，不消耗重试次数
+            payload, parse_method = parsed.data, parsed.method
             macro, milestones, goals = validate_payload(payload)
             break
         except StrategyParseError as e:
@@ -181,6 +190,8 @@ def generate_strategy(
         schedule=merge_daily_goals(goals),
         season_warnings=warnings,
         raw_response=raw,
+        attempts=attempts,
+        json_parse_method=parse_method,
     )
     result.markdown = render_markdown(result, data)
     return result

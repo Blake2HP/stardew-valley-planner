@@ -41,6 +41,7 @@ def main() -> None:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     print(result.markdown)
+    print(f"\n[调用模型 {result.attempts} 次，JSON 解析方式: {result.json_parse_method}]", file=sys.stderr)
 
     if args.output:
         Path(args.output).write_text(result.markdown, encoding="utf-8")
