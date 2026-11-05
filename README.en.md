@@ -165,7 +165,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 106 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, guide chunking and vector indexing (MD5 dedup, incremental updates), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
+There are currently 110 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, guide chunking and vector indexing (MD5 dedup, incremental updates), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
 
 ## Claude Code skill: `stardew-data-guard`
 

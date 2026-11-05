@@ -311,7 +311,8 @@ def search_guides(
 
 def keyword_search(chunks: list[GuideChunk], query: str, k: int = 3) -> list[GuideChunk]:
     """关键词检索（兜底方案）：标签出现在 query 中记 3 分，query 里的词出现在标题或正文记 1 分。"""
-    terms = [t for t in re.split(r"[\s,，、/；;。]+", query) if len(t) >= 2]
+    # 不按长度过滤：中文里“春”“矿”“草”这类单字本身就是关键词
+    terms = [t for t in re.split(r"[\s,，、/；;。]+", query) if t.strip()]
 
     def score(chunk: GuideChunk) -> int:
         body = chunk.title + chunk.text

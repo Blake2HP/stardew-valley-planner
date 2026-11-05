@@ -144,6 +144,19 @@ def test_falls_back_when_vector_store_disabled(monkeypatch):
     assert "### 钓鱼起步" in search_guides("钓鱼 新手", fallback_chunks=GUIDES)
 
 
+@pytest.mark.parametrize(
+    "query, expected_title",
+    [("矿", "矿井推进"), ("桶", "加工业基础"), ("春 草莓", "草莓与复活节")],
+    ids=["single-char", "single-char-2", "single-char-with-term"],
+)
+def test_keyword_search_keeps_single_char_terms(query, expected_title):
+    assert keyword_search(GUIDES, query, k=1)[0].title == expected_title
+
+
+def test_keyword_search_ignores_empty_terms():
+    assert keyword_search(GUIDES, " ，、 ", k=3) == []
+
+
 def test_keyword_search_scores_tags_and_terms():
     titles = [c.title for c in keyword_search(GUIDES, "挖矿 矿井", k=2)]
     assert titles[0] == "矿井推进"
