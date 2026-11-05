@@ -46,7 +46,7 @@ The guide has a high-level strategy, a milestone table, a season-change check, a
 
 ## Quick start
 
-Requires Python 3.10 or later.
+Requires Python 3.10 or later. On first run, ChromaDB downloads a local embedding model of about 80 MB (all-MiniLM-L6-v2); after that it works offline.
 
 ```bash
 git clone https://github.com/Blake2HP/stardew-valley-planner.git
@@ -104,13 +104,13 @@ print(result.attempts, result.json_parse_method)  # number of model calls, JSON 
 data/*.json ──► analysis.py ──┐
   crops/artisan/calendar  profit ranking │
                              ├──► prompts.py ──► LLM ──► json_utils.py ──► schema check
-data/guides/*.md ──► keyword search ─┘   system + user prompt     tolerant parsing   (one retry if invalid)
+data/guides/*.md ──► vector search  ─┘   system + user prompt     tolerant parsing   (one retry if invalid)
                                                                                   │
          Markdown guide ◄── renderer.py ◄── schedule.py ◄── season_rules.py ◄────┘
                                             merge schedule    season-change checks
 ```
 
-1. **Data loading**: reads structured values (crops, artisan rules, seasonal calendar) and unstructured guide texts. Guide texts are split by `## heading` and searched by keyword for passages relevant to the playstyle.
+1. **Data loading**: reads structured values (crops, artisan rules, seasonal calendar) and unstructured guide texts. Guide texts are split by `## heading` and stored in ChromaDB (`data/.chroma_db`) with the MD5 of the text as the ID, so unchanged passages are never written twice and deleted ones are removed. A "season, playstyle, pacing" query then retrieves the 3 most relevant passages by semantic search. If ChromaDB is unavailable (not installed, model download failed, etc.), it falls back to keyword search.
 2. **Deterministic calculation**: before calling the model, the program computes each crop's harvest count for the season, net profit per tile, and best artisan product. Planting never starts before the seeds go on sale, and available growing days = 28 − planting day + 1 (e.g. strawberry seeds go on sale on day 13, leaving 16 days).
 3. **Prompt**: the system prompt fixes the output order (high-level strategy → milestones → days 1–28) and requires all numbers to come from the data reference.
 4. **Tolerant parsing**: tries `strict` (standard parsing) → `cleaned` (fixes repeated and trailing commas) → `repaired` (hands off to [json_repair](https://github.com/mangiucugna/json_repair) for missing brackets, missing commas, single quotes, etc.). Syntax errors are fixed locally and don't trigger a retry; the model is only asked again when content is incomplete (for example, a missing day).
@@ -126,7 +126,7 @@ data/guides/*.md ──► keyword search ─┘   system + user prompt     tole
 ```
 ├── main.py                     CLI entry point
 ├── stardew_planner/
-│   ├── data_loader.py          data loading and guide-text search
+│   ├── data_loader.py          data loading, guide chunking, ChromaDB indexing and semantic search
 │   ├── analysis.py             profit calculation, builds the prompt's data reference
 │   ├── prompts.py              system / user / repair prompt templates
 │   ├── llm_client.py           Anthropic / OpenAI / mock clients
@@ -165,7 +165,7 @@ data/guides/*.md ──► keyword search ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 87 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
+There are currently 106 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, guide chunking and vector indexing (MD5 dedup, incremental updates), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
 
 ## Claude Code skill: `stardew-data-guard`
 
@@ -194,7 +194,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
 - [ ] Add more crops (Garlic, Blue Jazz, Wheat, Sunflower, Red Cabbage, etc.) and track seeds that are only sold from year 2
 - [ ] Support multi-season and full-year planning
-- [ ] Upgrade guide-text search from keyword matching to vector search
+- [x] Upgrade guide-text search from keyword matching to vector search (ChromaDB)
+- [ ] Switch to a multilingual embedding model for better Chinese retrieval (the default model is mostly English)
 - [ ] Test model output stability against real APIs
 
 ## Disclaimer

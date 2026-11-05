@@ -81,6 +81,20 @@ def test_unparseable_response_raises(data):
         run(ScriptedClient("抱歉，我无法回答。"), data, max_retries=0)
 
 
+def test_generator_puts_retrieved_guides_into_prompt(data, indexed_store):
+    class RecordingClient(ScriptedClient):
+        def complete(self, system, messages):
+            self.prompt = messages[0]["content"]
+            return super().complete(system, messages)
+
+    client = RecordingClient(GOOD)
+    result = generate_strategy("钓鱼赚钱", "休闲慢节奏", "spring", client=client, data=data,
+                               guide_store=indexed_store, n_guides=2)
+    assert "### 钓鱼起步" in result.guide_excerpts
+    assert result.guide_excerpts.count("### ") == 2
+    assert result.guide_excerpts in client.prompt
+
+
 def test_rendered_markdown_contains_all_sections(data):
     md = run(ScriptedClient(GOOD), data).markdown
     for heading in ["## 🧭 宏观策略指导", "## 📌 关键时间节点", "## ⚠️ 换季校验", "## 📅 每日核心目标"]:

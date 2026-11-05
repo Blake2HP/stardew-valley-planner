@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .analysis import SEASON_DAYS, build_data_context
-from .data_loader import SEASON_ZH, GameData, load_game_data, normalize_season
+from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .llm_client import LLMClient, get_client
 from .prompts import REPAIR_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
@@ -33,6 +33,7 @@ class StrategyResult:
     season_warnings: list[str] = field(default_factory=list)
     markdown: str = ""
     raw_response: str = ""
+    guide_excerpts: str = ""     # 检索到并放进 Prompt 的攻略片段
     attempts: int = 1            # 调用模型的次数（1 = 没有重试）
     json_parse_method: str = ""  # strict / cleaned / repaired
 
@@ -124,6 +125,8 @@ def generate_strategy(
     model: str | None = None,
     client: LLMClient | None = None,
     data: GameData | None = None,
+    guide_store: GuideStore | None = None,
+    n_guides: int = 3,
     max_retries: int = 1,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
@@ -133,14 +136,20 @@ def generate_strategy(
         pacing: 节奏偏好，例如 "速通极限"、"休闲慢节奏"。
         season: spring/summer/fall/winter 或中文。
         provider: anthropic / openai / mock（默认读环境变量 LLM_PROVIDER）。
+        guide_store: 攻略向量库，默认使用 data/.chroma_db；不可用时退回关键词检索。
+        n_guides: 检索的攻略片段数。
     """
     season_key = normalize_season(season)
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
     client = client or get_client(provider, model)
 
-    # 1) 数据 → Prompt
-    context = build_data_context(data, season_key, query=f"{playstyle} {pacing} {season_zh}")
+    # 1) 检索攻略片段（RAG）+ 数据 → Prompt
+    guide_query = f"{season_zh}，{playstyle}，{pacing}"
+    guide_excerpts = search_guides(
+        guide_query, n_results=n_guides, store=guide_store, fallback_chunks=data.guide_chunks
+    )
+    context = build_data_context(data, season_key, guide_excerpts)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -190,6 +199,7 @@ def generate_strategy(
         schedule=merge_daily_goals(goals),
         season_warnings=warnings,
         raw_response=raw,
+        guide_excerpts=guide_excerpts,
         attempts=attempts,
         json_parse_method=parse_method,
     )

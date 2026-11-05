@@ -216,7 +216,7 @@ def test_planting_before_seeds_available_warns(data):
 
 
 def test_build_data_context_shows_earliest_day(data):
-    table = build_data_context(data, "spring", "种田")["crop_table"]
+    table = build_data_context(data, "spring")["crop_table"]
     assert "最早种植日" in table
     assert "| 草莓 |" in table and "第 13 天" in table
 

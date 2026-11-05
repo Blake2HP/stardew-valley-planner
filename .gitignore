@@ -22,6 +22,9 @@ env/
 .claude/settings.local.json
 .claude/skills/*-workspace/
 
+# 向量数据库（由 data/guides 重新生成）
+data/.chroma_db/
+
 # 生成的攻略输出（sample_output.md 作为示例保留）
 output/
 *.log

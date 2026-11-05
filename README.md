@@ -42,7 +42,7 @@ python main.py -p "钓鱼赚钱，兼顾种田" -c "休闲慢节奏" -s spring -
 
 ## 快速开始
 
-需要 Python 3.10 或更高版本。
+需要 Python 3.10 或更高版本。第一次运行时，ChromaDB 会下载约 80MB 的本地 Embedding 模型（all-MiniLM-L6-v2），之后离线可用。
 
 ```bash
 git clone https://github.com/Blake2HP/stardew-valley-planner.git
@@ -100,13 +100,13 @@ print(result.attempts, result.json_parse_method)  # 调用模型次数、JSON �
 data/*.json ──► analysis.py ──┐
   作物/加工/日历     计算收益排行    │
                              ├──► prompts.py ──► 大模型 ──► json_utils.py ──► 结构校验
-data/guides/*.md ──► 关键词检索 ─┘   系统 + 用户 Prompt          容错解析        （不合格时重试 1 次）
+data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt          容错解析        （不合格时重试 1 次）
                                                                                   │
             Markdown 攻略 ◄── renderer.py ◄── schedule.py ◄── season_rules.py ◄──┘
                                               合并连续日程      跨季校验与修正
 ```
 
-1. **数据加载**：读取结构化数值（作物、加工规则、季节日历）和非结构化攻略文本。攻略文本按 `## 标题` 切块，并按关键词检索出与玩法相关的片段。
+1. **数据加载**：读取结构化数值（作物、加工规则、季节日历）和非结构化攻略文本。攻略文本按 `## 标题` 切块，以文本的 MD5 为 ID 写入 ChromaDB（`data/.chroma_db`，内容没变就不会重复写入，删掉的片段会同步删除），再用“季节，玩法，节奏”作为查询语义检索最相关的 3 个片段。ChromaDB 不可用时（未安装、模型下载失败等）自动退回关键词检索。
 2. **确定性计算**：调用模型前，先算出每种作物整季的收获次数、单格净利和最划算的加工方式。种植日不早于种子最早开售日，实际可用生长天数 = 28 − 种植日 + 1（例如草莓种子第 13 天才开售，可用 16 天）。
 3. **Prompt**：系统 Prompt 规定输出顺序（宏观策略 → 关键节点 → 1–28 天日程），并要求数值以【数据参考】为准。
 4. **容错解析**：依次尝试 `strict`（标准解析）→ `cleaned`（修复多逗号、末尾逗号）→ `repaired`（交给 [json_repair](https://github.com/mangiucugna/json_repair) 处理漏括号、漏逗号、单引号等）。格式错误在本地修好，不会触发重试；只有内容不完整（比如缺了某一天）才会让模型重新输出。
@@ -122,7 +122,7 @@ data/guides/*.md ──► 关键词检索 ─┘   系统 + 用户 Prompt      
 ```
 ├── main.py                     命令行入口
 ├── stardew_planner/
-│   ├── data_loader.py          数据加载与攻略文本检索
+│   ├── data_loader.py          数据加载、攻略切块、ChromaDB 入库与语义检索
 │   ├── analysis.py             收益计算，生成 Prompt 中的【数据参考】
 │   ├── prompts.py              系统 Prompt / 用户 Prompt / 修正 Prompt 模板
 │   ├── llm_client.py           Anthropic / OpenAI / Mock 客户端
@@ -161,7 +161,7 @@ data/guides/*.md ──► 关键词检索 ─┘   系统 + 用户 Prompt      
 python -m pytest
 ```
 
-目前有 87 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
+目前有 106 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、攻略切块与向量入库（MD5 去重、增量更新）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
 
 ## Claude Code skill：`stardew-data-guard`
 
@@ -190,7 +190,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
 - [ ] 补充更多作物（大蒜、蓝爵、小麦、向日葵、红叶卷心菜等），并记录只在第二年起出售的种子
 - [ ] 支持跨季、全年连续规划
-- [ ] 攻略文本检索从关键词匹配升级为向量检索
+- [x] 攻略文本检索从关键词匹配升级为向量检索（ChromaDB）
+- [ ] 换用多语言 Embedding 模型，提升中文检索效果（默认模型以英文为主）
 - [ ] 用真实 API 测试模型输出的稳定性
 
 ## 声明

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .data_loader import Crop, GameData
+from .data_loader import NO_GUIDES_TEXT, Crop, GameData
 
 SEASON_DAYS = 28
 
@@ -73,8 +73,8 @@ def rank_crops(data: GameData, season: str, top_n: int = 6) -> list[CropProfit]:
     return results[:top_n]
 
 
-def build_data_context(data: GameData, season: str, query: str) -> dict[str, str]:
-    """把结构化 + 非结构化数据整理成可直接塞进 Prompt 的文本片段。"""
+def build_data_context(data: GameData, season: str, guide_excerpts: str = NO_GUIDES_TEXT) -> dict[str, str]:
+    """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 |",
                   "|---|---|---|---|---|---|---|---|---|"]
     for r in rank_crops(data, season):
@@ -95,12 +95,9 @@ def build_data_context(data: GameData, season: str, query: str) -> dict[str, str
 
     event_lines = [f"- 第 {e.day} 天【{e.name}】：{e.tip}" for e in data.events_in_season(season)]
 
-    guide_lines = [f"### {g.title}（来源：{g.source}）\n{g.text}"
-                   for g in data.retrieve_guides(query, season=season)]
-
     return {
         "crop_table": "\n".join(crop_lines),
         "artisan_rules": "\n".join(artisan_lines),
         "calendar_events": "\n".join(event_lines) or "（无）",
-        "guide_excerpts": "\n\n".join(guide_lines) or "（无相关攻略片段）",
+        "guide_excerpts": guide_excerpts or NO_GUIDES_TEXT,
     }
