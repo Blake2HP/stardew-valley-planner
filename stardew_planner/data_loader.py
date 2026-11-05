@@ -225,7 +225,8 @@ class GuideStore:
         返回 {"added": 新写入数, "removed": 删除数, "total": 当前总数}。
         """
         by_id = {c.doc_id: c for c in chunks}  # 内容相同的片段只保留一份
-        existing = set(self.collection.get(include=[])["ids"])
+        # 显式 limit=None：取回全部 ID，不受任何版本的默认分页影响，否则孤儿片段可能删不掉
+        existing = set(self.collection.get(include=[], limit=None)["ids"])
         new_ids = [i for i in by_id if i not in existing]
         stale_ids = sorted(existing - by_id.keys())
 
@@ -261,6 +262,15 @@ class GuideStore:
 
 _default_store: GuideStore | None = None
 _vector_disabled = False
+_fallback_chunks: list[GuideChunk] | None = None  # 兜底检索用的切块缓存，避免每次都读盘
+
+
+def get_fallback_chunks() -> list[GuideChunk]:
+    """懒加载并缓存 data/guides 的切块。和向量库一样，进程运行期间不感知攻略文件的修改。"""
+    global _fallback_chunks
+    if _fallback_chunks is None:
+        _fallback_chunks = load_guides(DEFAULT_GUIDE_DIR)
+    return _fallback_chunks
 
 
 def get_guide_store() -> GuideStore | None:
@@ -293,7 +303,7 @@ def search_guides(
 ) -> str:
     """语义检索与用户意图（如“春季，钓鱼赚钱，休闲节奏”）最相关的 N 个片段，返回拼接好的文本。
 
-    向量库不可用或检索出错时，用关键词检索 fallback_chunks（默认读取 data/guides）兜底。
+    向量库不可用或检索出错时，用关键词检索 fallback_chunks 兜底（默认为缓存的 data/guides 切块）。
     """
     store = store or get_guide_store()
     chunks: list[GuideChunk] = []
@@ -304,7 +314,7 @@ def search_guides(
             logger.warning("向量检索失败，改用关键词检索：%s", e)
             store = None
     if store is None:
-        pool = fallback_chunks if fallback_chunks is not None else load_guides(DEFAULT_GUIDE_DIR)
+        pool = fallback_chunks if fallback_chunks is not None else get_fallback_chunks()
         chunks = keyword_search(pool, query_text, k=n_results)
     return "\n\n".join(c.to_prompt() for c in chunks) or NO_GUIDES_TEXT
 

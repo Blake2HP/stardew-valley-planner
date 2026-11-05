@@ -144,6 +144,28 @@ def test_falls_back_when_vector_store_disabled(monkeypatch):
     assert "### 钓鱼起步" in search_guides("钓鱼 新手", fallback_chunks=GUIDES)
 
 
+def test_fallback_reads_guide_files_only_once(monkeypatch):
+    calls = []
+
+    def counting_load(guide_dir):
+        calls.append(guide_dir)
+        return GUIDES
+
+    monkeypatch.setattr(data_loader, "_default_store", None)
+    monkeypatch.setattr(data_loader, "_vector_disabled", True)
+    monkeypatch.setattr(data_loader, "_fallback_chunks", None)
+    monkeypatch.setattr(data_loader, "load_guides", counting_load)
+    for _ in range(5):
+        assert "### 矿井推进" in search_guides("矿", n_results=1)
+    assert len(calls) == 1
+
+
+def test_index_cleans_stale_chunks_beyond_100(empty_store):
+    many = [GuideChunk("bulk.md", f"标题{i}", f"正文 {i}", ()) for i in range(250)]
+    assert empty_store.index(many)["total"] == 250
+    assert empty_store.index(many[:50]) == {"added": 0, "removed": 200, "total": 50}
+
+
 @pytest.mark.parametrize(
     "query, expected_title",
     [("矿", "矿井推进"), ("桶", "加工业基础"), ("春 草莓", "草莓与复活节")],
