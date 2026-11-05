@@ -45,9 +45,16 @@ class BigramEmbedding(EmbeddingFunction):
         return BigramEmbedding()
 
 
-def make_store(path):
-    client = chromadb.PersistentClient(path=str(path), settings=Settings(anonymized_telemetry=False))
-    return data_loader.GuideStore(client=client, embedding_function=BigramEmbedding())
+TEST_MODEL = "test-bigram"
+
+
+def make_client(path):
+    return chromadb.PersistentClient(path=str(path), settings=Settings(anonymized_telemetry=False))
+
+
+def make_store(path, model=TEST_MODEL):
+    return data_loader.GuideStore(client=make_client(path), embedding_function=BigramEmbedding(),
+                                  embedding_model=model)
 
 
 @pytest.fixture(scope="session")

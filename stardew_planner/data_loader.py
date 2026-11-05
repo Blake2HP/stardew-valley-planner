@@ -196,26 +196,69 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
 
 NO_GUIDES_TEXT = "（无相关攻略片段）"
 
+# 多语言句向量模型（支持中文等 50+ 种语言，384 维）。换模型后旧向量不可再用，见 _drop_if_model_changed。
+EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
+
+
+def make_embedding_function(model_name: str = EMBEDDING_MODEL):
+    """本地运行的 SentenceTransformer 模型（首次使用从 Hugging Face 下载，之后离线可用）。"""
+    from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+
+    return SentenceTransformerEmbeddingFunction(model_name=model_name, normalize_embeddings=True)
+
+
+def _drop_if_model_changed(client: Any, embedding_model: str) -> bool:
+    """集合由别的 Embedding 模型建立时删除它，返回是否删除。
+
+    不同模型的向量不在同一个空间里，即使维度相同（如旧的 all-MiniLM-L6-v2 也是 384 维），
+    混用也会得到错误的检索结果，所以必须整体重建。旧版本建立的集合没有 embedding_model 元数据，
+    同样视为不匹配。
+    """
+    for col in client.list_collections():
+        name = col if isinstance(col, str) else col.name
+        if name != COLLECTION_NAME:
+            continue
+        metadata = (client.get_collection(name).metadata if isinstance(col, str) else col.metadata) or {}
+        if metadata.get("embedding_model") == embedding_model:
+            return False
+        logger.info("Embedding 模型已从 %s 换成 %s，重建向量库", metadata.get("embedding_model", "未记录"), embedding_model)
+        client.delete_collection(name)
+        return True
+    return False
+
 
 class GuideStore:
     """攻略片段的向量库：入库（upsert）与语义检索（query）。
 
-    默认使用持久化客户端（data/.chroma_db）和 ChromaDB 自带的本地 Embedding 函数
-    （all-MiniLM-L6-v2，ONNX 本地推理，首次使用会下载约 80MB 模型，之后离线可用）。
-    测试时可以传入自己的 client / embedding_function。
+    默认使用持久化客户端（data/.chroma_db）和本地运行的多语言模型
+    paraphrase-multilingual-MiniLM-L12-v2（首次使用下载约 470MB，之后离线可用）。
+    集合元数据记录了建库所用的模型，换模型后会自动删除旧集合并重建。
+    测试时可以传入自己的 client / embedding_function / embedding_model。
     """
 
-    def __init__(self, path: str | Path = CHROMA_DIR, *, client: Any = None, embedding_function: Any = None):
+    def __init__(
+        self,
+        path: str | Path = CHROMA_DIR,
+        *,
+        client: Any = None,
+        embedding_function: Any = None,
+        embedding_model: str = EMBEDDING_MODEL,
+    ):
+        """embedding_model 记录在集合元数据里；传入自定义 embedding_function 时也要给出对应的模型名。"""
         import chromadb
         from chromadb.config import Settings
-        from chromadb.utils import embedding_functions
 
         if client is None:
             client = chromadb.PersistentClient(path=str(path), settings=Settings(anonymized_telemetry=False))
+        if embedding_function is None:
+            embedding_function = make_embedding_function(embedding_model)
+
+        self.embedding_model = embedding_model
+        self.rebuilt = _drop_if_model_changed(client, embedding_model)
         self.collection = client.get_or_create_collection(
             COLLECTION_NAME,
-            embedding_function=embedding_function or embedding_functions.DefaultEmbeddingFunction(),
-            metadata={"hnsw:space": "cosine"},
+            embedding_function=embedding_function,
+            metadata={"hnsw:space": "cosine", "embedding_model": embedding_model},
         )
 
     def index(self, chunks: list[GuideChunk]) -> dict[str, int]:

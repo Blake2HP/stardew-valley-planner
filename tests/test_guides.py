@@ -3,6 +3,7 @@
 import hashlib
 
 import pytest
+from conftest import TEST_MODEL, BigramEmbedding, make_client, make_store
 
 from stardew_planner import data_loader
 from stardew_planner.data_loader import (
@@ -74,6 +75,45 @@ def test_index_removes_stale_chunks(empty_store):
     edited = GuideChunk(GUIDES[0].source, GUIDES[0].title, GUIDES[0].text + "（已更新）", GUIDES[0].tags)
     stats = empty_store.index([edited, *GUIDES[1:]])
     assert stats == {"added": 1, "removed": 1, "total": 8}
+
+
+# ---------------------------------------------------------------------------
+# 换 Embedding 模型时重建向量库
+# ---------------------------------------------------------------------------
+
+def test_default_model_is_multilingual():
+    assert data_loader.EMBEDDING_MODEL == "paraphrase-multilingual-MiniLM-L12-v2"
+
+
+def test_collection_records_embedding_model(empty_store):
+    assert empty_store.collection.metadata["embedding_model"] == TEST_MODEL
+    assert empty_store.rebuilt is False
+
+
+def test_same_model_keeps_existing_vectors(tmp_path):
+    make_store(tmp_path).index(GUIDES)
+    reopened = make_store(tmp_path)
+    assert reopened.rebuilt is False
+    assert reopened.index(GUIDES) == {"added": 0, "removed": 0, "total": 8}
+
+
+def test_model_change_rebuilds_collection(tmp_path):
+    make_store(tmp_path, model="old-model").index(GUIDES)
+    store = make_store(tmp_path, model="new-model")
+    assert store.rebuilt is True
+    assert store.collection.count() == 0
+    assert store.collection.metadata["embedding_model"] == "new-model"
+    assert store.index(GUIDES) == {"added": 8, "removed": 0, "total": 8}
+
+
+def test_legacy_collection_without_model_metadata_is_rebuilt(tmp_path):
+    # 模拟换模型之前建立的集合：只有 hnsw:space，没有 embedding_model
+    legacy = make_client(tmp_path).create_collection(
+        data_loader.COLLECTION_NAME, embedding_function=BigramEmbedding(), metadata={"hnsw:space": "cosine"})
+    legacy.add(ids=["old"], documents=["旧模型写入的片段"])
+    store = make_store(tmp_path)
+    assert store.rebuilt is True
+    assert store.collection.count() == 0
 
 
 def test_index_stores_metadata(empty_store):

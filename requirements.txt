@@ -3,6 +3,7 @@ openai>=1.40.0
 python-dotenv>=1.0.0
 json-repair>=0.30.0
 chromadb>=1.0.0
+sentence-transformers>=3.0.0  # 运行多语言 Embedding 模型，会一并安装 PyTorch
 
 # 开发 / 测试
 pytest>=8.0
