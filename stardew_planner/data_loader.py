@@ -71,6 +71,10 @@ class ArtisanRule:
     fixed_price: int | None
     processing_minutes: int
     processing_days: float
+    input_crops: tuple[str, ...] = ()  # 非空时只适用于这些作物（name_en），如小麦 → 啤酒
+
+    def applies_to(self, crop: Crop) -> bool:
+        return crop.name_en in self.input_crops if self.input_crops else crop.category == self.input_category
 
     def price_for(self, crop: Crop) -> int:
         if self.fixed_price is not None:
@@ -134,7 +138,12 @@ class GameData:
         return sorted(self.calendar.get(normalize_season(season), []), key=lambda e: e.day)
 
     def artisan_rules_for(self, crop: Crop) -> list[ArtisanRule]:
-        return [r for r in self.artisan_rules if r.input_category == crop.category]
+        """作物可用的加工规则。某台机器有该作物的专属规则时（如小麦 → 啤酒），不再套用这台机器的类别规则。"""
+        specific = [r for r in self.artisan_rules if r.input_crops and r.applies_to(crop)]
+        machines = {r.machine for r in specific}
+        general = [r for r in self.artisan_rules
+                   if not r.input_crops and r.applies_to(crop) and r.machine not in machines]
+        return specific + general
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +161,8 @@ def load_crops(path: Path) -> list[Crop]:
 
 
 def load_artisan_rules(path: Path) -> list[ArtisanRule]:
-    return [ArtisanRule(**item) for item in _read_json(path)["rules"]]
+    return [ArtisanRule(**{**item, "input_crops": tuple(item.get("input_crops", ()))})
+            for item in _read_json(path)["rules"]]
 
 
 def load_calendar(path: Path) -> dict[str, list[CalendarEvent]]:

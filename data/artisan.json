@@ -2,11 +2,13 @@
   "_source": "Stardew Valley Wiki（1.6），https://stardewvalleywiki.com/Keg 与 https://stardewvalleywiki.com/Preserves_Jar，核对日期 2026-11-05。",
   "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_formula": "售价 = 基础售价 × multiplier + bonus；fixed_price 不为 null 时直接使用固定价格。加工品价格只看原料的基础售价，与原料品质无关。",
+  "_input_crops": "input_crops 列出只适用于特定作物（name_en）的规则；某作物在一台机器上有专属规则时，就不再套用该机器的类别规则。例：小麦放进小桶得到啤酒（200g），而不是蔬菜果汁。",
   "_processing": "processing_minutes 为游戏内分钟数，processing_days = 分钟数 / 1600（wiki：一整天 = 1600 分钟）。",
   "rules": [
     {"machine": "小桶",   "product": "果酒",   "input_category": "fruit",     "multiplier": 3.0,  "bonus": 0,  "fixed_price": null, "processing_minutes": 10000, "processing_days": 6.25},
     {"machine": "小桶",   "product": "果汁",   "input_category": "vegetable", "multiplier": 2.25, "bonus": 0,  "fixed_price": null, "processing_minutes": 6000,  "processing_days": 3.75},
     {"machine": "小桶",   "product": "淡啤酒", "input_category": "special",   "multiplier": 0,    "bonus": 0,  "fixed_price": 300,  "processing_minutes": 2250,  "processing_days": 1.41},
+    {"machine": "小桶",   "product": "啤酒",   "input_category": "vegetable", "input_crops": ["Wheat"], "multiplier": 0, "bonus": 0, "fixed_price": 200, "processing_minutes": 1750, "processing_days": 1.09},
     {"machine": "罐头瓶", "product": "果酱",   "input_category": "fruit",     "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_minutes": 4000,  "processing_days": 2.5},
     {"machine": "罐头瓶", "product": "腌菜",   "input_category": "vegetable", "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_minutes": 4000,  "processing_days": 2.5}
   ]

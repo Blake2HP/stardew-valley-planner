@@ -107,10 +107,14 @@ def build_data_context(
             f"{r.profit_per_tile}g | {artisan} | {c.seed_source} |"
         )
 
+    zh = {c.name_en: c.name for c in data.crops}
     artisan_lines = [
-        f"- {r.machine}：{r.input_category} → {r.product}，"
+        f"- {r.machine}："
+        + ("、".join(zh.get(n, n) for n in r.input_crops) if r.input_crops else r.input_category)
+        + f" → {r.product}，"
         + (f"固定 {r.fixed_price}g" if r.fixed_price is not None else f"售价 ×{r.multiplier} + {r.bonus}")
         + f"，耗时约 {r.processing_days} 天"
+        + ("（该作物不再适用同一机器的类别规则）" if r.input_crops else "")
         for r in data.artisan_rules
     ]
 
