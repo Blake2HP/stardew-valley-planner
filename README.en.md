@@ -145,6 +145,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 7. **Crop quality and sale plan**: with a farming level or a quality fertilizer, each harvest's quality odds follow the wiki formula (gold chance g = 0.2 × level / 10 + 0.2 × fertilizer level × (level + 2) / 12 + 0.01, silver min(0.75, 2g), iridium g / 2 with Deluxe Fertilizer only), and price = ⌊base × quality multiplier⌋, then Tiller. Extra crops are always regular quality. Artisan goods don't inherit quality, so the gain from processing is largest for regular crops and smallest for iridium: with enough machines everything is processed; with fewer (`--processing-share`) the capacity goes to the biggest gains first, which means selling high-star crops and processing low-star ones.
 8. **Plantings and gold**: the model must list every sowing (crop, day, number of tiles) in `plantings`; a missing list triggers a retry. The program simulates each harvest, across seasons where the crop allows it (corn planted in summer keeps producing until the end of fall), computes seed and fertilizer costs and crop income, and checks day by day that there is enough cash for the seeds. The model also estimates fishing, mining and other income in `other_income`; the guide shows it apart from the computed figures, labeled as a model estimate.
 9. **Multi-season planning**: seasons are generated one at a time. After each season the farm state is extracted (end-of-season gold, multi-season crops still in the ground with their harvest days next season, cleared crops, last season's planned goals) and written into a "carried-over state" section of the next season's user prompt; the system prompt stays the same apart from one rule about following on. Replanting a crop that is still in the ground triggers a warning, and the day-28 cleanup goal names the crops to keep (e.g. `清理农场/停止种植（保留玉米）`).
+10. **Birthday gifts**: `data/npcs.json` holds birthdays and loved / liked gifts for 6 villagers (Haley, Shane, Penny, Abigail, Sebastian, Leah). When a season is generated, the villagers with a birthday that season and their preferences are injected into the data reference, and the system prompt requires a "送{NPC}{礼物}" (give NPC a gift) task on the birthday. The program then checks that each gift is among that villager's loved or liked items (including universal loves and their exceptions, e.g. Haley hates Prismatic Shard) and that every birthday has a gift task. A loved gift on a birthday is worth 80 × 8 = 640 friendship points.
 
 ## Project structure
 
@@ -168,6 +169,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── calendar.json           festivals, foraging seasons and season changes
 │   ├── bonuses.json            profession, fertilizer and crop quality rules
 │   ├── farm.json               starting gold
+│   ├── npcs.json               villager birthdays and gift preferences
 │   ├── NOTICE.md               data sources and licensing
 │   └── guides/*.md             guide texts
 ├── tests/                      pytest tests
@@ -196,13 +198,13 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 281 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), multi-season planning (cross-season harvests, gold and cash flow, injecting the end-of-season state into the next prompt, season order), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), crop quality and quality fertilizers (odds checked against the wiki tables, quality prices, expected profit with Deluxe Fertilizer, capacity-based sell-or-process plans), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
+There are currently 311 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), birthday injection and gift checks (gift detection, preferences and exceptions, gifts on the birthday), multi-season planning (cross-season harvests, gold and cash flow, injecting the end-of-season state into the next prompt, season order), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), crop quality and quality fertilizers (odds checked against the wiki tables, quality prices, expected profit with Deluxe Fertilizer, capacity-based sell-or-process plans), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
 
 ## Claude Code skill: `stardew-data-guard`
 
 When you use [Claude Code](https://claude.com/claude-code) in this project, requests involving Stardew Valley numbers automatically use this skill (you can also invoke it with `/stardew-data-guard`). It requires Claude to:
 
-- **Never give numbers from memory**: values must come from `data/` or from the user. For anything the database doesn't cover (such as NPC gift preferences), Claude asks the user for exact data.
+- **Never give numbers from memory**: values must come from `data/` or from the user. For anything the database doesn't cover (such as villagers not yet recorded, or drop chances), Claude asks the user for exact data.
 - **Always check cross-season schedules**: run the schedule through the checker script and include a "⚠️ season-change check" block.
 - **Show the formula before the result**: e.g. `wine price = base price × 3 = 120 × 3 = 360g`.
 
@@ -215,6 +217,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py profit Strawberry --plant
 python .claude/skills/stardew-data-guard/scripts/sv.py simulate Corn --season summer --tiles 8
 python .claude/skills/stardew-data-guard/scripts/sv.py profit Potato --professions agriculturist --fertilizer speed_gro
 python .claude/skills/stardew-data-guard/scripts/sv.py quality Cauliflower --fertilizer deluxe_fertilizer --farming-level 10 --processing-share 0.5
+python .claude/skills/stardew-data-guard/scripts/sv.py npc Haley                     # birthday and gift preferences
+python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --gifts  # also check gifts
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --fix
 ```
@@ -226,7 +230,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Replace the mock data with real 1.6 values (source: Stardew Valley Wiki)
 - [x] Profession bonuses (Tiller, Artisan, Agriculturist) and speed fertilizers (Speed-Gro, Deluxe, Hyper)
 - [x] Crop quality (silver / gold / iridium) and quality fertilizers (Basic / Quality / Deluxe), with a sell-high-stars, process-low-stars plan
-- [ ] Add NPC data (gift preferences, birthdays, friendship)
+- [x] Birthday gifts (birthdays and loved / liked gifts for 6 villagers, prompt injection and gift checks)
+- [ ] Add the remaining villagers and full universal like / dislike item lists
 - [ ] Model machine counts and processing time in the sale plan (currently approximated by a processing share)
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
 - [x] Add Garlic, Red Cabbage and Sunflower, and track seeds sold only from year 2 with `available_year`
@@ -242,7 +247,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 
 | Content | Source | License |
 |---|---|---|
-| Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
+| Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
 | `data/calendar.json`, `data/guides/` | Written for this project (festival dates are the game's fixed schedule) | Same as the project code |
 
 Stardew Valley Wiki content is licensed under [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights): it requires attribution, **does not allow commercial use**, and adaptations must be shared under the same license. The data files derived from the wiki are therefore also provided under CC BY-NC-SA 3.0. Commercial use of this project requires permission from the wiki's copyright holders, or replacing that data with independently verified values. See [data/NOTICE.md](data/NOTICE.md).

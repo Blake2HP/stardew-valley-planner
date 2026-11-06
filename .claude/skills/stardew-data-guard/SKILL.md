@@ -14,6 +14,7 @@ description: 《星露谷物语》(Stardew Valley) 数值操作守则。只要�
 | `data/crops.json` | 作物：季节、种子价、售价、生长/再生天数、单次产量、种子来源、开售日与开售年份 |
 | `data/artisan.json` | 加工规则：倍率、加成、固定价格、加工耗时 |
 | `data/calendar.json` | 每季节日、采集季、换季日 |
+| `data/npcs.json` | 6 位 NPC（海莉、谢恩、潘妮、阿比盖尔、塞巴斯蒂安、莉亚）的生日、最爱 / 喜欢物品、通用最爱及例外 |
 | `data/farm.json` | 开局金币（500g，来自 wiki Gold 页面） |
 | `data/bonuses.json` | 职业加成（农耕人、工匠、农业学家）、加速肥料（生长激素、高级、顶级）、品质肥料（普通、高级、顶级）与作物品质公式 |
 | `data/guides/*.md` | 非结构化攻略文本，只能用作思路参考，**不能作为数值来源** |
@@ -29,6 +30,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professio
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer      # 节日与换季信息
 python .claude/skills/stardew-data-guard/scripts/sv.py simulate 玉米 --season summer --tiles 8  # 跨季收获模拟（带公式）
 python .claude/skills/stardew-data-guard/scripts/sv.py quality 花椰菜 --fertilizer deluxe_fertilizer --farming-level 10 --processing-share 0.5  # 品质概率、各品质售价与出售策略
+python .claude/skills/stardew-data-guard/scripts/sv.py npc 海莉                # NPC 生日与喜好
+python .claude/skills/stardew-data-guard/scripts/sv.py birthdays fall          # 某季过生日的 NPC
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --year 1 --fix  # 跨季校验（含开售年份）
 ```
 
@@ -45,7 +48,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 具体做法：
 
 1. 需要某个数值时，先用 `sv.py` 查。查询结果要注明来源，例如“（来源：data/crops.json）”。
-2. 如果 `sv.py` 返回退出码 2，或者问的是数据库没有覆盖的内容（**目前没有 NPC 喜好、礼物、好感度、概率掉落等数据**），就直接告诉用户“数据库中没有这项数据”，请用户提供确切数值。可以顺便提议按现有格式把它补充进 `data/`，但要等用户同意后再写入。
+2. 如果 `sv.py` 返回退出码 2，或者问的是数据库没有覆盖的内容（**NPC 只收录了 6 位，通用喜欢 / 讨厌没有逐项收录；没有概率掉落等数据**），就直接告诉用户“数据库中没有这项数据”，请用户提供确切数值。可以顺便提议按现有格式把它补充进 `data/`，但要等用户同意后再写入。
 3. 用户提供的数值标注为“（用户提供）”。
 4. `data/guides/` 里的攻略文本即使出现数字，也不能当作数值来源。如果它和 JSON 数据冲突，以 JSON 为准，并把冲突指出来。
 
@@ -65,7 +68,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 操作步骤：
 
 1. 把 28 天日程写成 JSON（`{"1": "...", ..., "28": "..."}`，也可以是带 `daily_goals` 字段的完整攻略 JSON），存到临时文件。
-2. 运行 `check-schedule <文件> --season <季节> --year <年份> --fix`。给出年份时，还会检查种子在当年是否已开售（第 1 年种大蒜会报警）。脚本会把带否定的句子（“不再补种土豆”“停止种植”）和括号里的解释当作非种植内容，所以用自然的说法写日程即可，不用为了通过校验刻意改措辞。
+2. 运行 `check-schedule <文件> --season <季节> --year <年份> --fix`（日程里有送礼时加 `--gifts`，核对礼物是否在 `data/npcs.json` 的喜好中、生日当天有没有送礼）。给出年份时，还会检查种子在当年是否已开售（第 1 年种大蒜会报警）。脚本会把带否定的句子（“不再补种土豆”“停止种植”）和括号里的解释当作非种植内容，所以用自然的说法写日程即可，不用为了通过校验刻意改措辞。
 3. 把脚本输出的每一条 ⚠️ 原样告诉用户，并采用 `--fix` 修正后的日程。对于来不及成熟的作物，建议改种或提前种植，给出的替代方案同样要用 `sv.py` 验证。
 4. 每次输出跨季日程时，都要附上一个警告区块，即使校验通过也要写：
 

@@ -29,7 +29,7 @@ from stardew_planner.bonuses import QUALITIES, Bonuses, floor_mul, gold_chance, 
 from stardew_planner.data_loader import SEASON_ZH, Crop, GameData, load_game_data, normalize_season  # noqa: E402
 from stardew_planner.farm_state import alive_seasons, harvest_days, season_label  # noqa: E402
 from stardew_planner.season_rules import (  # noqa: E402
-    SEASON_DAYS, check_plantings, enforce_season_end, last_safe_plant_day,
+    SEASON_DAYS, check_gifts, check_plantings, enforce_season_end, last_safe_plant_day,
     next_season, survives_season_change, withering_crops,
 )
 
@@ -288,6 +288,34 @@ def cmd_calendar(data: GameData, a) -> None:
     print(f"  换季：第 {SEASON_DAYS} 天后进入{SEASON_ZH[next_season(s)]}，枯死作物：{dying}")
 
 
+def cmd_npc(data: GameData, a) -> None:
+    """NPC 生日与喜好（data/npcs.json）。"""
+    nd = data.npc_data
+    n = nd.find(a.name)
+    if n is None:
+        missing(f"NPC：{a.name}（目前收录：{'、'.join(x.name for x in nd.npcs)}）")
+    print(f"【{n.name} / {n.name_en}】 来源: data/npcs.json")
+    print(f"  生日：{SEASON_ZH[n.birthday_season]}第 {n.birthday_day} 天")
+    print(f"  最爱（专属）：{'、'.join(i.name for i in n.loves) or '无'}")
+    hated = nd.hated_universal(n)
+    print(f"  通用最爱：{'、'.join(i.name for i in nd.universal_loves if i not in hated)}"
+          + (f"；讨厌 {'、'.join(i.name for i in hated)}（通用最爱的例外）" if hated else ""))
+    print(f"  喜欢（专属）：{'、'.join(i.name for i in n.likes) or '无'}")
+    if n.universal_likes_note:
+        print(f"  通用喜欢（未逐项收录，wiki 原文）：{n.universal_likes_note}")
+    print("  好感度：最爱 +80、喜欢 +45；生日当天 ×8（最爱 = 80 × 8 = 640）")
+
+
+def cmd_birthdays(data: GameData, a) -> None:
+    s = normalize_season(a.season)
+    found = data.npc_data.birthdays_in_season(s)
+    print(f"【{SEASON_ZH[s]}生日】 来源: data/npcs.json（收录 {len(data.npc_data.npcs)} 位 NPC）")
+    for n in found:
+        print(f"  第 {n.birthday_day} 天 {n.name}：最爱 {'、'.join(i.name for i in n.loves)}")
+    if not found:
+        print("  本季没有收录的 NPC 过生日")
+
+
 def cmd_check_schedule(data: GameData, a) -> None:
     raw = json.loads(Path(a.file).read_text(encoding="utf-8"))
     raw = raw.get("daily_goals", raw)
@@ -295,6 +323,8 @@ def cmd_check_schedule(data: GameData, a) -> None:
     s = normalize_season(a.season)
 
     warnings = check_plantings(goals, data, s, get_bonuses(a), a.year)
+    if a.gifts:
+        warnings += check_gifts(goals, data, s)
     fixed, inserted = enforce_season_end(goals)
     for w in warnings:
         print(f"⚠️ {w}")
@@ -304,7 +334,7 @@ def cmd_check_schedule(data: GameData, a) -> None:
     if dying:
         print(f"ℹ️ 进入{SEASON_ZH[next_season(s)]}时将枯死：{dying}")
     if not warnings and not inserted:
-        print("✅ 跨季校验通过")
+        print("✅ 跨季校验通过" + ("，送礼任务也已核对" if a.gifts else ""))
     if a.fix:
         print(json.dumps({str(k): v for k, v in sorted(fixed.items())}, ensure_ascii=False, indent=2))
     if warnings or inserted:
@@ -344,6 +374,8 @@ def main() -> None:
     pq = with_bonus_args(sub.add_parser("quality"))
     pq.add_argument("name")
     pq.add_argument("--processing-share", type=float, default=1.0, help="机器能加工的收获比例 0-1")
+    sub.add_parser("npc").add_argument("name")
+    sub.add_parser("birthdays").add_argument("season")
     pcal = sub.add_parser("calendar")
     pcal.add_argument("season")
     pcal.add_argument("--year", type=int, default=None, help=year_help)
@@ -352,6 +384,7 @@ def main() -> None:
     pc.add_argument("--season", required=True)
     pc.add_argument("--year", type=int, default=None, help=year_help)
     pc.add_argument("--fix", action="store_true", help="打印修正后的 28 天 JSON")
+    pc.add_argument("--gifts", action="store_true", help="同时核对送礼任务（data/npcs.json）")
     a = p.parse_args()
     if getattr(a, "year", None) is not None and a.year < 1:
         p.error("年份必须 ≥ 1")

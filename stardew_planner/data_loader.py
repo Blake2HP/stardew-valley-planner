@@ -112,6 +112,51 @@ class GuideChunk:
         return f"### {self.title}（来源：{self.source}）\n{self.text}"
 
 
+@dataclass(frozen=True)
+class GiftItem:
+    name: str                       # 中文名（官方 wiki 中文版）
+    name_en: str
+    aliases: tuple[str, ...] = ()   # 本项目其他数据里的叫法，如 crops.json 的“虞美人”
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return (self.name, *self.aliases)
+
+
+@dataclass(frozen=True)
+class NPC:
+    name: str
+    name_en: str
+    birthday_season: str
+    birthday_day: int
+    loves: tuple[GiftItem, ...] = ()
+    likes: tuple[GiftItem, ...] = ()
+    universal_love_exceptions: tuple[str, ...] = ()  # name_en，例如海莉讨厌五彩碎片
+    universal_likes_note: str = ""
+
+
+@dataclass(frozen=True)
+class NPCData:
+    npcs: tuple[NPC, ...] = ()
+    universal_loves: tuple[GiftItem, ...] = ()
+
+    def find(self, name: str) -> NPC | None:
+        key = name.strip().lower()
+        return next((n for n in self.npcs if key in (n.name, n.name_en.lower())), None)
+
+    def loved_items(self, npc: NPC) -> tuple[GiftItem, ...]:
+        """专属最爱 + 通用最爱（去掉该 NPC 的例外）。"""
+        universal = tuple(i for i in self.universal_loves if i.name_en not in npc.universal_love_exceptions)
+        return npc.loves + universal
+
+    def hated_universal(self, npc: NPC) -> tuple[GiftItem, ...]:
+        return tuple(i for i in self.universal_loves if i.name_en in npc.universal_love_exceptions)
+
+    def birthdays_in_season(self, season: str) -> list[NPC]:
+        season = normalize_season(season)
+        return sorted((n for n in self.npcs if n.birthday_season == season), key=lambda n: n.birthday_day)
+
+
 @dataclass
 class GameData:
     crops: list[Crop]
@@ -119,6 +164,7 @@ class GameData:
     calendar: dict[str, list[CalendarEvent]]
     guide_chunks: list[GuideChunk] = field(default_factory=list)
     starting_gold: int | None = None  # 开局金币（data/farm.json），用于第 1 年春季的资金起点
+    npc_data: NPCData = field(default_factory=NPCData)  # NPC 生日与送礼喜好（data/npcs.json）
 
     # ---- 结构化查询 ----
     def crops_in_season(self, season: str, year: int | None = None) -> list[Crop]:
@@ -211,7 +257,30 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         calendar=load_calendar(data_dir / "calendar.json"),
         guide_chunks=load_guides(data_dir / "guides"),
         starting_gold=load_starting_gold(data_dir / "farm.json"),
+        npc_data=load_npcs(data_dir / "npcs.json"),
     )
+
+
+def _gift_items(raw) -> tuple[GiftItem, ...]:
+    return tuple(GiftItem(i["name"], i["name_en"], tuple(i.get("aliases", ()))) for i in raw or ())
+
+
+def load_npcs(path: Path) -> NPCData:
+    """NPC 生日与喜好；文件不存在时返回空数据（不注入生日、不做送礼校验）。"""
+    if not path.exists():
+        return NPCData()
+    raw = _read_json(path)
+    npcs = tuple(
+        NPC(
+            name=n["name"], name_en=n["name_en"],
+            birthday_season=normalize_season(n["birthday"]["season"]), birthday_day=int(n["birthday"]["day"]),
+            loves=_gift_items(n.get("loves")), likes=_gift_items(n.get("likes")),
+            universal_love_exceptions=tuple(n.get("universal_love_exceptions", ())),
+            universal_likes_note=n.get("universal_likes_note", ""),
+        )
+        for n in raw["npcs"]
+    )
+    return NPCData(npcs, _gift_items(raw.get("universal_loves")))
 
 
 def load_starting_gold(path: Path) -> int | None:

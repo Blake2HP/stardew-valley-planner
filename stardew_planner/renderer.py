@@ -67,11 +67,27 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
         out += [f"> {w}  " for w in result.season_warnings]
         out.append("")
 
+    # ---- 生日送礼 ----
+    birthdays = data.npc_data.birthdays_in_season(result.season) if data else []
+    if birthdays or result.gift_warnings:
+        out += ["## 🎂 生日送礼", ""]
+        for n in birthdays:
+            loves = "、".join(i.name for i in n.loves)
+            out.append(f"- 第 {n.birthday_day} 天 **{n.name}**生日：最爱 {loves}（生日送最爱 = 80 × 8 = 640 好感度）")
+        out.append("")
+        if result.gift_warnings:
+            out += [f"> {w}  " for w in result.gift_warnings]
+        else:
+            out.append("> ✅ 送礼任务已核对：生日当天都有送礼，礼物都在 data/npcs.json 的喜好列表中。")
+        out.append("")
+
     # ---- 合并后的日程 ----
     events_by_day: dict[int, list[str]] = {}
     if data:
         for e in data.events_in_season(result.season):
             events_by_day.setdefault(e.day, []).append(e.name)
+        for n in data.npc_data.birthdays_in_season(result.season):
+            events_by_day.setdefault(n.birthday_day, []).append(f"{n.name}生日")
 
     out += ["## 📅 每日核心目标", ""]
     for block in result.schedule:

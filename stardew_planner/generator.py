@@ -17,7 +17,7 @@ from .llm_client import LLMClient, get_client
 from .prompts import REPAIR_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
 from .renderer import render_markdown
 from .schedule import ScheduleBlock, merge_daily_goals
-from .season_rules import check_plantings, enforce_season_end, next_season, withering_crops
+from .season_rules import check_gifts, check_plantings, enforce_season_end, next_season, withering_crops
 
 FALLBACK_GOAL = "自由安排"
 
@@ -37,6 +37,7 @@ class StrategyResult:
     daily_goals: dict[int, str]
     schedule: list[ScheduleBlock] = field(default_factory=list)
     season_warnings: list[str] = field(default_factory=list)
+    gift_warnings: list[str] = field(default_factory=list)  # 送礼校验（data/npcs.json）
     bonuses: Bonuses = NO_BONUSES  # 职业与肥料加成
     markdown: str = ""
     raw_response: str = ""
@@ -308,6 +309,7 @@ def generate_strategy(
         daily_goals=goals,
         schedule=merge_daily_goals(goals),
         season_warnings=warnings,
+        gift_warnings=[f"⚠️ {w}" for w in check_gifts(goals, data, season_key)],
         raw_response=raw,
         guide_excerpts=guide_excerpts,
         processing_share=processing_share,

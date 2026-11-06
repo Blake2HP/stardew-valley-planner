@@ -141,6 +141,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 7. **作物品质与出售策略**：给出耕种等级或使用品质肥料时，按 wiki 公式计算每次收获的品质分布（金星几率 g = 0.2 × 等级 / 10 + 0.2 × 肥料等级 × (等级 + 2) / 12 + 0.01，银星 min(0.75, 2g)，铱星 g / 2 且只有顶级肥料才有），售价 = ⌊基础 × 品质倍率⌋ 再计农耕人；额外产出一律普通品质。加工品不继承品质，所以“加工多赚的钱”在普通品质最大、铱星最小：机器充足时全部加工；机器不够时（`--processing-share`）按这个差额从大到小分配，得到“高星直接卖、低星加工”。
 8. **种植清单与资金**：模型必须在 `plantings` 里列出每次播种的作物、日期和格数（漏写会重试）。程序据此模拟每次收获（可跨季，例如夏季种的玉米会一直收获到秋季末），算出种子、肥料支出和作物收入，并逐日检查现金是否够买种子。模型还会在 `other_income` 里估算钓鱼、挖矿等收入，攻略中与程序计算的部分分开显示，标为“模型估算，仅供参考”。
 9. **跨季连续规划**：逐季生成。每季结束后提取农场状态（期末资金、仍在地里的跨季作物及其在下一季的收获日、清空的作物、上季计划目标），写进下一季用户 Prompt【数据参考】的“上季延续状态”一节；系统 Prompt 保持不变，只多一条衔接规则。下一季再种仍在地里的作物会报警，第 28 天的清理目标会注明保留跨季作物（如“清理农场/停止种植（保留玉米）”）。
+10. **生日送礼**：`data/npcs.json` 记录了 6 位 NPC（海莉、谢恩、潘妮、阿比盖尔、塞巴斯蒂安、莉亚）的生日和最爱 / 喜欢物品。生成某季攻略时，当季过生日的 NPC 及其喜好会注入【数据参考】，系统 Prompt 要求在生日当天写“送{NPC}{礼物}”。程序随后核对：礼物是否在该 NPC 的最爱 / 喜欢中（含通用最爱及例外，如海莉讨厌五彩碎片），生日当天有没有送礼任务。生日送最爱 = 80 × 8 = 640 好感度。
 
 ## 项目结构
 
@@ -164,6 +165,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── calendar.json           每季节日、采集季、换季日
 │   ├── bonuses.json            职业、肥料与作物品质规则
 │   ├── farm.json               开局金币
+│   ├── npcs.json               NPC 生日与送礼喜好
 │   ├── NOTICE.md               数据来源与许可
 │   └── guides/*.md             攻略文本
 ├── tests/                      pytest 测试
@@ -192,13 +194,13 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 python -m pytest
 ```
 
-目前有 281 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、按年份过滤作物（第 2 年起出售的种子）、跨季连续规划（跨季收获模拟、资金与现金流、季末状态注入下一季 Prompt、季节连续性）、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、作物品质与品质肥料（概率对照 wiki 表格、四档售价、顶级肥料收益期望值、按机器容量分配的出售策略）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
+目前有 311 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、按年份过滤作物（第 2 年起出售的种子）、NPC 生日注入与送礼校验（礼物识别、喜好与例外、生日当天送礼）、跨季连续规划（跨季收获模拟、资金与现金流、季末状态注入下一季 Prompt、季节连续性）、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、作物品质与品质肥料（概率对照 wiki 表格、四档售价、顶级肥料收益期望值、按机器容量分配的出售策略）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
 
 ## Claude Code skill：`stardew-data-guard`
 
 在本项目中使用 [Claude Code](https://claude.com/claude-code) 时，涉及星露谷数值的请求会自动启用这个 skill（也可以用 `/stardew-data-guard` 手动调用）。它要求 Claude：
 
-- **不凭记忆给数值**：数字只能来自 `data/` 或用户提供的数据。数据库没有的内容（如 NPC 喜好），会请用户提供。
+- **不凭记忆给数值**：数字只能来自 `data/` 或用户提供的数据。数据库没有的内容（如未收录的 NPC、概率掉落），会请用户提供。
 - **跨季日程必须校验**：用脚本检查日程，并附上“⚠️ 换季校验”。
 - **先写公式再给结果**：例如 `果酒售价 = 基础售价 × 3 = 120 × 3 = 360g`。
 
@@ -211,6 +213,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py profit 草莓 --plant-day
 python .claude/skills/stardew-data-guard/scripts/sv.py simulate 玉米 --season summer --tiles 8
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professions agriculturist --fertilizer speed_gro
 python .claude/skills/stardew-data-guard/scripts/sv.py quality 花椰菜 --fertilizer deluxe_fertilizer --farming-level 10 --processing-share 0.5
+python .claude/skills/stardew-data-guard/scripts/sv.py npc 海莉                    # NPC 生日与喜好
+python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --gifts  # 同时核对送礼
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --fix
 ```
@@ -222,7 +226,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 用游戏 1.6 版本的真实数值替换 mock 数据（来源：Stardew Valley Wiki）
 - [x] 职业加成（农耕人、工匠、农业学家）与加速肥料（生长激素、高级、顶级）
 - [x] 作物品质（银星 / 金星 / 铱星）与品质肥料（普通 / 高级 / 顶级），以及“高星直接卖、低星加工”的出售策略
-- [ ] 补充 NPC 数据（喜好、生日、好感度）
+- [x] NPC 生日送礼（6 位 NPC 的生日与最爱 / 喜欢，Prompt 注入与送礼校验）
+- [ ] 补充其余 NPC，以及通用喜欢 / 讨厌的完整物品表
 - [ ] 出售策略计入机器数量与加工耗时（目前用加工比例近似）
 - [x] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
 - [x] 补充大蒜、红叶卷心菜、向日葵，并用 `available_year` 记录只在第二年起出售的种子
@@ -238,7 +243,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 
 | 内容 | 来源 | 许可 |
 |---|---|---|
-| `data/crops.json`、`artisan.json`、`bonuses.json`、`farm.json` 中的数值 | 整理自 [Stardew Valley Wiki](https://stardewvalleywiki.com)（1.6 版本，核对日期 2026-11-05） | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)，沿用原协议 |
+| `data/crops.json`、`artisan.json`、`bonuses.json`、`farm.json`、`npcs.json` 中的数值 | 整理自 [Stardew Valley Wiki](https://stardewvalleywiki.com)（1.6 版本，核对日期 2026-11-05） | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)，沿用原协议 |
 | `data/calendar.json`、`data/guides/` | 本项目自行编写（节日日期为游戏内固定日程） | 随项目代码 |
 
 Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights) 授权：使用时须署名，**不得用于商业用途**，改编后须以相同协议发布。因此，来自 wiki 的数据文件同样按 CC BY-NC-SA 3.0 提供；如果要把本项目用于商业用途，需要先取得 wiki 版权方的许可，或者换成自行核实的数据。详见 [data/NOTICE.md](data/NOTICE.md)。

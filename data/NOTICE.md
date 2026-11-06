@@ -10,6 +10,7 @@
 | `artisan.json` | [Keg](https://stardewvalleywiki.com/Keg)、[Preserves Jar](https://stardewvalleywiki.com/Preserves_Jar) |
 | `bonuses.json` | [Farming](https://stardewvalleywiki.com/Farming)、[Fertilizer](https://stardewvalleywiki.com/Fertilizer)、[Speed-Gro](https://stardewvalleywiki.com/Speed-Gro) |
 | `farm.json` | [Gold](https://stardewvalleywiki.com/Gold) |
+| `npcs.json` | 各 NPC 页面（[Haley](https://stardewvalleywiki.com/Haley) 等）的生日与 Gifts、[Friendship](https://stardewvalleywiki.com/Friendship)；中文名取自官方 wiki 中文版（zh.stardewvalleywiki.com）的跨语言链接 |
 
 Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/) 授权（见 [Stardew_Valley_Wiki:Copyrights](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights)）。因此，上述文件同样按 **CC BY-NC-SA 3.0** 提供：
 
@@ -32,4 +33,4 @@ Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://creativecommons.org/l
 
 ---
 
-**English summary**: values in `crops.json`, `artisan.json`, `bonuses.json` and `farm.json` are compiled from the Stardew Valley Wiki and are provided under CC BY-NC-SA 3.0, the same license as the wiki: attribution required, no commercial use, share alike. `calendar.json` and `guides/` were written for this project. Stardew Valley and its content belong to ConcernedApe; this project is unofficial.
+**English summary**: values in `crops.json`, `artisan.json`, `bonuses.json`, `farm.json` and `npcs.json` are compiled from the Stardew Valley Wiki and are provided under CC BY-NC-SA 3.0, the same license as the wiki: attribution required, no commercial use, share alike. `calendar.json` and `guides/` were written for this project. Stardew Valley and its content belong to ConcernedApe; this project is unofficial.

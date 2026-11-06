@@ -3,6 +3,8 @@
 规则：
 1. 成熟日 = 种植日 + 生长天数，必须 ≤ 28；否则换季时作物枯死（下一季仍可生长的作物除外）。
 2. 第 28 天（换季前一天）的目标必须包含“清理农场/停止种植”。
+3. 送礼：日程里送给 NPC 的礼物必须在 data/npcs.json 记录的最爱 / 喜欢中；
+   当季过生日的 NPC，生日当天必须有送礼任务。
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from .bonuses import NO_BONUSES, Bonuses
-from .data_loader import SEASON_ZH, Crop, GameData, normalize_season
+from .data_loader import NPC, SEASON_ZH, Crop, GameData, normalize_season
 
 SEASON_DAYS = 28
 SEASON_ORDER = ["spring", "summer", "fall", "winter"]
@@ -34,6 +36,17 @@ class SeasonWarning:
 
     def __str__(self) -> str:
         return f"第 {self.day} 天：{self.message}（{self.formula}）"
+
+
+@dataclass(frozen=True)
+class GiftWarning:
+    day: int
+    npc: str
+    message: str
+    detail: str
+
+    def __str__(self) -> str:
+        return f"第 {self.day} 天：{self.message}（{self.detail}）"
 
 
 def next_season(season: str) -> str:
@@ -174,3 +187,88 @@ def enforce_season_end(daily_goals: dict[int, str], keep: Iterable[str] = ()) ->
     goal = cleanup_goal(keep)
     goals[SEASON_DAYS] = f"{current}；{goal}" if current else goal
     return goals, True
+
+
+# ---------------------------------------------------------------------------
+# 送礼校验
+# ---------------------------------------------------------------------------
+
+GIFT_VERBS = ("送", "赠")
+
+
+def _gift_vocabulary(data: GameData) -> list[str]:
+    """能识别为礼物的物品名：npcs.json 里的所有物品 + 作物 + 加工品。按长度倒序，先匹配长的（“南瓜汤”优先于“南瓜”）。"""
+    nd = data.npc_data
+    names = {name for n in nd.npcs for i in (*n.loves, *n.likes) for name in i.names}
+    names |= {name for i in nd.universal_loves for name in i.names}
+    names |= {c.name for c in data.crops} | {r.product for r in data.artisan_rules}
+    return sorted(names, key=len, reverse=True)
+
+
+def _find_items(seg: str, vocabulary: list[str]) -> list[str]:
+    found = []
+    for name in vocabulary:
+        pos = seg.find(name)
+        while pos != -1:
+            found.append((pos, name))
+            seg = seg[:pos] + "□" * len(name) + seg[pos + len(name):]  # 遮住，避免“南瓜汤”里再匹配出“南瓜”
+            pos = seg.find(name)
+    return [name for _, name in sorted(found)]
+
+
+def gift_tasks(goal: str, data: GameData) -> list[tuple[NPC, list[str]]]:
+    """找出某天目标里的送礼任务：[(NPC, 识别出的礼物名)]。
+
+    子句里同时出现 NPC 名字和“送 / 赠”才算送礼；“不要送”“别送”等否定说法不算；括号内视为说明。
+    """
+    vocabulary = _gift_vocabulary(data)
+    text = _NOT_NEGATION.sub(lambda m: "□" * len(m.group()), _PARENTHETICAL.sub("", goal))
+    tasks = []
+    for seg in _SEGMENT_SPLIT.split(text):
+        npcs = [n for n in data.npc_data.npcs if n.name in seg]
+        verbs = [i for i, ch in enumerate(seg) if ch in GIFT_VERBS]
+        if not npcs or not verbs or all(_is_negated(seg, v) for v in verbs):
+            continue
+        masked = seg
+        for n in npcs:
+            masked = masked.replace(n.name, "□" * len(n.name))
+        items = _find_items(masked, vocabulary)
+        tasks += [(n, items) for n in npcs]
+    return tasks
+
+
+def check_gifts(daily_goals: dict[int, str], data: GameData, season: str) -> list[GiftWarning]:
+    """核对送礼任务：礼物须在该 NPC 的最爱 / 喜欢中；当季生日当天须有送礼任务。"""
+    season = normalize_season(season)
+    nd = data.npc_data
+    warnings: list[GiftWarning] = []
+    gifted_on: dict[str, set[int]] = {}
+
+    for day in sorted(daily_goals):
+        for npc, items in gift_tasks(daily_goals[day], data):
+            gifted_on.setdefault(npc.name, set()).add(day)
+            loved = {name for i in nd.loved_items(npc) for name in i.names}
+            liked = {name for i in npc.likes for name in i.names}
+            hated = {name for i in nd.hated_universal(npc) for name in i.names}
+            prefs = (f"最爱：{'、'.join(i.name for i in nd.loved_items(npc))}；"
+                     f"喜欢：{'、'.join(i.name for i in npc.likes) or '无专属物品'}")
+            if not items:
+                warnings.append(GiftWarning(day, npc.name, f"给{npc.name}的送礼任务没有写明礼物，或礼物不在数据库中",
+                                            prefs))
+            for item in items:
+                if item in hated:
+                    warnings.append(GiftWarning(day, npc.name, f"{npc.name}讨厌{item}（通用最爱的例外），不要送",
+                                                prefs))
+                elif item not in loved and item not in liked:
+                    note = f"；通用喜欢未逐项收录：{npc.universal_likes_note}" if npc.universal_likes_note else ""
+                    warnings.append(GiftWarning(day, npc.name, f"{item}不在 npcs.json 记录的{npc.name}最爱 / 喜欢中",
+                                                prefs + note))
+
+    for npc in nd.birthdays_in_season(season):
+        if npc.birthday_day not in gifted_on.get(npc.name, set()):
+            warnings.append(GiftWarning(
+                npc.birthday_day, npc.name,
+                f"{npc.name}生日当天没有送礼任务",
+                f"生日送最爱 = 80 × 8 = 640 好感度；最爱：{'、'.join(i.name for i in npc.loves)}",
+            ))
+    return sorted(warnings, key=lambda w: w.day)

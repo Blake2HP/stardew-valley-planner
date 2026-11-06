@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, QUALITIES, Bonuses
-from .data_loader import NO_GUIDES_TEXT, ArtisanRule, Crop, GameData
+from .data_loader import NO_GUIDES_TEXT, SEASON_ZH, ArtisanRule, Crop, GameData, GiftItem, normalize_season
 from .farm_state import NO_PRIOR_STATE_TEXT
 
 SEASON_DAYS = 28
@@ -256,7 +256,48 @@ def build_data_context(
         "guide_excerpts": guide_excerpts or NO_GUIDES_TEXT,
         "bonuses": describe_bonuses(bonuses),
         "carryover": carryover,
+        "npc_birthdays": describe_birthdays(data, season),
     }
+
+
+LOVED_POINTS, LIKED_POINTS, BIRTHDAY_MULTIPLIER = 80, 45, 8  # wiki Friendship
+
+
+def _items_text(items: tuple[GiftItem, ...], data: GameData, season: str) -> str:
+    """物品列表；本季能种的作物注明出来，方便模型安排种植和预留。"""
+    crops = {c.name_en: c for c in data.crops}
+    out = []
+    for i in items:
+        crop = crops.get(i.name_en)
+        if crop is None:
+            out.append(i.name)
+        else:
+            when = "本季可种" if season in crop.seasons else f"{'/'.join(SEASON_ZH[s] for s in crop.seasons)}作物"
+            out.append(f"{i.name}（{when}）")
+    return "、".join(out) or "无专属物品"
+
+
+def describe_birthdays(data: GameData, season: str) -> str:
+    """本季过生日的 NPC 及其最爱 / 喜欢的物品（data/npcs.json），注入 Prompt【数据参考】。"""
+    season = normalize_season(season)
+    npc_data = data.npc_data
+    birthdays = npc_data.birthdays_in_season(season)
+    if not birthdays:
+        covered = "、".join(n.name for n in npc_data.npcs) or "无"
+        return f"（本季没有收录的 NPC 过生日；目前收录：{covered}）"
+    lines = [f"生日送最爱的礼物 = {LOVED_POINTS} × {BIRTHDAY_MULTIPLIER} = {LOVED_POINTS * BIRTHDAY_MULTIPLIER} 好感度，"
+             f"喜欢的 = {LIKED_POINTS} × {BIRTHDAY_MULTIPLIER} = {LIKED_POINTS * BIRTHDAY_MULTIPLIER}；生日礼物不占每周 2 次的送礼次数。"]
+    universal = [i for i in npc_data.universal_loves]
+    for n in birthdays:
+        hated = npc_data.hated_universal(n)
+        uni = "、".join(i.name for i in universal if i not in hated)
+        except_text = f"；讨厌{'、'.join(i.name for i in hated)}（通用最爱的例外）" if hated else ""
+        lines.append(
+            f"- 第 {n.birthday_day} 天【{n.name}生日】最爱：{_items_text(n.loves, data, season)}；"
+            f"通用最爱：{uni}{except_text}；喜欢：{_items_text(n.likes, data, season)}"
+            + (f"（另有通用喜欢：{n.universal_likes_note}）" if n.universal_likes_note else "")
+        )
+    return "\n".join(lines)
 
 
 def describe_bonuses(bonuses: Bonuses) -> str:
