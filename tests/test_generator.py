@@ -135,3 +135,14 @@ def test_sv_check_schedule_exit_codes(tmp_path):
     good.write_text(json.dumps({"20": "种土豆", "28": f"出售；{CLEANUP_GOAL}"}, ensure_ascii=False), encoding="utf-8")
     assert sv("check-schedule", str(bad), "--season", "spring").returncode == 3
     assert sv("check-schedule", str(good), "--season", "spring").returncode == 0
+
+
+@pytest.mark.parametrize("season", ["spring", "summer", "fall", "winter"])
+def test_mock_responses_are_a_clean_baseline(data, season):
+    """mock 是评估脚本的离线基线：除固定提示外不应触发任何警告。"""
+    from stardew_planner.llm_client import MockClient
+
+    result = generate_strategy("种田", "稳健", season, client=MockClient(), data=data, start_gold=20000)
+    problems = [w for w in result.season_warnings
+                if "换季前一天" not in w and "继续生长" not in w]
+    assert problems == [] and result.gift_warnings == []
