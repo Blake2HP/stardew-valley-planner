@@ -46,7 +46,7 @@ def test_valid_response_single_call(data):
     [
         GOOD.replace(", ", ",, ", 3),                                 # 多逗号
         GOOD[:-2],                                                    # 漏掉结尾两个括号
-        "```json\n" + GOOD.replace("}}", "},}", 1) + "\n```",         # 代码块 + 末尾逗号
+        "```json\n" + GOOD[:-1] + ",}" + "\n```",                     # 代码块 + 末尾逗号
     ],
     ids=["double-commas", "truncated", "fenced-trailing-comma"],
 )

@@ -9,8 +9,9 @@
 - 作物售价、生长天数、加工倍率等数值都来自本地数据库。程序先算好收益，再交给模型作为【数据参考】。
 - 模型给出的日程会经过代码校验：种植时间来不及成熟、在本季种了非本季作物、第 28 天没有清理农场，都会报警或自动修正。
 - 模型输出的 JSON 格式有误时，先在本地修复，尽量不额外调用模型。
+- 支持跨季连续规划（如 `--season spring,summer,fall`）：上一季结束时的资金和仍在地里的作物由程序算好，注入下一季的 Prompt。
 
-> `data/` 中的作物和加工数值来自 [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops)（游戏 1.6 版本），核对日期 2026-11-05。
+> `data/` 中的作物和加工数值来自 [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops)（游戏 1.6 版本），核对日期 2026-11-05；开局金币 500g 来自 [Gold](https://stardewvalleywiki.com/Gold) 页面。
 
 ## 示例输出
 
@@ -76,11 +77,12 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 |---|---|---|
 | `-p, --playstyle` | 玩法风格，如“钓鱼赚钱”“全收集”“种田为主” | `钓鱼赚钱，兼顾种田` |
 | `-c, --pacing` | 节奏偏好，如“休闲慢节奏”“速通极限” | `休闲慢节奏` |
-| `-s, --season` | `spring/summer/fall/winter`，也可以写 `春季`、`夏` 等 | `spring` |
+| `-s, --season` | `spring/summer/fall/winter`，也可以写 `春季`、`夏` 等；用逗号分隔多个**连续**季节做跨季规划，如 `spring,summer`（冬季之后进入下一年春季） | `spring` |
 | `-y, --year` | 游戏年份；第 1 年的收益表和校验不计入第 2 年起才出售种子的作物（大蒜、红叶卷心菜） | `1` |
 | `--provider` | `anthropic` / `openai` / `mock` | 环境变量 `LLM_PROVIDER`，未设置时为 `anthropic` |
 | `--model` | 覆盖默认模型名 | 环境变量 `ANTHROPIC_MODEL` / `OPENAI_MODEL` |
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
+| `--start-gold` | 期初资金 | 第 1 年春季为开局金币 500g（`data/farm.json`），其他季节为未知 |
 | `--professions` | 职业，逗号分隔：`tiller`（农耕人，作物 +10%）、`artisan`（工匠，加工品 +40%）、`agriculturist`（农业学家，生长 +10%）。也可以写中文名；选工匠或农业学家会自动加入农耕人，两者只能二选一 | 无 |
 | `--fertilizer` | 加速肥料：`speed_gro`（生长激素 10%）、`deluxe_speed_gro`（高级 25%）、`hyper_speed_gro`（顶级 33%） | 无 |
 
@@ -96,6 +98,18 @@ print(result.schedule)          # 合并后的日程区间
 print(result.season_warnings)   # 换季校验结果
 print(result.attempts, result.json_parse_method)  # 调用模型次数、JSON 解析方式
 print(result.bonuses.describe())  # 职业：农耕人、工匠；肥料：生长激素
+print(result.finance.end_gold)    # 期末资金（只算种植收支，程序计算）
+```
+
+跨季连续规划：
+
+```python
+from stardew_planner import generate_plan
+
+plan = generate_plan("种田为主", "速通极限", "spring,summer,fall", provider="mock")
+print(plan.markdown)                   # 总览表 + 各季攻略
+for state in plan.states:              # 每季结束时的农场状态
+    print(state.next_season, state.gold, state.gold_estimated, state.carried_names)
 ```
 
 ## 工作流程
@@ -120,6 +134,8 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
    - 第 28 天的目标必须包含“清理农场/停止种植”。
    - 能识别否定说法（“不再补种”）、括号里的解释和“只买种子不种”，不会把这些误判为种植。
 6. **日程合并与渲染**：连续几天目标相同时合并为一个区间（如“第 3-5 天：钓鱼”），包含节日的区间会标出 🎉。
+7. **种植清单与资金**：模型必须在 `plantings` 里列出每次播种的作物、日期和格数（漏写会重试）。程序据此模拟每次收获（可跨季，例如夏季种的玉米会一直收获到秋季末），算出种子、肥料支出和作物收入，并逐日检查现金是否够买种子。模型还会在 `other_income` 里估算钓鱼、挖矿等收入，攻略中与程序计算的部分分开显示，标为“模型估算，仅供参考”。
+8. **跨季连续规划**：逐季生成。每季结束后提取农场状态（期末资金、仍在地里的跨季作物及其在下一季的收获日、清空的作物、上季计划目标），写进下一季用户 Prompt【数据参考】的“上季延续状态”一节；系统 Prompt 保持不变，只多一条衔接规则。下一季再种仍在地里的作物会报警，第 28 天的清理目标会注明保留跨季作物（如“清理农场/停止种植（保留玉米）”）。
 
 ## 项目结构
 
@@ -135,12 +151,14 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── schedule.py             日程合并
 │   ├── renderer.py             Markdown 渲染
 │   ├── bonuses.py              职业与加速肥料加成
-│   └── generator.py            generate_strategy() 主流程
+│   ├── farm_state.py           跨季收获模拟、资金计算、季末农场状态
+│   └── generator.py            generate_strategy() / generate_plan() 主流程
 ├── data/
 │   ├── crops.json              作物：季节、种子价、售价、生长/再生天数、产量
 │   ├── artisan.json            加工规则：倍率、加成、固定价格、耗时
 │   ├── calendar.json           每季节日、采集季、换季日
 │   ├── bonuses.json            职业与肥料规则
+│   ├── farm.json               开局金币
 │   └── guides/*.md             攻略文本
 ├── tests/                      pytest 测试
 └── .claude/skills/stardew-data-guard/   Claude Code 项目 skill
@@ -168,7 +186,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 python -m pytest
 ```
 
-目前有 184 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、按年份过滤作物（第 2 年起出售的种子）、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
+目前有 221 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、按年份过滤作物（第 2 年起出售的种子）、跨季连续规划（跨季收获模拟、资金与现金流、季末状态注入下一季 Prompt、季节连续性）、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
 
 ## Claude Code skill：`stardew-data-guard`
 
@@ -184,6 +202,7 @@ python -m pytest
 python .claude/skills/stardew-data-guard/scripts/sv.py crop 草莓
 python .claude/skills/stardew-data-guard/scripts/sv.py artisan 草莓
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 草莓 --plant-day 14
+python .claude/skills/stardew-data-guard/scripts/sv.py simulate 玉米 --season summer --tiles 8
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professions agriculturist --fertilizer speed_gro
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --fix
@@ -199,7 +218,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
 - [x] 补充大蒜、红叶卷心菜、向日葵，并用 `available_year` 记录只在第二年起出售的种子
 - [ ] 补充更多作物（蓝爵、小麦、虞美人、甘蓝菜等）
-- [ ] 支持跨季、全年连续规划
+- [x] 支持跨季连续规划（资金与跨季作物衔接）
+- [ ] 跨季的加工品（季末开始酿造、下季出货）
 - [x] 攻略文本检索从关键词匹配升级为向量检索（ChromaDB）
 - [x] 换用多语言 Embedding 模型（paraphrase-multilingual-MiniLM-L12-v2），提升中文检索效果
 - [ ] 用真实 API 测试模型输出的稳定性

@@ -114,6 +114,7 @@ class GameData:
     artisan_rules: list[ArtisanRule]
     calendar: dict[str, list[CalendarEvent]]
     guide_chunks: list[GuideChunk] = field(default_factory=list)
+    starting_gold: int | None = None  # 开局金币（data/farm.json），用于第 1 年春季的资金起点
 
     # ---- 结构化查询 ----
     def crops_in_season(self, season: str, year: int | None = None) -> list[Crop]:
@@ -199,7 +200,13 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         artisan_rules=load_artisan_rules(data_dir / "artisan.json"),
         calendar=load_calendar(data_dir / "calendar.json"),
         guide_chunks=load_guides(data_dir / "guides"),
+        starting_gold=load_starting_gold(data_dir / "farm.json"),
     )
+
+
+def load_starting_gold(path: Path) -> int | None:
+    """开局金币；文件不存在时返回 None（资金只给净收支，不给总额）。"""
+    return int(_read_json(path)["starting_gold"]) if path.exists() else None
 
 
 # ---------------------------------------------------------------------------

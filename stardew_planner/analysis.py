@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .bonuses import NO_BONUSES, Bonuses
 from .data_loader import NO_GUIDES_TEXT, Crop, GameData
+from .farm_state import NO_PRIOR_STATE_TEXT
 
 SEASON_DAYS = 28
 
@@ -92,6 +93,7 @@ def build_data_context(
     guide_excerpts: str = NO_GUIDES_TEXT,
     bonuses: Bonuses = NO_BONUSES,
     year: int | None = None,
+    carryover: str = NO_PRIOR_STATE_TEXT,
 ) -> dict[str, str]:
     """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 |",
@@ -120,6 +122,7 @@ def build_data_context(
         "calendar_events": "\n".join(event_lines) or "（无）",
         "guide_excerpts": guide_excerpts or NO_GUIDES_TEXT,
         "bonuses": describe_bonuses(bonuses),
+        "carryover": carryover,
     }
 
 

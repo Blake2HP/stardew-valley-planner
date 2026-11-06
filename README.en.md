@@ -9,8 +9,9 @@ Unlike asking an LLM directly, this project lets **code handle the numbers and t
 - Crop prices, growth times, artisan multipliers and other values come from a local database. The program computes profits first and hands them to the model as a "data reference".
 - The model's schedule is checked by code: crops that can't mature before the season ends, out-of-season crops, and a missing farm cleanup on day 28 are all flagged or fixed automatically.
 - When the model returns malformed JSON, it is repaired locally so that no extra model call is needed.
+- Multi-season planning (e.g. `--season spring,summer,fall`): the gold and the crops still in the ground at the end of a season are computed by code and injected into the next season's prompt.
 
-> Crop and artisan values in `data/` come from the [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops) (game version 1.6), checked on 2026-11-05.
+> Crop and artisan values in `data/` come from the [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops) (game version 1.6), checked on 2026-11-05; the 500g starting gold comes from the [Gold](https://stardewvalleywiki.com/Gold) page.
 >
 > The game data, prompts and generated guides are in **Chinese**. Playstyle and pacing can be written in any language, but the output guide is in Chinese.
 
@@ -80,11 +81,12 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 |---|---|---|
 | `-p, --playstyle` | Playstyle, e.g. "fishing for money", "completionist", "farming first" | `钓鱼赚钱，兼顾种田` |
 | `-c, --pacing` | Pacing, e.g. "relaxed", "speedrun" | `休闲慢节奏` |
-| `-s, --season` | `spring/summer/fall/winter` (Chinese names like `春季` also work) | `spring` |
+| `-s, --season` | `spring/summer/fall/winter` (Chinese names like `春季` also work); a comma-separated list of **consecutive** seasons plans them in a row, e.g. `spring,summer` (winter is followed by spring of the next year) | `spring` |
 | `-y, --year` | In-game year; in year 1 the profit table and checks leave out crops whose seeds are only sold from year 2 (Garlic, Red Cabbage) | `1` |
 | `--provider` | `anthropic` / `openai` / `mock` | env var `LLM_PROVIDER`, else `anthropic` |
 | `--model` | Override the default model name | env var `ANTHROPIC_MODEL` / `OPENAI_MODEL` |
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
+| `--start-gold` | Starting gold | 500g starting gold (`data/farm.json`) in year-1 spring, unknown otherwise |
 | `--professions` | Comma-separated professions: `tiller` (crops +10%), `artisan` (artisan goods +40%), `agriculturist` (growth +10%). Chinese names also work; choosing Artisan or Agriculturist adds Tiller automatically, and the two exclude each other | none |
 | `--fertilizer` | Speed fertilizer: `speed_gro` (10%), `deluxe_speed_gro` (25%), `hyper_speed_gro` (33%) | none |
 
@@ -100,6 +102,18 @@ print(result.schedule)          # merged schedule blocks
 print(result.season_warnings)   # season-change check results
 print(result.attempts, result.json_parse_method)  # number of model calls, JSON parse method
 print(result.bonuses.describe())  # applied professions and fertilizer
+print(result.finance.end_gold)    # end-of-season gold (farming only, computed by code)
+```
+
+Multi-season planning:
+
+```python
+from stardew_planner import generate_plan
+
+plan = generate_plan("种田为主", "速通极限", "spring,summer,fall", provider="mock")
+print(plan.markdown)                   # overview table + one guide per season
+for state in plan.states:              # farm state at the end of each season
+    print(state.next_season, state.gold, state.gold_estimated, state.carried_names)
 ```
 
 ## How it works
@@ -124,6 +138,8 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
    - Day 28's goal must include "clear the farm / stop planting" (`清理农场/停止种植`).
    - Negated phrases ("don't replant"), explanations in parentheses, and "only buy seeds" are not mistaken for planting.
 6. **Merging and rendering**: consecutive days with the same goal are merged into a range (e.g. "Days 3-5: fishing"), and ranges that include a festival are marked with 🎉.
+7. **Plantings and gold**: the model must list every sowing (crop, day, number of tiles) in `plantings`; a missing list triggers a retry. The program simulates each harvest, across seasons where the crop allows it (corn planted in summer keeps producing until the end of fall), computes seed and fertilizer costs and crop income, and checks day by day that there is enough cash for the seeds. The model also estimates fishing, mining and other income in `other_income`; the guide shows it apart from the computed figures, labeled as a model estimate.
+8. **Multi-season planning**: seasons are generated one at a time. After each season the farm state is extracted (end-of-season gold, multi-season crops still in the ground with their harvest days next season, cleared crops, last season's planned goals) and written into a "carried-over state" section of the next season's user prompt; the system prompt stays the same apart from one rule about following on. Replanting a crop that is still in the ground triggers a warning, and the day-28 cleanup goal names the crops to keep (e.g. `清理农场/停止种植（保留玉米）`).
 
 ## Project structure
 
@@ -139,12 +155,14 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── schedule.py             schedule merging
 │   ├── renderer.py             Markdown rendering
 │   ├── bonuses.py              profession and speed-fertilizer bonuses
-│   └── generator.py            generate_strategy() pipeline
+│   ├── farm_state.py           cross-season harvest simulation, gold, end-of-season farm state
+│   └── generator.py            generate_strategy() / generate_plan() pipeline
 ├── data/
 │   ├── crops.json              crops: seasons, seed price, sell price, growth/regrow days, yield
 │   ├── artisan.json            artisan rules: multiplier, bonus, fixed price, processing time
 │   ├── calendar.json           festivals, foraging seasons and season changes
 │   ├── bonuses.json            profession and fertilizer rules
+│   ├── farm.json               starting gold
 │   └── guides/*.md             guide texts
 ├── tests/                      pytest tests
 └── .claude/skills/stardew-data-guard/   Claude Code project skill
@@ -172,7 +190,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 184 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
+There are currently 221 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), multi-season planning (cross-season harvests, gold and cash flow, injecting the end-of-season state into the next prompt, season order), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
 
 ## Claude Code skill: `stardew-data-guard`
 
@@ -188,6 +206,7 @@ The bundled CLI tool can also be used on its own:
 python .claude/skills/stardew-data-guard/scripts/sv.py crop Strawberry
 python .claude/skills/stardew-data-guard/scripts/sv.py artisan Strawberry
 python .claude/skills/stardew-data-guard/scripts/sv.py profit Strawberry --plant-day 14
+python .claude/skills/stardew-data-guard/scripts/sv.py simulate Corn --season summer --tiles 8
 python .claude/skills/stardew-data-guard/scripts/sv.py profit Potato --professions agriculturist --fertilizer speed_gro
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --fix
@@ -203,7 +222,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
 - [x] Add Garlic, Red Cabbage and Sunflower, and track seeds sold only from year 2 with `available_year`
 - [ ] Add more crops (Blue Jazz, Wheat, Poppy, Bok Choy, etc.)
-- [ ] Support multi-season and full-year planning
+- [x] Multi-season planning (carry gold and multi-season crops forward)
+- [ ] Artisan goods across seasons (started at the end of one season, ready the next)
 - [x] Upgrade guide-text search from keyword matching to vector search (ChromaDB)
 - [x] Switch to a multilingual embedding model (paraphrase-multilingual-MiniLM-L12-v2) for better Chinese retrieval
 - [ ] Test model output stability against real APIs

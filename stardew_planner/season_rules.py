@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Iterable
 
 from .bonuses import NO_BONUSES, Bonuses
 from .data_loader import SEASON_ZH, Crop, GameData, normalize_season
@@ -98,8 +99,14 @@ def check_plantings(
     season: str,
     bonuses: Bonuses = NO_BONUSES,
     year: int | None = None,
+    carried: Iterable[str] = (),
 ) -> list[SeasonWarning]:
-    """检查日程里的种植安排；传入 year 时还会检查种子在当年是否已开售。"""
+    """检查日程里的种植安排。
+
+    传入 year 时还会检查种子在当年是否已开售；carried 是从上季延续、仍在地里的作物名，
+    本季再“种”它们时会提示（已付过种子钱，通常不需要重新种植）。
+    """
+    carried = set(carried)
     season = normalize_season(season)
     nxt = next_season(season)
     warnings = []
@@ -111,6 +118,12 @@ def check_plantings(
                     day, crop.name,
                     f"{crop.name}不是{SEASON_ZH[season]}作物，种下会立即枯萎",
                     f"{crop.name}可种季节 = {allowed}",
+                ))
+            elif crop.name in carried:
+                warnings.append(SeasonWarning(
+                    day, crop.name,
+                    f"{crop.name}已从上季延续在地里，无需重新种植（如果是扩种可以忽略）",
+                    f"{crop.name}可种季节 = {'/'.join(SEASON_ZH[s] for s in crop.seasons)}，上季种下后仍在生长",
                 ))
             elif year is not None and year < crop.available_year:
                 warnings.append(SeasonWarning(
@@ -143,11 +156,21 @@ def withering_crops(data: GameData, season: str, year: int | None = None) -> lis
     return [c for c in data.crops_in_season(season, year) if not survives_season_change(c, season)]
 
 
-def enforce_season_end(daily_goals: dict[int, str]) -> tuple[dict[int, str], bool]:
-    """确保第 28 天包含“清理农场/停止种植”。返回 (新日程, 是否做了修改)。"""
+def cleanup_goal(keep: Iterable[str] = ()) -> str:
+    """第 28 天的清理目标；有跨季作物时注明保留，避免把会继续生长的作物也清掉。"""
+    keep = list(dict.fromkeys(keep))
+    return f"{CLEANUP_GOAL}（保留{'、'.join(keep)}）" if keep else CLEANUP_GOAL
+
+
+def enforce_season_end(daily_goals: dict[int, str], keep: Iterable[str] = ()) -> tuple[dict[int, str], bool]:
+    """确保第 28 天包含“清理农场/停止种植”。返回 (新日程, 是否做了修改)。
+
+    keep 是会跨入下一季继续生长的作物名，写进清理目标里（例如“清理农场/停止种植（保留玉米）”）。
+    """
     goals = dict(daily_goals)
     current = goals.get(SEASON_DAYS, "").strip()
     if "清理农场" in current and "停止种植" in current:
         return goals, False
-    goals[SEASON_DAYS] = f"{current}；{CLEANUP_GOAL}" if current else CLEANUP_GOAL
+    goal = cleanup_goal(keep)
+    goals[SEASON_DAYS] = f"{current}；{goal}" if current else goal
     return goals, True

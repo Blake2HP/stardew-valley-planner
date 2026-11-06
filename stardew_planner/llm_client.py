@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Protocol
 
 Message = dict  # {"role": "user" | "assistant", "content": str}
@@ -50,13 +51,18 @@ class OpenAIClient:
 
 
 class MockClient:
-    """离线调试用：返回一份固定的春季规划，不消耗 API 额度。"""
+    """离线调试用：按 Prompt 中的季节返回一份固定规划，不消耗 API 额度。"""
+
+    _SEASON = re.compile(r"年(春季|夏季|秋季|冬季)的攻略")
+    _KEYS = {"春季": "spring", "夏季": "summer", "秋季": "fall", "冬季": "winter"}
 
     def __init__(self, model: str | None = None, **_):
         self.model = model or "mock"
 
     def complete(self, system: str, messages: list[Message]) -> str:
-        return json.dumps(MOCK_RESPONSE, ensure_ascii=False)
+        m = self._SEASON.search(messages[0]["content"]) if messages else None
+        season = self._KEYS[m.group(1)] if m else "spring"
+        return json.dumps(MOCK_RESPONSES[season], ensure_ascii=False)
 
 
 _PROVIDERS = {"anthropic": AnthropicClient, "openai": OpenAIClient, "mock": MockClient}
@@ -117,4 +123,114 @@ MOCK_RESPONSE = {
         "27": "山间湖泊钓鱼",
         "28": "收完作物，购买夏季种子",
     },
+    "plantings": [
+        {"day": 1, "crop": "防风草", "tiles": 15},
+        {"day": 7, "crop": "花椰菜", "tiles": 5},
+        {"day": 7, "crop": "土豆", "tiles": 5},
+        {"day": 14, "crop": "草莓", "tiles": 5},
+        {"day": 22, "crop": "土豆", "tiles": 5},
+    ],
+    "other_income": [
+        {"source": "钓鱼", "gold": 2500, "note": "约 12 天钓鱼"},
+        {"source": "挖矿", "gold": 800, "note": "出售矿石与宝石"},
+    ],
 }
+
+
+def _goals(*ranges: tuple[int, int, str]) -> dict[str, str]:
+    """用 (起始日, 结束日, 目标) 区间生成 28 天日程。"""
+    out = {str(d): goal for start, end, goal in ranges for d in range(start, end + 1)}
+    assert sorted(map(int, out)) == list(range(1, 29))
+    return out
+
+
+MOCK_SUMMER = {
+    "macro_strategy": {
+        "summary": "用春季积蓄一次性种下蓝莓和玉米，蓝莓反复收获回本，玉米留到秋季继续产出。",
+        "pillars": [
+            {"title": "第一天投入全部种植资金", "detail": "蓝莓和玉米都可再生，越早种收获次数越多。"},
+            {"title": "玉米跨季", "detail": "玉米夏秋两季都能生长，季末不必清理。"},
+            {"title": "宴会前备好食材", "detail": "夏威夷宴会要带一份好菜放进汤锅。"},
+        ],
+        "season_goals": ["蓝莓收获 4 次", "钓鱼等级达到 8 级"],
+    },
+    "key_milestones": [
+        {"day": 11, "event": "夏威夷宴会", "preparation": "准备一份高品质作物放进汤锅", "prepare_by_day": 10},
+        {"day": 28, "event": "月光水母起舞", "preparation": "晚上去海滩", "prepare_by_day": 28},
+        {"day": 28, "event": "换季日", "preparation": "收完蓝莓，玉米保留到秋季", "prepare_by_day": 27},
+    ],
+    "daily_goals": _goals(
+        (1, 1, "种下蓝莓和玉米"),
+        (2, 10, "海滩钓鱼攒钱"),
+        (11, 11, "参加夏威夷宴会"),
+        (12, 13, "下矿井推进到 60 层"),
+        (14, 27, "收获蓝莓和玉米，出售作物"),
+        (28, 28, "收获蓝莓；清理农场/停止种植（保留玉米）"),
+    ),
+    "plantings": [
+        {"day": 1, "crop": "蓝莓", "tiles": 15},
+        {"day": 1, "crop": "玉米", "tiles": 8},
+    ],
+    "other_income": [{"source": "钓鱼", "gold": 3000, "note": "海滩与河边钓鱼"}],
+}
+
+MOCK_FALL = {
+    "macro_strategy": {
+        "summary": "秋季继续收获夏季留下的玉米，新种蔓越莓和南瓜，为冬季攒钱。",
+        "pillars": [
+            {"title": "玉米不用重种", "detail": "夏季种下的玉米会继续按 4 天周期产出。"},
+            {"title": "蔓越莓多次收获", "detail": "蔓越莓可再生且单次产量高。"},
+            {"title": "展览会前准备展品", "detail": "星露谷展览会需要 9 类展品。"},
+        ],
+        "season_goals": ["南瓜收获一轮", "冬季前存款翻倍"],
+    },
+    "key_milestones": [
+        {"day": 16, "event": "星露谷展览会", "preparation": "准备 9 类展品", "prepare_by_day": 15},
+        {"day": 27, "event": "万灵节前夜", "preparation": "晚上去小镇广场", "prepare_by_day": 27},
+        {"day": 28, "event": "换季日", "preparation": "收完所有作物", "prepare_by_day": 27},
+    ],
+    "daily_goals": _goals(
+        (1, 1, "种下蔓越莓"),
+        (2, 2, "种下南瓜"),
+        (3, 15, "收获玉米和蔓越莓，钓鱼"),
+        (16, 16, "参加星露谷展览会"),
+        (17, 27, "收获作物，出售换钱"),
+        (28, 28, "收完作物；清理农场/停止种植"),
+    ),
+    "plantings": [
+        {"day": 1, "crop": "蔓越莓", "tiles": 20},
+        {"day": 2, "crop": "南瓜", "tiles": 10},
+    ],
+    "other_income": [{"source": "钓鱼", "gold": 2500, "note": "雨天钓鱼"}],
+}
+
+MOCK_WINTER = {
+    "macro_strategy": {
+        "summary": "冬季不能露天种植，专心钓鱼、挖矿和社交，为来年春季攒种子钱。",
+        "pillars": [
+            {"title": "矿井与骷髅洞穴", "detail": "冬季时间充裕，适合推进矿井。"},
+            {"title": "冰钓", "detail": "冰雪节可以参加钓鱼比赛。"},
+            {"title": "规划来年", "detail": "春季第一天就要买种子，提前留好资金。"},
+        ],
+        "season_goals": ["矿井推进到 120 层", "为春季留足种子钱"],
+    },
+    "key_milestones": [
+        {"day": 8, "event": "冰雪节", "preparation": "带上鱼竿", "prepare_by_day": 7},
+        {"day": 15, "event": "夜市", "preparation": "留出购物资金", "prepare_by_day": 14},
+        {"day": 25, "event": "冬日星盛宴", "preparation": "准备礼物", "prepare_by_day": 24},
+    ],
+    "daily_goals": _goals(
+        (1, 7, "下矿井推进"),
+        (8, 8, "参加冰雪节"),
+        (9, 14, "下矿井推进"),
+        (15, 17, "逛夜市，钓鱼"),
+        (18, 24, "下矿井推进"),
+        (25, 25, "参加冬日星盛宴"),
+        (26, 27, "准备来年春季"),
+        (28, 28, "整理仓库；清理农场/停止种植"),
+    ),
+    "plantings": [],
+    "other_income": [{"source": "挖矿", "gold": 4000, "note": "出售矿石与宝石"}],
+}
+
+MOCK_RESPONSES = {"spring": MOCK_RESPONSE, "summer": MOCK_SUMMER, "fall": MOCK_FALL, "winter": MOCK_WINTER}

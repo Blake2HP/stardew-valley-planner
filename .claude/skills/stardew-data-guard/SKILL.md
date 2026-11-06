@@ -14,6 +14,7 @@ description: 《星露谷物语》(Stardew Valley) 数值操作守则。只要�
 | `data/crops.json` | 作物：季节、种子价、售价、生长/再生天数、单次产量、种子来源、开售日与开售年份 |
 | `data/artisan.json` | 加工规则：倍率、加成、固定价格、加工耗时 |
 | `data/calendar.json` | 每季节日、采集季、换季日 |
+| `data/farm.json` | 开局金币（500g，来自 wiki Gold 页面） |
 | `data/bonuses.json` | 职业加成（农耕人、工匠、农业学家）与加速肥料（生长激素、高级、顶级） |
 | `data/guides/*.md` | 非结构化攻略文本，只能用作思路参考，**不能作为数值来源** |
 
@@ -26,6 +27,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py artisan 草莓         # 
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 草莓 --plant-day 14  # 收益计算（带公式）
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professions agriculturist --fertilizer speed_gro  # 计入职业与肥料
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer      # 节日与换季信息
+python .claude/skills/stardew-data-guard/scripts/sv.py simulate 玉米 --season summer --tiles 8  # 跨季收获模拟（带公式）
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --year 1 --fix  # 跨季校验（含开售年份）
 ```
 
@@ -93,6 +95,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 | 收获次数（可再生） | `1 + ⌊(可用天数 − 1 − 生长天数) / 再生天数⌋` |
 | 单格整季净利 | `收获次数 × 售价 × 单次产量 − 种子数 × 种子价` |
 | 最晚种植日 | `28 − 生长天数` |
+| 跨季收获日 | `种植日 + 生长天数`，之后每隔再生天数一次，直到 `28 × 可连续生长季数`（夏季种玉米 = 56，即秋季末）；> 28 的日子落在下一季 |
+| 季末资金（只算种植） | `期初资金 + 本季收获收入 − 种子支出 − 肥料支出`；钓鱼、挖矿等收入只能标为估算 |
 | 加速后生长天数 | 查 `crops.json` 的 `speed_grow_days[总加速%]`（肥料 10 / 25 / 33 + 农业学家 10），**不要按百分比换算** |
 | 农耕人售价 | `⌊基础售价 × 1.1⌋`（加工品不受影响） |
 | 工匠加工品售价 | `⌊⌊基础售价 × 倍率 + 加成⌋ × 1.4⌋` |

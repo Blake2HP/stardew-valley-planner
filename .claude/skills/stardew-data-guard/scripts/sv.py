@@ -27,6 +27,7 @@ from stardew_planner.analysis import (  # noqa: E402
 )
 from stardew_planner.bonuses import Bonuses, floor_mul, resolve_bonuses  # noqa: E402
 from stardew_planner.data_loader import SEASON_ZH, Crop, GameData, load_game_data, normalize_season  # noqa: E402
+from stardew_planner.farm_state import alive_seasons, harvest_days, season_label  # noqa: E402
 from stardew_planner.season_rules import (  # noqa: E402
     SEASON_DAYS, check_plantings, enforce_season_end, last_safe_plant_day,
     next_season, survives_season_change, withering_crops,
@@ -187,6 +188,41 @@ def cmd_profit(data: GameData, a) -> None:
     print("  注：未计入作物品质加成；职业与肥料只计入了上面列出的部分。")
 
 
+def cmd_simulate(data: GameData, a) -> None:
+    """跨季收获模拟：一次播种在本季及之后季节的全部收获日。"""
+    c, d, s = find_crop(data, a.name), a.plant_day, normalize_season(a.season)
+    if not 1 <= d <= SEASON_DAYS:
+        print(f"❌ 种植日必须在 1-{SEASON_DAYS} 之间")
+        sys.exit(EXIT_INVALID)
+    if s not in c.seasons:
+        print(f"❌ {c.name}不是{SEASON_ZH[s]}作物（可种季节 = {'/'.join(SEASON_ZH[x] for x in c.seasons)}）")
+        sys.exit(EXIT_INVALID)
+    print(f"【{c.name} 跨季收获模拟】{SEASON_ZH[s]}第 {d} 天种下，来源: data/crops.json")
+    b = get_bonuses(a)
+    g, n = b.grow_days(c), alive_seasons(c, s)
+    limit = SEASON_DAYS * n
+    print(f"  可连续生长季数 = {n}（{'/'.join(SEASON_ZH[x] for x in c.seasons)}），最后存活日 = 28 × {n} = 第 {limit} 天（从本季第 1 天起算）")
+    if b.growth_speed_percent:
+        print(f"  {explain_grow(b, c)}")
+    days = harvest_days(c, d, s, b)
+    print(f"  首次收获日 = 种植日 {d} + 生长 {g} = {d + g}")
+    if not days:
+        print(f"  ⚠️ {d + g} > {limit}：来不及成熟就会枯死")
+        return
+    if c.regrow_days:
+        print(f"  之后每隔再生 {c.regrow_days} 天收获一次，直到第 {limit} 天：共 {len(days)} 次")
+    labels = "、".join(season_label(s, x) for x in days)
+    print(f"  收获日：{labels}")
+    later = [x for x in days if x > SEASON_DAYS]
+    if later:
+        print(f"  其中 {len(later)} 次落在之后的季节：换季时不要清理这块地")
+    if a.tiles:
+        price = b.crop_price(c)
+        total = len(days) * a.tiles * c.harvest_yield * price
+        print(f"  总收入 = 收获 {len(days)} 次 × {a.tiles} 格{fmt_yield(c)} × 售价 {price} = {total:g}g；"
+              f"种子 = {a.tiles} × {c.seed_price} = {a.tiles * c.seed_price}g")
+
+
 def cmd_calendar(data: GameData, a) -> None:
     s = normalize_season(a.season)
     print(f"【{SEASON_ZH[s]}固定日程】 来源: data/calendar.json")
@@ -242,6 +278,11 @@ def main() -> None:
     pp.add_argument("name")
     pp.add_argument("--plant-day", type=int, default=1)
     pp.add_argument("--year", type=int, default=None, help=year_help)
+    ps = with_bonus_args(sub.add_parser("simulate"))
+    ps.add_argument("name")
+    ps.add_argument("--season", required=True)
+    ps.add_argument("--plant-day", type=int, default=1)
+    ps.add_argument("--tiles", type=int, default=0, help="格数；给出时计算总收入与种子钱")
     pcal = sub.add_parser("calendar")
     pcal.add_argument("season")
     pcal.add_argument("--year", type=int, default=None, help=year_help)
