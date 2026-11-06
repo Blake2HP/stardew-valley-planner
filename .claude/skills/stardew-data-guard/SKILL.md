@@ -11,7 +11,7 @@ description: 《星露谷物语》(Stardew Valley) 数值操作守则。只要�
 
 | 文件 | 内容 |
 |---|---|
-| `data/crops.json` | 作物：季节、种子价、售价、生长/再生天数、单次产量、种子来源 |
+| `data/crops.json` | 作物：季节、种子价、售价、生长/再生天数、单次产量、种子来源、开售日与开售年份 |
 | `data/artisan.json` | 加工规则：倍率、加成、固定价格、加工耗时 |
 | `data/calendar.json` | 每季节日、采集季、换季日 |
 | `data/bonuses.json` | 职业加成（农耕人、工匠、农业学家）与加速肥料（生长激素、高级、顶级） |
@@ -21,12 +21,12 @@ description: 《星露谷物语》(Stardew Valley) 数值操作守则。只要�
 
 ```bash
 python .claude/skills/stardew-data-guard/scripts/sv.py crop 草莓            # 单个作物的全部字段和最晚种植日
-python .claude/skills/stardew-data-guard/scripts/sv.py list --season spring  # 某季全部作物
+python .claude/skills/stardew-data-guard/scripts/sv.py list --season spring --year 1  # 某季作物（给出年份时去掉当年买不到种子的）
 python .claude/skills/stardew-data-guard/scripts/sv.py artisan 草莓         # 加工收益（带公式）
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 草莓 --plant-day 14  # 收益计算（带公式）
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professions agriculturist --fertilizer speed_gro  # 计入职业与肥料
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer      # 节日与换季信息
-python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --fix  # 跨季校验
+python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --year 1 --fix  # 跨季校验（含开售年份）
 ```
 
 退出码含义：`2` 表示数据库里没有这项数据，`3` 表示校验发现了问题。
@@ -62,7 +62,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 操作步骤：
 
 1. 把 28 天日程写成 JSON（`{"1": "...", ..., "28": "..."}`，也可以是带 `daily_goals` 字段的完整攻略 JSON），存到临时文件。
-2. 运行 `check-schedule <文件> --season <季节> --fix`。脚本会把带否定的句子（“不再补种土豆”“停止种植”）和括号里的解释当作非种植内容，所以用自然的说法写日程即可，不用为了通过校验刻意改措辞。
+2. 运行 `check-schedule <文件> --season <季节> --year <年份> --fix`。给出年份时，还会检查种子在当年是否已开售（第 1 年种大蒜会报警）。脚本会把带否定的句子（“不再补种土豆”“停止种植”）和括号里的解释当作非种植内容，所以用自然的说法写日程即可，不用为了通过校验刻意改措辞。
 3. 把脚本输出的每一条 ⚠️ 原样告诉用户，并采用 `--fix` 修正后的日程。对于来不及成熟的作物，建议改种或提前种植，给出的替代方案同样要用 `sv.py` 验证。
 4. 每次输出跨季日程时，都要附上一个警告区块，即使校验通过也要写：
 
@@ -87,6 +87,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 | 加工溢价 | `加工售价 − 基础售价` |
 | 单轮日均利润 | `(售价 × 单次产量 − 种子成本) / 生长天数` |
 | 实际种植日 | `max(计划种植日, 种子最早开售日)`（草莓 = 13） |
+| 能否种植（年份） | `当前年份 ≥ available_year`（大蒜、红叶卷心菜 = 2，第 1 年买不到种子） |
 | 实际可用生长天数 | `28 − 种植日 + 1` |
 | 收获次数（单次收获，收获后补种） | `⌊(可用天数 − 1) / 生长天数⌋` |
 | 收获次数（可再生） | `1 + ⌊(可用天数 − 1 − 生长天数) / 再生天数⌋` |

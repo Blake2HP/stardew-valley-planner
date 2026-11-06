@@ -56,6 +56,7 @@ class Crop:
     harvest_yield: float = 1.0
     seed_source: str = "皮埃尔杂货店"
     earliest_available_day: int = 1  # 当季最早能买到种子的日期（如草莓 = 13，复活节）
+    available_year: int = 1  # 种子从第几年开始出售（如大蒜、红叶卷心菜 = 2）
     # 加速后的生长天数，键为总加速百分比（"10"/"20"/"25"/"33"/"35"/"43"），见 bonuses.py
     speed_grow_days: dict = field(default_factory=dict, compare=False, hash=False)
 
@@ -115,9 +116,18 @@ class GameData:
     guide_chunks: list[GuideChunk] = field(default_factory=list)
 
     # ---- 结构化查询 ----
-    def crops_in_season(self, season: str) -> list[Crop]:
+    def crops_in_season(self, season: str, year: int | None = None) -> list[Crop]:
+        """某季可种的作物；传入 year 时只保留当年能买到种子的（available_year ≤ year）。"""
         season = normalize_season(season)
-        return [c for c in self.crops if season in c.seasons]
+        return [c for c in self.crops_for_year(year) if season in c.seasons]
+
+    def crops_for_year(self, year: int | None = None) -> list[Crop]:
+        """year 为 None 时不过滤；否则去掉要到之后年份才出售种子的作物。"""
+        if year is None:
+            return list(self.crops)
+        if year < 1:
+            raise ValueError(f"年份必须 ≥ 1，收到 {year}")
+        return [c for c in self.crops if c.available_year <= year]
 
     def events_in_season(self, season: str) -> list[CalendarEvent]:
         return sorted(self.calendar.get(normalize_season(season), []), key=lambda e: e.day)

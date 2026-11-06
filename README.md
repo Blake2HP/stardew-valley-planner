@@ -77,7 +77,7 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | `-p, --playstyle` | 玩法风格，如“钓鱼赚钱”“全收集”“种田为主” | `钓鱼赚钱，兼顾种田` |
 | `-c, --pacing` | 节奏偏好，如“休闲慢节奏”“速通极限” | `休闲慢节奏` |
 | `-s, --season` | `spring/summer/fall/winter`，也可以写 `春季`、`夏` 等 | `spring` |
-| `-y, --year` | 游戏年份 | `1` |
+| `-y, --year` | 游戏年份；第 1 年的收益表和校验不计入第 2 年起才出售种子的作物（大蒜、红叶卷心菜） | `1` |
 | `--provider` | `anthropic` / `openai` / `mock` | 环境变量 `LLM_PROVIDER`，未设置时为 `anthropic` |
 | `--model` | 覆盖默认模型名 | 环境变量 `ANTHROPIC_MODEL` / `OPENAI_MODEL` |
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
@@ -151,13 +151,14 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 **新增作物**：在 `data/crops.json` 的 `crops` 数组里加一条：
 
 ```json
-{"name": "向日葵", "name_en": "Sunflower", "seasons": ["summer", "fall"],
- "seed_price": 200, "sell_price": 80, "grow_days": 8, "regrow_days": null,
- "category": "flower", "harvest_yield": 1.0, "earliest_available_day": 1,
- "seed_source": "皮埃尔杂货店"}
+{"name": "大蒜", "name_en": "Garlic", "seasons": ["spring"],
+ "seed_price": 40, "sell_price": 60, "grow_days": 4, "regrow_days": null,
+ "category": "vegetable", "harvest_yield": 1.0, "earliest_available_day": 1,
+ "available_year": 2, "seed_source": "皮埃尔杂货店（第 2 年起）",
+ "speed_grow_days": {"10": 3, "20": 3, "25": 3, "33": 2, "35": 2, "43": 2}}
 ```
 
-`category` 决定适用哪些加工规则（`fruit` / `vegetable` / `flower` / `special`），`regrow_days` 为 `null` 表示只能收获一次。`harvest_yield` 是单次收获的期望产量（基础产量 + p / (1 − p)，p 为额外产出几率）。`earliest_available_day` 是当季最早能买到种子的日期，普通作物为 1。`speed_grow_days` 是加速后的生长天数，键为总加速百分比（肥料 10 / 25 / 33，加上农业学家 10），数据取自各作物 wiki 页面的日历：游戏按阶段扣减天数且有浮点误差，不能按百分比直接换算（例如山药 10 天在 20% 加速下是 7 天，不是 8 天）。
+`category` 决定适用哪些加工规则（`fruit` / `vegetable` / `flower` / `special`），`regrow_days` 为 `null` 表示只能收获一次。`harvest_yield` 是单次收获的期望产量（基础产量 + p / (1 − p)，p 为额外产出几率）。`earliest_available_day` 是当季最早能买到种子的日期，普通作物为 1。`available_year` 是种子开始出售的年份（默认 1）：传入 `year=1` 时，收益排行和 Prompt 会过滤掉 `available_year > 1` 的作物，日程里种了这类作物也会给出警告。`speed_grow_days` 是加速后的生长天数，键为总加速百分比（肥料 10 / 25 / 33，加上农业学家 10），数据取自各作物 wiki 页面的日历：游戏按阶段扣减天数且有浮点误差，不能按百分比直接换算（例如山药 10 天在 20% 加速下是 7 天，不是 8 天）。
 
 **新增攻略文本**：在 `data/guides/` 下放 `.md` 或 `.txt` 文件。每个 `## 标题` 是一个片段，片段下方可以加一行 `标签: 春季, 钓鱼, 新手`，用于检索时匹配玩法。
 
@@ -167,7 +168,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 python -m pytest
 ```
 
-目前有 160 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
+目前有 184 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、按年份过滤作物（第 2 年起出售的种子）、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
 
 ## Claude Code skill：`stardew-data-guard`
 
@@ -196,7 +197,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 职业加成（农耕人、工匠、农业学家）与加速肥料（生长激素、高级、顶级）
 - [ ] 补充 NPC 数据（喜好、生日、好感度）、作物品质加成、品质类肥料（普通 / 高级 / 顶级肥料）
 - [x] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
-- [ ] 补充更多作物（大蒜、蓝爵、小麦、向日葵、红叶卷心菜等），并记录只在第二年起出售的种子
+- [x] 补充大蒜、红叶卷心菜、向日葵，并用 `available_year` 记录只在第二年起出售的种子
+- [ ] 补充更多作物（蓝爵、小麦、虞美人、甘蓝菜等）
 - [ ] 支持跨季、全年连续规划
 - [x] 攻略文本检索从关键词匹配升级为向量检索（ChromaDB）
 - [x] 换用多语言 Embedding 模型（paraphrase-multilingual-MiniLM-L12-v2），提升中文检索效果

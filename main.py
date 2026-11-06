@@ -32,7 +32,7 @@ def main() -> None:
     parser.add_argument("-p", "--playstyle", default="钓鱼赚钱，兼顾种田", help="玩法风格")
     parser.add_argument("-c", "--pacing", default="休闲慢节奏", help="节奏偏好")
     parser.add_argument("-s", "--season", default="spring", help="spring/summer/fall/winter 或 春季/夏季…")
-    parser.add_argument("-y", "--year", type=int, default=1)
+    parser.add_argument("-y", "--year", type=int, default=1, help="游戏年份；第 1 年不计入第 2 年起才出售种子的作物")
     parser.add_argument("--provider", default=None, help="anthropic / openai / mock（默认读 LLM_PROVIDER）")
     parser.add_argument("--model", default=None, help="覆盖默认模型名")
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
@@ -42,6 +42,8 @@ def main() -> None:
     parser.add_argument("--fertilizer", default=None,
                         help="加速肥料：speed_gro（生长激素）、deluxe_speed_gro（高级）、hyper_speed_gro（顶级）")
     args = parser.parse_args()
+    if args.year < 1:
+        parser.error("年份必须 ≥ 1")
 
     try:
         bonuses = resolve_bonuses([args.professions], args.fertilizer)

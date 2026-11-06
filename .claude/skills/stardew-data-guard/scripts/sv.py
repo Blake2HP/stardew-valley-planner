@@ -93,7 +93,7 @@ def cmd_crop(data: GameData, a) -> None:
     print(f"  可种季节: {'/'.join(SEASON_ZH[s] for s in c.seasons)}")
     print(f"  种子价: {c.seed_price}g（{c.seed_source}）  售价: {c.sell_price}g  类别: {c.category}")
     print(f"  生长天数: {c.grow_days}  再生天数: {c.regrow_days or '不可再生'}  单次产量: {c.harvest_yield}")
-    print(f"  最早开售日: 第 {c.earliest_available_day} 天")
+    print(f"  最早开售日: 第 {c.earliest_available_day} 天  开售年份: 第 {c.available_year} 年起")
     speeds = "  ".join(f"{k}%→{v}天" for k, v in c.speed_grow_days.items())
     print(f"  加速后生长天数: {speeds or '无数据'}")
     if not b.is_empty:
@@ -106,10 +106,11 @@ def cmd_crop(data: GameData, a) -> None:
 
 
 def cmd_list(data: GameData, a) -> None:
-    crops = data.crops_in_season(a.season) if a.season else data.crops
+    crops = data.crops_in_season(a.season, a.year) if a.season else data.crops_for_year(a.year)
     for c in crops:
         regrow = f"再生{c.regrow_days}天" if c.regrow_days else "单次"
-        print(f"{c.name}\t种子{c.seed_price}g\t售价{c.sell_price}g\t生长{c.grow_days}天\t{regrow}")
+        year = f"\t第{c.available_year}年起" if c.available_year > 1 else ""
+        print(f"{c.name}\t种子{c.seed_price}g\t售价{c.sell_price}g\t生长{c.grow_days}天\t{regrow}{year}")
 
 
 def cmd_artisan(data: GameData, a) -> None:
@@ -151,6 +152,9 @@ def cmd_profit(data: GameData, a) -> None:
     if not b.is_empty:
         print(f"  {explain_grow(b, c)}")
         print(f"  {explain_price(b, c)}")
+    if a.year is not None and a.year < c.available_year:
+        print(f"  ⚠️ {c.name}种子第 {c.available_year} 年起才出售（{c.seed_source}），"
+              f"第 {a.year} 年买不到；以下按第 {c.available_year} 年计算")
     if d < c.earliest_available_day:
         d = effective_plant_day(c, d)
         print(f"  ⚠️ {c.name}种子第 {c.earliest_available_day} 天才开售（{c.seed_source}），"
@@ -188,7 +192,7 @@ def cmd_calendar(data: GameData, a) -> None:
     print(f"【{SEASON_ZH[s]}固定日程】 来源: data/calendar.json")
     for e in data.events_in_season(s):
         print(f"  第 {e.day} 天 {e.name}（{e.type}）：{e.tip}")
-    dying = "、".join(c.name for c in withering_crops(data, s)) or "无"
+    dying = "、".join(c.name for c in withering_crops(data, s, a.year)) or "无"
     print(f"  换季：第 {SEASON_DAYS} 天后进入{SEASON_ZH[next_season(s)]}，枯死作物：{dying}")
 
 
@@ -198,13 +202,13 @@ def cmd_check_schedule(data: GameData, a) -> None:
     goals = {int(k): str(v) for k, v in raw.items()}
     s = normalize_season(a.season)
 
-    warnings = check_plantings(goals, data, s, get_bonuses(a))
+    warnings = check_plantings(goals, data, s, get_bonuses(a), a.year)
     fixed, inserted = enforce_season_end(goals)
     for w in warnings:
         print(f"⚠️ {w}")
     if inserted:
         print(f"⚠️ 第 {SEASON_DAYS} 天缺少“清理农场/停止种植”，修正为：{fixed[SEASON_DAYS]}")
-    dying = "、".join(c.name for c in withering_crops(data, s))
+    dying = "、".join(c.name for c in withering_crops(data, s, a.year))
     if dying:
         print(f"ℹ️ 进入{SEASON_ZH[next_season(s)]}时将枯死：{dying}")
     if not warnings and not inserted:
@@ -229,17 +233,26 @@ def main() -> None:
         return parser
 
     with_bonus_args(sub.add_parser("crop")).add_argument("name")
-    sub.add_parser("list").add_argument("--season")
+    year_help = "游戏年份；给出时过滤掉当年买不到种子的作物（如第 1 年的大蒜）"
+    pl = sub.add_parser("list")
+    pl.add_argument("--season")
+    pl.add_argument("--year", type=int, default=None, help=year_help)
     with_bonus_args(sub.add_parser("artisan")).add_argument("name")
     pp = with_bonus_args(sub.add_parser("profit"))
     pp.add_argument("name")
     pp.add_argument("--plant-day", type=int, default=1)
-    sub.add_parser("calendar").add_argument("season")
+    pp.add_argument("--year", type=int, default=None, help=year_help)
+    pcal = sub.add_parser("calendar")
+    pcal.add_argument("season")
+    pcal.add_argument("--year", type=int, default=None, help=year_help)
     pc = with_bonus_args(sub.add_parser("check-schedule"))
     pc.add_argument("file")
     pc.add_argument("--season", required=True)
+    pc.add_argument("--year", type=int, default=None, help=year_help)
     pc.add_argument("--fix", action="store_true", help="打印修正后的 28 天 JSON")
     a = p.parse_args()
+    if getattr(a, "year", None) is not None and a.year < 1:
+        p.error("年份必须 ≥ 1")
 
     data = load_game_data(PROJECT_ROOT / "data")
     globals()[f"cmd_{a.cmd.replace('-', '_')}"](data, a)

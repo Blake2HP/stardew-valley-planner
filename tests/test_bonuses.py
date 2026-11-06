@@ -147,7 +147,7 @@ def test_ranking_uses_bonuses(data):
 
 
 def test_data_context_describes_bonuses(data):
-    ctx = build_data_context(data, "spring", bonuses=resolve_bonuses(["artisan"], "speed_gro"))
+    ctx = build_data_context(data, "spring", bonuses=resolve_bonuses(["artisan"], "speed_gro"), year=1)
     assert ctx["bonuses"].startswith("职业：农耕人、工匠；肥料：生长激素")
     assert "| 花椰菜 | 80g | 192g | 10/- |" in ctx["crop_table"]
     assert build_data_context(data, "spring")["bonuses"].startswith("无")

@@ -78,7 +78,7 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
         out += ["## 📊 数据参考：本季作物收益排行", "",
                 "| 作物 | 种子价 | 售价 | 生长天数 | 最早种植 | 整季收获 | 单格净利 | 最佳加工 |",
                 "|---|---:|---:|:---:|:---:|:---:|---:|---|"]
-        for r in rank_crops(data, result.season, bonuses=result.bonuses):
+        for r in rank_crops(data, result.season, bonuses=result.bonuses, year=result.year):
             artisan = f"{r.best_artisan} ({r.artisan_unit_price}g)" if r.best_artisan else "-"
             out.append(f"| {r.crop.name} | {r.crop.seed_price}g | {r.sell_price}g | {r.grow_days} 天 | 第 {r.plant_day} 天 | "
                        f"{r.harvests} 次 | {r.profit_per_tile}g | {artisan} |")

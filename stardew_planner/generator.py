@@ -147,6 +147,8 @@ def generate_strategy(
         fertilizer: 加速肥料：speed_gro / deluxe_speed_gro / hyper_speed_gro（或中文名）。
     """
     season_key = normalize_season(season)
+    if year < 1:
+        raise ValueError(f"年份必须 ≥ 1，收到 {year}")
     bonuses = resolve_bonuses(professions, fertilizer)
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
@@ -157,7 +159,7 @@ def generate_strategy(
     guide_excerpts = search_guides(
         guide_query, n_results=n_guides, store=guide_store, fallback_chunks=data.guide_chunks
     )
-    context = build_data_context(data, season_key, guide_excerpts, bonuses)
+    context = build_data_context(data, season_key, guide_excerpts, bonuses, year)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -187,9 +189,9 @@ def generate_strategy(
             ]
 
     # 3) 跨季规则校验：检查来不及成熟的种植，并强制第 28 天写入清理目标
-    warnings = [f"⚠️ {w}" for w in check_plantings(goals, data, season_key, bonuses)]
+    warnings = [f"⚠️ {w}" for w in check_plantings(goals, data, season_key, bonuses, year)]
     goals, inserted = enforce_season_end(goals)
-    dying = "、".join(c.name for c in withering_crops(data, season_key))
+    dying = "、".join(c.name for c in withering_crops(data, season_key, year))
     if dying:
         warnings.append(f"⚠️ 第 28 天是换季前一天：{dying}将在进入{SEASON_ZH[next_season(season_key)]}时枯死，请在此之前收获完毕。")
     if inserted:

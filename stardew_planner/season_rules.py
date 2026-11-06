@@ -93,8 +93,13 @@ def _planted_crops(goal: str, crops: list[Crop]) -> list[Crop]:
 
 
 def check_plantings(
-    daily_goals: dict[int, str], data: GameData, season: str, bonuses: Bonuses = NO_BONUSES
+    daily_goals: dict[int, str],
+    data: GameData,
+    season: str,
+    bonuses: Bonuses = NO_BONUSES,
+    year: int | None = None,
 ) -> list[SeasonWarning]:
+    """检查日程里的种植安排；传入 year 时还会检查种子在当年是否已开售。"""
     season = normalize_season(season)
     nxt = next_season(season)
     warnings = []
@@ -106,6 +111,12 @@ def check_plantings(
                     day, crop.name,
                     f"{crop.name}不是{SEASON_ZH[season]}作物，种下会立即枯萎",
                     f"{crop.name}可种季节 = {allowed}",
+                ))
+            elif year is not None and year < crop.available_year:
+                warnings.append(SeasonWarning(
+                    day, crop.name,
+                    f"{crop.name}种子第 {crop.available_year} 年起才出售（{crop.seed_source}），第 {year} 年买不到",
+                    f"当前年份 {year} < 开售年份 {crop.available_year}",
                 ))
             elif day < crop.earliest_available_day:
                 warnings.append(SeasonWarning(
@@ -127,9 +138,9 @@ def check_plantings(
     return warnings
 
 
-def withering_crops(data: GameData, season: str) -> list[Crop]:
-    """本季作物中，换季后会枯死的那些。"""
-    return [c for c in data.crops_in_season(season) if not survives_season_change(c, season)]
+def withering_crops(data: GameData, season: str, year: int | None = None) -> list[Crop]:
+    """本季作物中，换季后会枯死的那些（传入 year 时只列当年能种的）。"""
+    return [c for c in data.crops_in_season(season, year) if not survives_season_change(c, season)]
 
 
 def enforce_season_end(daily_goals: dict[int, str]) -> tuple[dict[int, str], bool]:

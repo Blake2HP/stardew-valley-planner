@@ -63,9 +63,12 @@ def season_profit(crop: Crop, plant_day: int = 1, bonuses: Bonuses = NO_BONUSES)
     return harvests, int(revenue - seeds * crop.seed_price - bonuses.fertilizer_cost)
 
 
-def rank_crops(data: GameData, season: str, top_n: int = 6, bonuses: Bonuses = NO_BONUSES) -> list[CropProfit]:
+def rank_crops(
+    data: GameData, season: str, top_n: int = 6, bonuses: Bonuses = NO_BONUSES, year: int | None = None
+) -> list[CropProfit]:
+    """本季作物按单格整季净利排序；传入 year 时过滤掉当年买不到种子的作物（如第 1 年的大蒜）。"""
     results = []
-    for crop in data.crops_in_season(season):
+    for crop in data.crops_in_season(season, year):
         harvests, profit = season_profit(crop, bonuses=bonuses)
         rules = data.artisan_rules_for(crop)
         best = max(rules, key=lambda r: bonuses.artisan_price(r, crop), default=None)
@@ -84,12 +87,16 @@ def rank_crops(data: GameData, season: str, top_n: int = 6, bonuses: Bonuses = N
 
 
 def build_data_context(
-    data: GameData, season: str, guide_excerpts: str = NO_GUIDES_TEXT, bonuses: Bonuses = NO_BONUSES
+    data: GameData,
+    season: str,
+    guide_excerpts: str = NO_GUIDES_TEXT,
+    bonuses: Bonuses = NO_BONUSES,
+    year: int | None = None,
 ) -> dict[str, str]:
     """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 |",
                   "|---|---|---|---|---|---|---|---|---|"]
-    for r in rank_crops(data, season, bonuses=bonuses):
+    for r in rank_crops(data, season, bonuses=bonuses, year=year):
         c = r.crop
         regrow = f"{r.grow_days}/{c.regrow_days}" if c.regrow_days else f"{r.grow_days}/-"
         artisan = f"{r.best_artisan}({r.artisan_unit_price}g)" if r.best_artisan else "-"

@@ -81,7 +81,7 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `-p, --playstyle` | Playstyle, e.g. "fishing for money", "completionist", "farming first" | `钓鱼赚钱，兼顾种田` |
 | `-c, --pacing` | Pacing, e.g. "relaxed", "speedrun" | `休闲慢节奏` |
 | `-s, --season` | `spring/summer/fall/winter` (Chinese names like `春季` also work) | `spring` |
-| `-y, --year` | In-game year | `1` |
+| `-y, --year` | In-game year; in year 1 the profit table and checks leave out crops whose seeds are only sold from year 2 (Garlic, Red Cabbage) | `1` |
 | `--provider` | `anthropic` / `openai` / `mock` | env var `LLM_PROVIDER`, else `anthropic` |
 | `--model` | Override the default model name | env var `ANTHROPIC_MODEL` / `OPENAI_MODEL` |
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
@@ -155,13 +155,14 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 **Add a crop**: append an entry to the `crops` array in `data/crops.json`:
 
 ```json
-{"name": "向日葵", "name_en": "Sunflower", "seasons": ["summer", "fall"],
- "seed_price": 200, "sell_price": 80, "grow_days": 8, "regrow_days": null,
- "category": "flower", "harvest_yield": 1.0, "earliest_available_day": 1,
- "seed_source": "皮埃尔杂货店"}
+{"name": "大蒜", "name_en": "Garlic", "seasons": ["spring"],
+ "seed_price": 40, "sell_price": 60, "grow_days": 4, "regrow_days": null,
+ "category": "vegetable", "harvest_yield": 1.0, "earliest_available_day": 1,
+ "available_year": 2, "seed_source": "皮埃尔杂货店（第 2 年起）",
+ "speed_grow_days": {"10": 3, "20": 3, "25": 3, "33": 2, "35": 2, "43": 2}}
 ```
 
-`category` decides which artisan rules apply (`fruit` / `vegetable` / `flower` / `special`). `regrow_days: null` means the crop is harvested only once. `harvest_yield` is the expected yield per harvest (base yield + p / (1 − p), where p is the chance of extra crops). `earliest_available_day` is the first day of the season the seeds can be bought; it is 1 for regular crops. `speed_grow_days` holds growth days under speed bonuses, keyed by total speed percent (fertilizer 10 / 25 / 33, plus 10 for Agriculturist). The values come from the calendars on each crop's wiki page: the game removes days per growth stage and has floating-point quirks, so they can't be derived from the percentage (e.g. Yam takes 7 days at 20%, not 8). `name` is the Chinese name used in schedules; `name_en` is also accepted by the `sv.py` lookup tool.
+`category` decides which artisan rules apply (`fruit` / `vegetable` / `flower` / `special`). `regrow_days: null` means the crop is harvested only once. `harvest_yield` is the expected yield per harvest (base yield + p / (1 − p), where p is the chance of extra crops). `earliest_available_day` is the first day of the season the seeds can be bought; it is 1 for regular crops. `available_year` is the year the seeds go on sale (default 1): with `year=1`, the profit ranking and the prompt leave out crops with `available_year > 1`, and planting one in a schedule triggers a warning. `speed_grow_days` holds growth days under speed bonuses, keyed by total speed percent (fertilizer 10 / 25 / 33, plus 10 for Agriculturist). The values come from the calendars on each crop's wiki page: the game removes days per growth stage and has floating-point quirks, so they can't be derived from the percentage (e.g. Yam takes 7 days at 20%, not 8). `name` is the Chinese name used in schedules; `name_en` is also accepted by the `sv.py` lookup tool.
 
 **Add guide text**: put `.md` or `.txt` files in `data/guides/`. Each `## heading` becomes one passage. A line like `标签: 春季, 钓鱼, 新手` (tags: spring, fishing, beginner) under the heading is used to match playstyles during search.
 
@@ -171,7 +172,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 160 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
+There are currently 184 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
 
 ## Claude Code skill: `stardew-data-guard`
 
@@ -200,7 +201,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Profession bonuses (Tiller, Artisan, Agriculturist) and speed fertilizers (Speed-Gro, Deluxe, Hyper)
 - [ ] Add NPC data (gift preferences, birthdays, friendship), crop quality bonuses, and quality fertilizers (Basic / Quality / Deluxe Fertilizer)
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
-- [ ] Add more crops (Garlic, Blue Jazz, Wheat, Sunflower, Red Cabbage, etc.) and track seeds that are only sold from year 2
+- [x] Add Garlic, Red Cabbage and Sunflower, and track seeds sold only from year 2 with `available_year`
+- [ ] Add more crops (Blue Jazz, Wheat, Poppy, Bok Choy, etc.)
 - [ ] Support multi-season and full-year planning
 - [x] Upgrade guide-text search from keyword matching to vector search (ChromaDB)
 - [x] Switch to a multilingual embedding model (paraphrase-multilingual-MiniLM-L12-v2) for better Chinese retrieval
