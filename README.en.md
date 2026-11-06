@@ -152,6 +152,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 ```
 ├── main.py                     CLI entry point
 ├── scripts/eval_llm.py         stability evaluation against the real API
+├── web/                        web demo (FastAPI + single page)
 ├── stardew_planner/
 │   ├── data_loader.py          data loading, guide chunking, ChromaDB indexing and semantic search
 │   ├── analysis.py             profit calculation, builds the prompt's data reference
@@ -199,7 +200,18 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 344 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), calendar dates, seed drops and byproducts, birthday injection and gift checks (gift detection, preferences and exceptions, gifts on the birthday), multi-season planning (cross-season harvests, gold and cash flow, injecting the end-of-season state into the next prompt, season order), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), crop quality and quality fertilizers (odds checked against the wiki tables, quality prices, expected profit with Deluxe Fertilizer, capacity-based sell-or-process plans), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
+There are currently 359 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), calendar dates, seed drops and byproducts, birthday injection and gift checks (gift detection, preferences and exceptions, gifts on the birthday), multi-season planning (cross-season harvests, gold and cash flow, injecting the end-of-season state into the next prompt, season order), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), crop quality and quality fertilizers (odds checked against the wiki tables, quality prices, expected profit with Deluxe Fertilizer, capacity-based sell-or-process plans), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, the web API (validation, rate limiting, HTML escaping), and `sv.py` output and exit codes.
+
+## Web demo
+
+`web/` is a minimal web version: pick a playstyle, pacing, seasons (several in a row are fine), professions, fertilizer and farming level on the left; the right side shows end-of-season gold cards and the full guide, which you can copy or download as Markdown. The backend is FastAPI calling `generate_strategy` / `generate_plan` directly, with no changes to the core code.
+
+```bash
+pip install -r requirements.txt
+python -m web                           # open http://127.0.0.1:8000; uses mock by default, no API cost
+```
+
+Set `DEMO_PROVIDER=anthropic` (plus `ANTHROPIC_API_KEY`) to use the real model. To keep costs down, real providers default to 10 generations per IP per hour (`DEMO_RATE_LIMIT`), at most 2 at a time (`DEMO_MAX_CONCURRENT`), and at most 4 seasons per request (`DEMO_MAX_SEASONS`). HTML in model output is escaped, so it never runs in the page.
 
 ## Model stability evaluation
 

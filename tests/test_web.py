@@ -1,0 +1,105 @@
+"""网页版 Demo（web/app.py）：页面、接口、参数校验、限流与 HTML 转义。全部用 mock，不消耗 API 额度。"""
+
+import pytest
+
+pytest.importorskip("fastapi")
+pytest.importorskip("markdown")
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from stardew_planner.llm_client import MockClient  # noqa: E402
+from web.app import Settings, create_app, render_html  # noqa: E402
+
+BODY = {"playstyle": "种田极限赚钱", "pacing": "速通极限", "seasons": ["spring"]}
+
+
+def make_client(indexed_store, client=None, **overrides):
+    settings = Settings()
+    settings.provider = "mock"
+    settings.rate_limit = 0
+    for k, v in overrides.items():
+        setattr(settings, k, v)
+    app = create_app(settings, client=client or MockClient(), guide_store=indexed_store, warm_up=False)
+    return TestClient(app)
+
+
+def test_index_page(indexed_store):
+    with make_client(indexed_store) as c:
+        r = c.get("/")
+        assert r.status_code == 200 and "星露谷物语 AI 攻略生成器" in r.text
+
+
+def test_options(indexed_store):
+    with make_client(indexed_store) as c:
+        o = c.get("/api/options").json()
+    assert o["is_mock"] and o["max_seasons"] == 4
+    assert {p["key"] for p in o["professions"]} == {"tiller", "artisan", "agriculturist"}
+    kinds = {f["key"]: f["kind"] for f in o["fertilizers"]}
+    assert kinds["speed_gro"] == "speed" and kinds["deluxe_fertilizer"] == "quality"
+
+
+def test_generate_single_season(indexed_store):
+    with make_client(indexed_store) as c:
+        r = c.post("/api/generate", json=BODY)
+    assert r.status_code == 200
+    data = r.json()
+    assert "第 1 年春季攻略" in data["markdown"] and "<table>" in data["html"]
+    (s,) = data["seasons"]
+    assert (s["season"], s["start_gold"], s["end_gold"], s["attempts"]) == ("spring", 500, 2424, 1)
+
+
+def test_generate_multi_season_with_bonuses(indexed_store):
+    body = {**BODY, "seasons": ["spring", "summer", "fall"], "professions": ["artisan"],
+            "fertilizer": "deluxe_fertilizer", "farming_level": 10, "processing_share": 0.5}
+    with make_client(indexed_store) as c:
+        data = c.post("/api/generate", json=body).json()
+    assert [s["season"] for s in data["seasons"]] == ["spring", "summer", "fall"]
+    assert data["seasons"][1]["carry"] == ["玉米"]
+    assert data["seasons"][1]["start_gold"] == data["seasons"][0]["end_gold"]   # 资金衔接
+    assert "跨季连续规划" in data["markdown"] and "耕种等级 10" in data["markdown"]
+
+
+@pytest.mark.parametrize(
+    "patch, message",
+    [
+        ({"seasons": ["spring", "fall"]}, "季节必须连续"),
+        ({"professions": ["artisan"], "farming_level": 6}, "耕种等级 6 还不能选择工匠"),
+        ({"fertilizer": "magic_dust"}, "未知肥料"),
+        ({"seasons": ["spring", "summer", "fall"]}, "最多规划 2 个季节"),
+    ],
+)
+def test_bad_requests(indexed_store, patch, message):
+    with make_client(indexed_store, max_seasons=2) as c:
+        r = c.post("/api/generate", json={**BODY, **patch})
+    assert r.status_code == 400 and message in r.json()["detail"]
+
+
+@pytest.mark.parametrize("patch", [{"playstyle": ""}, {"farming_level": 20}, {"processing_share": 1.5}, {"seasons": []}])
+def test_schema_validation(indexed_store, patch):
+    with make_client(indexed_store) as c:
+        assert c.post("/api/generate", json={**BODY, **patch}).status_code == 422
+
+
+def test_rate_limit(indexed_store):
+    with make_client(indexed_store, rate_limit=1) as c:
+        assert c.post("/api/generate", json=BODY).status_code == 200
+        r = c.post("/api/generate", json=BODY)
+    assert r.status_code == 429 and "每小时最多 1 次" in r.json()["detail"]
+
+
+class BrokenClient:
+    def complete(self, system, messages):
+        raise RuntimeError("API 超时")
+
+
+def test_model_failure_returns_502(indexed_store):
+    with make_client(indexed_store, client=BrokenClient()) as c:
+        r = c.post("/api/generate", json=BODY)
+    assert r.status_code == 502 and "API 超时" in r.json()["detail"]
+
+
+def test_html_from_model_is_escaped():
+    html = render_html('# 标题\n\n<script>alert(1)</script>\n\n[点我](javascript:alert(1))\n\n> 引用\n\n| a | b |\n|---|---|\n| 1 | 2 |')
+    assert "<script>" not in html and "&lt;script&gt;" in html
+    assert "javascript:" not in html
+    assert "<blockquote>" in html and "<table>" in html     # Markdown 的引用和表格不受影响

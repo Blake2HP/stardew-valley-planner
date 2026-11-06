@@ -5,5 +5,10 @@ json-repair>=0.30.0
 chromadb>=1.0.0
 sentence-transformers>=3.0.0  # 运行多语言 Embedding 模型，会一并安装 PyTorch
 
+# 网页版 Demo（web/）
+fastapi>=0.110
+uvicorn>=0.29
+markdown>=3.5
+
 # 开发 / 测试
 pytest>=8.0

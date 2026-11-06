@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星露谷物语 AI 攻略生成器（非官方 Demo）</title>
+<style>
+  :root {
+    --bg: #f6f1e4; --card: #fffdf7; --ink: #2f2a22; --muted: #7a705f; --line: #e3d9c3;
+    --green: #4f7a3a; --green-soft: #e4eedb; --amber: #b7791f; --amber-soft: #fbefd6;
+    --red: #a8432f; --red-soft: #f8e2dc; --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--ink); line-height: 1.6; }
+  header { padding: 28px 20px 8px; text-align: center; }
+  header h1 { margin: 0; font-size: 26px; }
+  header p { margin: 6px 0 0; color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; margin-left: 6px;
+           background: var(--amber-soft); color: var(--amber); vertical-align: middle; }
+  main { max-width: 1180px; margin: 0 auto; padding: 16px 20px 40px; display: grid;
+         grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  form .card { position: sticky; top: 12px; }
+  label { display: block; font-weight: 600; font-size: 14px; margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit;
+    background: #fff; color: var(--ink); }
+  input:focus, select:focus { outline: 2px solid var(--green-soft); border-color: var(--green); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 10px; font-size: 13px;
+          cursor: pointer; color: var(--ink); }
+  .chip:hover { border-color: var(--green); color: var(--green); }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+  .checks label { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; margin: 0; }
+  details { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 10px; }
+  summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--green); }
+  input[type=range] { width: 100%; accent-color: var(--green); }
+  button.primary { width: 100%; margin-top: 18px; padding: 11px; font-size: 16px; font-weight: 600; border: 0;
+                   border-radius: 10px; background: var(--green); color: #fff; cursor: pointer; }
+  button.primary:disabled { opacity: .6; cursor: wait; }
+  .secondary { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer;
+               font: inherit; font-size: 13px; }
+  .error { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--red-soft); color: var(--red);
+           font-size: 14px; display: none; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 20px; }
+  .empty .big { font-size: 46px; }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 20px; font-weight: 700; }
+  .stat .s { font-size: 12px; color: var(--muted); }
+  .stat.warn .v { color: var(--amber); }
+  .stat.ok .v { color: var(--green); }
+  .toolbar { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 10px; align-items: center; }
+  .toolbar .meta { margin-right: auto; color: var(--muted); font-size: 13px; }
+  .guide h1 { font-size: 22px; margin-top: 0; }
+  .guide h2 { font-size: 18px; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-top: 26px; }
+  .guide h3 { font-size: 16px; margin-top: 22px; }
+  .guide table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 8px 0; display: block; overflow-x: auto; }
+  .guide th, .guide td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+  .guide th { background: var(--green-soft); }
+  .guide blockquote { margin: 8px 0; padding: 6px 12px; background: var(--amber-soft); border-left: 4px solid var(--amber);
+                      border-radius: 6px; font-size: 14px; }
+  .guide hr { border: 0; border-top: 2px dashed var(--line); margin: 28px 0; }
+  .spinner { width: 34px; height: 34px; border: 4px solid var(--green-soft); border-top-color: var(--green);
+             border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer { max-width: 1180px; margin: 0 auto; padding: 0 20px 30px; color: var(--muted); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌱 星露谷物语 AI 攻略生成器 <span class="badge" id="providerBadge">加载中</span></h1>
+  <p>按你的玩法和节奏生成整季攻略：数字由程序根据游戏数据计算，跨季、资金和送礼由程序校验。</p>
+</header>
+
+<main>
+  <form id="form" autocomplete="off">
+    <div class="card">
+      <label for="playstyle">玩法风格</label>
+      <input id="playstyle" type="text" maxlength="100" value="钓鱼赚钱，兼顾种田" required>
+      <div class="chips" data-target="playstyle">
+        <button type="button" class="chip">种田极限赚钱</button>
+        <button type="button" class="chip">钓鱼赚钱，兼顾种田</button>
+        <button type="button" class="chip">酿酒加工为主</button>
+        <button type="button" class="chip">社交送礼优先</button>
+        <button type="button" class="chip">挖矿与全收集</button>
+      </div>
+
+      <label for="pacing">节奏偏好</label>
+      <input id="pacing" type="text" maxlength="50" value="休闲慢节奏" required>
+      <div class="chips" data-target="pacing">
+        <button type="button" class="chip">休闲慢节奏</button>
+        <button type="button" class="chip">稳健</button>
+        <button type="button" class="chip">速通极限</button>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="startSeason">从哪个季节开始</label>
+          <select id="startSeason"></select>
+        </div>
+        <div>
+          <label for="seasonCount">连续规划</label>
+          <select id="seasonCount"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="year">第几年</label>
+          <input id="year" type="number" min="1" max="10" value="1">
+        </div>
+        <div>
+          <label for="startGold">期初资金 <span class="hint">可留空</span></label>
+          <input id="startGold" type="number" min="0" placeholder="第 1 年春季默认 500g">
+        </div>
+      </div>
+
+      <details>
+        <summary>职业、肥料与品质（可选）</summary>
+        <label>职业 <span class="hint">工匠、农业学家二选一，会自动加上农耕人</span></label>
+        <div class="checks" id="professions"></div>
+
+        <label for="fertilizer">肥料 <span class="hint">每格只能施一种</span></label>
+        <select id="fertilizer"><option value="">不用肥料</option></select>
+
+        <div class="row">
+          <div>
+            <label for="farmingLevel">耕种等级 <span class="hint">留空不计品质</span></label>
+            <input id="farmingLevel" type="number" min="0" max="14" placeholder="0-14">
+          </div>
+          <div>
+            <label for="share">机器能加工 <span class="hint" id="shareText">100%</span></label>
+            <input id="share" type="range" min="0" max="100" step="10" value="100">
+          </div>
+        </div>
+      </details>
+
+      <button class="primary" id="submit" type="submit">生成攻略</button>
+      <div class="error" id="error"></div>
+    </div>
+  </form>
+
+  <section>
+    <div id="empty" class="card empty">
+      <div class="big">🧑‍🌾</div>
+      <p>在左边选好玩法，点“生成攻略”。<br>可以一次连续规划多个季节，上一季的资金和跨季作物会自动带到下一季。</p>
+    </div>
+    <div id="loading" class="card empty" style="display:none">
+      <div class="spinner"></div>
+      <p>正在生成攻略……已用 <span id="elapsed">0</span> 秒<br><span class="hint">真实模型每个季节大约需要几十秒</span></p>
+    </div>
+    <div id="result" style="display:none">
+      <div class="summary" id="summary"></div>
+      <div class="card">
+        <div class="toolbar">
+          <span class="meta" id="meta"></span>
+          <button type="button" class="secondary" id="copy">复制 Markdown</button>
+          <button type="button" class="secondary" id="download">下载 .md</button>
+        </div>
+        <article class="guide" id="guide"></article>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  非官方玩家自制工具，与 ConcernedApe 及《星露谷物语》官方无关。游戏数据整理自
+  <a href="https://stardewvalleywiki.com" target="_blank" rel="noopener">Stardew Valley Wiki</a>（1.6），
+  按 CC BY-NC-SA 3.0 使用，不得用于商业用途。攻略由 AI 生成，仅供参考。
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SEASONS = [["spring", "春季"], ["summer", "夏季"], ["fall", "秋季"], ["winter", "冬季"]];
+let lastMarkdown = "";
+let options = null;
+
+function escapeText(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+async function loadOptions() {
+  const res = await fetch("/api/options");
+  options = await res.json();
+  const badge = $("providerBadge");
+  badge.textContent = options.is_mock ? "演示数据（mock）" : `模型：${options.provider}`;
+
+  for (const [key, name] of SEASONS) $("startSeason").add(new Option(name, key));
+  for (let n = 1; n <= options.max_seasons; n++) $("seasonCount").add(new Option(n === 1 ? "1 季" : `${n} 季`, n));
+
+  const box = $("professions");
+  for (const p of options.professions) {
+    const label = document.createElement("label");
+    label.title = p.note;
+    label.innerHTML = `<input type="checkbox" value="${escapeText(p.key)}"> ${escapeText(p.name)}（${p.level} 级）`;
+    box.appendChild(label);
+  }
+  // 工匠和农业学家互斥；选了 10 级职业自动勾上农耕人
+  box.addEventListener("change", (e) => {
+    const p = options.professions.find((x) => x.key === e.target.value);
+    if (!e.target.checked || !p) return;
+    for (const other of p.excludes) {
+      const el = box.querySelector(`input[value="${other}"]`);
+      if (el) el.checked = false;
+    }
+    if (p.requires) box.querySelector(`input[value="${p.requires}"]`).checked = true;
+  });
+
+  const fert = $("fertilizer");
+  const groups = { speed: "加速肥料", quality: "品质肥料" };
+  for (const [kind, title] of Object.entries(groups)) {
+    const og = document.createElement("optgroup");
+    og.label = title;
+    for (const f of options.fertilizers.filter((x) => x.kind === kind)) og.appendChild(new Option(f.name, f.key));
+    fert.appendChild(og);
+  }
+}
+
+function seasonList() {
+  const start = SEASONS.findIndex(([k]) => k === $("startSeason").value);
+  const n = Number($("seasonCount").value);
+  return Array.from({ length: n }, (_, i) => SEASONS[(start + i) % 4][0]);
+}
+
+function numberOrNull(id) {
+  const v = $(id).value.trim();
+  return v === "" ? null : Number(v);
+}
+
+function gold(v) { return v === null || v === undefined ? "未知" : `${v.toLocaleString()}g`; }
+
+function renderSummary(data) {
+  const cards = data.seasons.map((s) => {
+    const warn = s.season_warnings.filter((w) => !/换季前一天|继续生长/.test(w)).length + s.gift_warnings.length;
+    const carry = s.carry.length ? `跨季：${s.carry.join("、")}` : "无跨季作物";
+    return `<div class="stat ${warn ? "warn" : "ok"}">
+      <div class="k">第 ${s.year} 年${escapeText(s.season_zh)} · 期末资金（只算种植）</div>
+      <div class="v">${gold(s.end_gold)}</div>
+      <div class="s">${warn ? `⚠️ ${warn} 条需要注意` : "✅ 校验通过"} · ${escapeText(carry)}</div>
+    </div>`;
+  });
+  $("summary").innerHTML = cards.join("");
+  const attempts = data.seasons.map((s) => s.attempts).join("、");
+  $("meta").textContent = `用时 ${data.elapsed_seconds} 秒 · 调用模型 ${attempts} 次 · ${data.provider}`;
+}
+
+let timer = null;
+function setLoading(on) {
+  $("submit").disabled = on;
+  $("submit").textContent = on ? "生成中……" : "生成攻略";
+  $("loading").style.display = on ? "" : "none";
+  if (on) {
+    $("empty").style.display = "none";
+    $("result").style.display = "none";
+    const t0 = Date.now();
+    $("elapsed").textContent = "0";
+    timer = setInterval(() => { $("elapsed").textContent = Math.round((Date.now() - t0) / 1000); }, 500);
+  } else {
+    clearInterval(timer);
+  }
+}
+
+function showError(msg) {
+  $("error").textContent = msg;
+  $("error").style.display = msg ? "block" : "none";
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  showError("");
+  const body = {
+    playstyle: $("playstyle").value.trim(),
+    pacing: $("pacing").value.trim(),
+    seasons: seasonList(),
+    year: Number($("year").value) || 1,
+    professions: [...document.querySelectorAll("#professions input:checked")].map((x) => x.value),
+    fertilizer: $("fertilizer").value || null,
+    farming_level: numberOrNull("farmingLevel"),
+    processing_share: Number($("share").value) / 100,
+    start_gold: numberOrNull("startGold"),
+  };
+  setLoading(true);
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join("；") : data.detail;
+      throw new Error(detail || `请求失败（${res.status}）`);
+    }
+    lastMarkdown = data.markdown;
+    $("guide").innerHTML = data.html;  // 服务端已转义模型输出中的 HTML
+    renderSummary(data);
+    $("result").style.display = "";
+  } catch (err) {
+    showError(err.message);
+    $("empty").style.display = "";
+  } finally {
+    setLoading(false);
+  }
+});
+
+for (const group of document.querySelectorAll(".chips")) {
+  group.addEventListener("click", (e) => {
+    if (e.target.classList.contains("chip")) $(group.dataset.target).value = e.target.textContent;
+  });
+}
+$("share").addEventListener("input", () => { $("shareText").textContent = `${$("share").value}%`; });
+$("copy").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(lastMarkdown);
+  $("copy").textContent = "已复制";
+  setTimeout(() => { $("copy").textContent = "复制 Markdown"; }, 1500);
+});
+$("download").addEventListener("click", () => {
+  const blob = new Blob([lastMarkdown], { type: "text/markdown;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `星露谷攻略-${seasonList().join("-")}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+loadOptions().catch(() => showError("无法连接服务器"));
+</script>
+</body>
+</html>
