@@ -1,5 +1,6 @@
 {
   "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Farming（职业）、https://stardewvalleywiki.com/Fertilizer 与 /Speed-Gro（肥料），核对日期 2026-11-05。",
+  "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_rounding": "价格逐步向下取整：加工品先按 基础售价 × 倍率 + 加成 取整，再乘职业倍率取整。wiki 例：花椰菜 175g → 农耕人 192g；果汁 393g → 工匠 550g；腌菜 400g → 工匠 560g。",
   "professions": {
     "tiller": {

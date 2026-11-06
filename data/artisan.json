@@ -1,5 +1,6 @@
 {
   "_source": "Stardew Valley Wiki（1.6），https://stardewvalleywiki.com/Keg 与 https://stardewvalleywiki.com/Preserves_Jar，核对日期 2026-11-05。",
+  "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_formula": "售价 = 基础售价 × multiplier + bonus；fixed_price 不为 null 时直接使用固定价格。加工品价格只看原料的基础售价，与原料品质无关。",
   "_processing": "processing_minutes 为游戏内分钟数，processing_days = 分钟数 / 1600（wiki：一整天 = 1600 分钟）。",
   "rules": [

@@ -159,6 +159,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── calendar.json           每季节日、采集季、换季日
 │   ├── bonuses.json            职业与肥料规则
 │   ├── farm.json               开局金币
+│   ├── NOTICE.md               数据来源与许可
 │   └── guides/*.md             攻略文本
 ├── tests/                      pytest 测试
 └── .claude/skills/stardew-data-guard/   Claude Code 项目 skill
@@ -223,6 +224,15 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 攻略文本检索从关键词匹配升级为向量检索（ChromaDB）
 - [x] 换用多语言 Embedding 模型（paraphrase-multilingual-MiniLM-L12-v2），提升中文检索效果
 - [ ] 用真实 API 测试模型输出的稳定性
+
+## 数据来源与许可
+
+| 内容 | 来源 | 许可 |
+|---|---|---|
+| `data/crops.json`、`artisan.json`、`bonuses.json`、`farm.json` 中的数值 | 整理自 [Stardew Valley Wiki](https://stardewvalleywiki.com)（1.6 版本，核对日期 2026-11-05） | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)，沿用原协议 |
+| `data/calendar.json`、`data/guides/` | 本项目自行编写（节日日期为游戏内固定日程） | 随项目代码 |
+
+Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights) 授权：使用时须署名，**不得用于商业用途**，改编后须以相同协议发布。因此，来自 wiki 的数据文件同样按 CC BY-NC-SA 3.0 提供；如果要把本项目用于商业用途，需要先取得 wiki 版权方的许可，或者换成自行核实的数据。详见 [data/NOTICE.md](data/NOTICE.md)。
 
 ## 声明
 

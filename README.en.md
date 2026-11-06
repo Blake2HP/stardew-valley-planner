@@ -163,6 +163,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── calendar.json           festivals, foraging seasons and season changes
 │   ├── bonuses.json            profession and fertilizer rules
 │   ├── farm.json               starting gold
+│   ├── NOTICE.md               data sources and licensing
 │   └── guides/*.md             guide texts
 ├── tests/                      pytest tests
 └── .claude/skills/stardew-data-guard/   Claude Code project skill
@@ -227,6 +228,15 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Upgrade guide-text search from keyword matching to vector search (ChromaDB)
 - [x] Switch to a multilingual embedding model (paraphrase-multilingual-MiniLM-L12-v2) for better Chinese retrieval
 - [ ] Test model output stability against real APIs
+
+## Data sources and licensing
+
+| Content | Source | License |
+|---|---|---|
+| Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
+| `data/calendar.json`, `data/guides/` | Written for this project (festival dates are the game's fixed schedule) | Same as the project code |
+
+Stardew Valley Wiki content is licensed under [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights): it requires attribution, **does not allow commercial use**, and adaptations must be shared under the same license. The data files derived from the wiki are therefore also provided under CC BY-NC-SA 3.0. Commercial use of this project requires permission from the wiki's copyright holders, or replacing that data with independently verified values. See [data/NOTICE.md](data/NOTICE.md).
 
 ## Disclaimer
 

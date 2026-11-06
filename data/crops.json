@@ -1,5 +1,6 @@
 {
   "_source": "Stardew Valley Wiki（1.6），https://stardewvalleywiki.com/Crops，核对日期 2026-11-05。种子价为皮埃尔杂货店价格（无则为注明的来源），售价为普通品质基础售价。",
+  "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_harvest_yield": "单次收获的期望产量 = 基础产量 + p / (1 − p)，p 为 wiki 标注的“额外产出几率”（额外产出可连续触发）。例：土豆 p = 20% → 1 + 0.25 = 1.25，与 wiki 写的“平均额外 0.25 个”一致。",
   "_speed_grow_days": "加速后的生长天数，键为总加速百分比：肥料（生长激素 10、高级生长激素 25、顶级生长激素 33）+ 农业学家 10。数据来自各作物 wiki 页面的 Agriculturist and Speed-Gro Comparison 日历（核对日期 2026-11-05）。游戏按阶段扣减天数且有浮点误差，所以不能简单按百分比换算。再生天数不受加速影响。",
   "_earliest_available_day": "当季最早能买到种子的日期。草莓种子只在复活节（春季第 13 天）出售；沙漠绿洲的种子要先修好巴士，与日期无关，这里记为 1。",
