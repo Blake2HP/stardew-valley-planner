@@ -1,0 +1,36 @@
+{
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Farming（职业）、https://stardewvalleywiki.com/Fertilizer 与 /Speed-Gro（肥料），核对日期 2026-11-05。",
+  "_rounding": "价格逐步向下取整：加工品先按 基础售价 × 倍率 + 加成 取整，再乘职业倍率取整。wiki 例：花椰菜 175g → 农耕人 192g；果汁 393g → 工匠 550g；腌菜 400g → 工匠 560g。",
+  "professions": {
+    "tiller": {
+      "name_zh": "农耕人", "level": 5, "requires": null, "excludes": ["rancher"],
+      "crop_price_multiplier": 1.1,
+      "applies_to_categories": ["vegetable", "fruit", "flower", "special"],
+      "note": "作物售价 +10%（所有蔬菜、花卉，以及非采集得到的水果）"
+    },
+    "artisan": {
+      "name_zh": "工匠", "level": 10, "requires": "tiller", "excludes": ["agriculturist"],
+      "artisan_price_multiplier": 1.4,
+      "note": "工匠物品（果酒、果汁、果酱、腌菜等）售价 +40%"
+    },
+    "agriculturist": {
+      "name_zh": "农业学家", "level": 10, "requires": "tiller", "excludes": ["artisan"],
+      "growth_speed_percent": 10,
+      "note": "所有作物生长速度 +10%，可与加速肥料叠加（如生长激素 + 农业学家 = 20%）；不缩短再生时间"
+    }
+  },
+  "fertilizers": {
+    "speed_gro": {
+      "name_zh": "生长激素", "name_en": "Speed-Gro", "growth_speed_percent": 10,
+      "price": 100, "source": "皮埃尔杂货店（第一年春季第 15 天起）或自制（耕种等级 3）"
+    },
+    "deluxe_speed_gro": {
+      "name_zh": "高级生长激素", "name_en": "Deluxe Speed-Gro", "growth_speed_percent": 25,
+      "price": 150, "source": "皮埃尔杂货店（第二年起）或自制（耕种等级 8）"
+    },
+    "hyper_speed_gro": {
+      "name_zh": "顶级生长激素", "name_en": "Hyper Speed-Gro", "growth_speed_percent": 33,
+      "price": null, "source": "齐先生的核桃屋用齐钻兑换，或自制（需要配方）"
+    }
+  }
+}

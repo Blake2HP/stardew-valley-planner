@@ -28,7 +28,8 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
     out += [
         f"# {icon} 星露谷物语 · 第 {result.year} 年{season_zh}攻略",
         "",
-        f"> **玩法风格**：{result.playstyle}　|　**节奏偏好**：{result.pacing}",
+        f"> **玩法风格**：{result.playstyle}　|　**节奏偏好**：{result.pacing}"
+        + ("" if result.bonuses.is_empty else f"　|　**{result.bonuses.describe()}**"),
         "",
     ]
 
@@ -75,12 +76,14 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
     # ---- 数据附录（来自本地数值，非模型生成）----
     if data:
         out += ["## 📊 数据参考：本季作物收益排行", "",
-                "| 作物 | 种子价 | 售价 | 最早种植 | 整季收获 | 单格净利 | 最佳加工 |", "|---|---:|---:|:---:|:---:|---:|---|"]
-        for r in rank_crops(data, result.season):
+                "| 作物 | 种子价 | 售价 | 生长天数 | 最早种植 | 整季收获 | 单格净利 | 最佳加工 |",
+                "|---|---:|---:|:---:|:---:|:---:|---:|---|"]
+        for r in rank_crops(data, result.season, bonuses=result.bonuses):
             artisan = f"{r.best_artisan} ({r.artisan_unit_price}g)" if r.best_artisan else "-"
-            out.append(f"| {r.crop.name} | {r.crop.seed_price}g | {r.crop.sell_price}g | 第 {r.plant_day} 天 | "
+            out.append(f"| {r.crop.name} | {r.crop.seed_price}g | {r.sell_price}g | {r.grow_days} 天 | 第 {r.plant_day} 天 | "
                        f"{r.harvests} 次 | {r.profit_per_tile}g | {artisan} |")
+        applied = "未计入职业与肥料加成" if result.bonuses.is_empty else f"已计入 {result.bonuses.describe()}"
         out += ["", "> 收益为本地数据计算的估算值（从种子最早开售日起种植、收获后立即补种），"
-                "未计入品质加成与职业加成。数值来源：Stardew Valley Wiki（1.6）。", ""]
+                f"{applied}，未计入作物品质加成。数值来源：Stardew Valley Wiki（1.6）。", ""]
 
     return "\n".join(out)

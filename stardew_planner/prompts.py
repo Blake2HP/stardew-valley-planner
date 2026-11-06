@@ -55,6 +55,7 @@ USER_PROMPT_TEMPLATE = """\
 ## 玩家画像
 - 玩法风格：{playstyle}
 - 节奏偏好：{pacing}
+- 职业与肥料：{bonuses}
 
 ## 数据参考
 

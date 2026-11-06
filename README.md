@@ -81,17 +81,21 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | `--provider` | `anthropic` / `openai` / `mock` | 环境变量 `LLM_PROVIDER`，未设置时为 `anthropic` |
 | `--model` | 覆盖默认模型名 | 环境变量 `ANTHROPIC_MODEL` / `OPENAI_MODEL` |
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
+| `--professions` | 职业，逗号分隔：`tiller`（农耕人，作物 +10%）、`artisan`（工匠，加工品 +40%）、`agriculturist`（农业学家，生长 +10%）。也可以写中文名；选工匠或农业学家会自动加入农耕人，两者只能二选一 | 无 |
+| `--fertilizer` | 加速肥料：`speed_gro`（生长激素 10%）、`deluxe_speed_gro`（高级 25%）、`hyper_speed_gro`（顶级 33%） | 无 |
 
 ### 在代码中调用
 
 ```python
 from stardew_planner import generate_strategy
 
-result = generate_strategy("钓鱼赚钱", "休闲慢节奏", season="spring", provider="mock")
+result = generate_strategy("钓鱼赚钱", "休闲慢节奏", season="spring", provider="mock",
+                           professions=["artisan"], fertilizer="speed_gro")
 print(result.markdown)          # 完整攻略
 print(result.schedule)          # 合并后的日程区间
 print(result.season_warnings)   # 换季校验结果
 print(result.attempts, result.json_parse_method)  # 调用模型次数、JSON 解析方式
+print(result.bonuses.describe())  # 职业：农耕人、工匠；肥料：生长激素
 ```
 
 ## 工作流程
@@ -130,11 +134,13 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── season_rules.py         跨季规则校验
 │   ├── schedule.py             日程合并
 │   ├── renderer.py             Markdown 渲染
+│   ├── bonuses.py              职业与加速肥料加成
 │   └── generator.py            generate_strategy() 主流程
 ├── data/
 │   ├── crops.json              作物：季节、种子价、售价、生长/再生天数、产量
 │   ├── artisan.json            加工规则：倍率、加成、固定价格、耗时
 │   ├── calendar.json           每季节日、采集季、换季日
+│   ├── bonuses.json            职业与肥料规则
 │   └── guides/*.md             攻略文本
 ├── tests/                      pytest 测试
 └── .claude/skills/stardew-data-guard/   Claude Code 项目 skill
@@ -151,7 +157,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
  "seed_source": "皮埃尔杂货店"}
 ```
 
-`category` 决定适用哪些加工规则（`fruit` / `vegetable` / `flower` / `special`），`regrow_days` 为 `null` 表示只能收获一次。`harvest_yield` 是单次收获的期望产量（基础产量 + p / (1 − p)，p 为额外产出几率）。`earliest_available_day` 是当季最早能买到种子的日期，普通作物为 1。
+`category` 决定适用哪些加工规则（`fruit` / `vegetable` / `flower` / `special`），`regrow_days` 为 `null` 表示只能收获一次。`harvest_yield` 是单次收获的期望产量（基础产量 + p / (1 − p)，p 为额外产出几率）。`earliest_available_day` 是当季最早能买到种子的日期，普通作物为 1。`speed_grow_days` 是加速后的生长天数，键为总加速百分比（肥料 10 / 25 / 33，加上农业学家 10），数据取自各作物 wiki 页面的日历：游戏按阶段扣减天数且有浮点误差，不能按百分比直接换算（例如山药 10 天在 20% 加速下是 7 天，不是 8 天）。
 
 **新增攻略文本**：在 `data/guides/` 下放 `.md` 或 `.txt` 文件。每个 `## 标题` 是一个片段，片段下方可以加一行 `标签: 春季, 钓鱼, 新手`，用于检索时匹配玩法。
 
@@ -161,7 +167,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 python -m pytest
 ```
 
-目前有 117 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
+目前有 160 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
 
 ## Claude Code skill：`stardew-data-guard`
 
@@ -177,6 +183,7 @@ python -m pytest
 python .claude/skills/stardew-data-guard/scripts/sv.py crop 草莓
 python .claude/skills/stardew-data-guard/scripts/sv.py artisan 草莓
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 草莓 --plant-day 14
+python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professions agriculturist --fertilizer speed_gro
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --fix
 ```
@@ -186,7 +193,8 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 ## 当前局限与计划
 
 - [x] 用游戏 1.6 版本的真实数值替换 mock 数据（来源：Stardew Valley Wiki）
-- [ ] 补充 NPC 数据（喜好、生日、好感度）、品质与职业加成、肥料
+- [x] 职业加成（农耕人、工匠、农业学家）与加速肥料（生长激素、高级、顶级）
+- [ ] 补充 NPC 数据（喜好、生日、好感度）、作物品质加成、品质类肥料（普通 / 高级 / 顶级肥料）
 - [x] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
 - [ ] 补充更多作物（大蒜、蓝爵、小麦、向日葵、红叶卷心菜等），并记录只在第二年起出售的种子
 - [ ] 支持跨季、全年连续规划

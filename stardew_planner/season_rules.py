@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .bonuses import NO_BONUSES, Bonuses
 from .data_loader import SEASON_ZH, Crop, GameData, normalize_season
 
 SEASON_DAYS = 28
@@ -43,9 +44,9 @@ def survives_season_change(crop: Crop, season: str) -> bool:
     return next_season(season) in crop.seasons
 
 
-def last_safe_plant_day(crop: Crop) -> int:
-    """最晚种植日 = 28 − 生长天数。"""
-    return SEASON_DAYS - crop.grow_days
+def last_safe_plant_day(crop: Crop, bonuses: Bonuses = NO_BONUSES) -> int:
+    """最晚种植日 = 28 − 生长天数（生长天数已计入加速肥料 / 农业学家）。"""
+    return SEASON_DAYS - bonuses.grow_days(crop)
 
 
 def _governing_verb(seg: str, crop_pos: int, crop_end: int) -> int | None:
@@ -91,7 +92,9 @@ def _planted_crops(goal: str, crops: list[Crop]) -> list[Crop]:
     return found
 
 
-def check_plantings(daily_goals: dict[int, str], data: GameData, season: str) -> list[SeasonWarning]:
+def check_plantings(
+    daily_goals: dict[int, str], data: GameData, season: str, bonuses: Bonuses = NO_BONUSES
+) -> list[SeasonWarning]:
     season = normalize_season(season)
     nxt = next_season(season)
     warnings = []
@@ -112,12 +115,14 @@ def check_plantings(daily_goals: dict[int, str], data: GameData, season: str) ->
                 ))
             elif survives_season_change(crop, season):
                 continue
-            elif day + crop.grow_days > SEASON_DAYS:
+            elif day + bonuses.grow_days(crop) > SEASON_DAYS:
+                grow = bonuses.grow_days(crop)
+                speed = f"（已计入 {bonuses.speed_sources()}）" if bonuses.growth_speed_percent else ""
                 warnings.append(SeasonWarning(
                     day, crop.name,
                     f"{crop.name}来不及成熟，进入{SEASON_ZH[nxt]}时会枯死",
-                    f"成熟日 = 种植日 {day} + 生长 {crop.grow_days} 天 = {day + crop.grow_days} > {SEASON_DAYS}；"
-                    f"最晚种植日 = {SEASON_DAYS} − {crop.grow_days} = {last_safe_plant_day(crop)}",
+                    f"成熟日 = 种植日 {day} + 生长 {grow} 天{speed} = {day + grow} > {SEASON_DAYS}；"
+                    f"最晚种植日 = {SEASON_DAYS} − {grow} = {last_safe_plant_day(crop, bonuses)}",
                 ))
     return warnings
 

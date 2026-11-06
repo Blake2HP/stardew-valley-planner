@@ -85,17 +85,21 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `--provider` | `anthropic` / `openai` / `mock` | env var `LLM_PROVIDER`, else `anthropic` |
 | `--model` | Override the default model name | env var `ANTHROPIC_MODEL` / `OPENAI_MODEL` |
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
+| `--professions` | Comma-separated professions: `tiller` (crops +10%), `artisan` (artisan goods +40%), `agriculturist` (growth +10%). Chinese names also work; choosing Artisan or Agriculturist adds Tiller automatically, and the two exclude each other | none |
+| `--fertilizer` | Speed fertilizer: `speed_gro` (10%), `deluxe_speed_gro` (25%), `hyper_speed_gro` (33%) | none |
 
 ### Use from Python
 
 ```python
 from stardew_planner import generate_strategy
 
-result = generate_strategy("钓鱼赚钱", "休闲慢节奏", season="spring", provider="mock")
+result = generate_strategy("钓鱼赚钱", "休闲慢节奏", season="spring", provider="mock",
+                           professions=["artisan"], fertilizer="speed_gro")
 print(result.markdown)          # full guide
 print(result.schedule)          # merged schedule blocks
 print(result.season_warnings)   # season-change check results
 print(result.attempts, result.json_parse_method)  # number of model calls, JSON parse method
+print(result.bonuses.describe())  # applied professions and fertilizer
 ```
 
 ## How it works
@@ -134,11 +138,13 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── season_rules.py         season-change checks
 │   ├── schedule.py             schedule merging
 │   ├── renderer.py             Markdown rendering
+│   ├── bonuses.py              profession and speed-fertilizer bonuses
 │   └── generator.py            generate_strategy() pipeline
 ├── data/
 │   ├── crops.json              crops: seasons, seed price, sell price, growth/regrow days, yield
 │   ├── artisan.json            artisan rules: multiplier, bonus, fixed price, processing time
 │   ├── calendar.json           festivals, foraging seasons and season changes
+│   ├── bonuses.json            profession and fertilizer rules
 │   └── guides/*.md             guide texts
 ├── tests/                      pytest tests
 └── .claude/skills/stardew-data-guard/   Claude Code project skill
@@ -155,7 +161,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
  "seed_source": "皮埃尔杂货店"}
 ```
 
-`category` decides which artisan rules apply (`fruit` / `vegetable` / `flower` / `special`). `regrow_days: null` means the crop is harvested only once. `harvest_yield` is the expected yield per harvest (base yield + p / (1 − p), where p is the chance of extra crops). `earliest_available_day` is the first day of the season the seeds can be bought; it is 1 for regular crops. `name` is the Chinese name used in schedules; `name_en` is also accepted by the `sv.py` lookup tool.
+`category` decides which artisan rules apply (`fruit` / `vegetable` / `flower` / `special`). `regrow_days: null` means the crop is harvested only once. `harvest_yield` is the expected yield per harvest (base yield + p / (1 − p), where p is the chance of extra crops). `earliest_available_day` is the first day of the season the seeds can be bought; it is 1 for regular crops. `speed_grow_days` holds growth days under speed bonuses, keyed by total speed percent (fertilizer 10 / 25 / 33, plus 10 for Agriculturist). The values come from the calendars on each crop's wiki page: the game removes days per growth stage and has floating-point quirks, so they can't be derived from the percentage (e.g. Yam takes 7 days at 20%, not 8). `name` is the Chinese name used in schedules; `name_en` is also accepted by the `sv.py` lookup tool.
 
 **Add guide text**: put `.md` or `.txt` files in `data/guides/`. Each `## heading` becomes one passage. A line like `标签: 春季, 钓鱼, 新手` (tags: spring, fishing, beginner) under the heading is used to match playstyles during search.
 
@@ -165,7 +171,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 117 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
+There are currently 160 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
 
 ## Claude Code skill: `stardew-data-guard`
 
@@ -181,6 +187,7 @@ The bundled CLI tool can also be used on its own:
 python .claude/skills/stardew-data-guard/scripts/sv.py crop Strawberry
 python .claude/skills/stardew-data-guard/scripts/sv.py artisan Strawberry
 python .claude/skills/stardew-data-guard/scripts/sv.py profit Strawberry --plant-day 14
+python .claude/skills/stardew-data-guard/scripts/sv.py profit Potato --professions agriculturist --fertilizer speed_gro
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --fix
 ```
@@ -190,7 +197,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 ## Limitations and roadmap
 
 - [x] Replace the mock data with real 1.6 values (source: Stardew Valley Wiki)
-- [ ] Add NPC data (gift preferences, birthdays, friendship), quality and profession bonuses, fertilizer
+- [x] Profession bonuses (Tiller, Artisan, Agriculturist) and speed fertilizers (Speed-Gro, Deluxe, Hyper)
+- [ ] Add NPC data (gift preferences, birthdays, friendship), crop quality bonuses, and quality fertilizers (Basic / Quality / Deluxe Fertilizer)
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
 - [ ] Add more crops (Garlic, Blue Jazz, Wheat, Sunflower, Red Cabbage, etc.) and track seeds that are only sold from year 2
 - [ ] Support multi-season and full-year planning

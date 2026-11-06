@@ -56,6 +56,8 @@ class Crop:
     harvest_yield: float = 1.0
     seed_source: str = "皮埃尔杂货店"
     earliest_available_day: int = 1  # 当季最早能买到种子的日期（如草莓 = 13，复活节）
+    # 加速后的生长天数，键为总加速百分比（"10"/"20"/"25"/"33"/"35"/"43"），见 bonuses.py
+    speed_grow_days: dict = field(default_factory=dict, compare=False, hash=False)
 
 
 @dataclass(frozen=True)

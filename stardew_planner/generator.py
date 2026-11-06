@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Iterable
 
 from .analysis import SEASON_DAYS, build_data_context
+from .bonuses import NO_BONUSES, Bonuses, resolve_bonuses
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .llm_client import LLMClient, get_client
@@ -31,6 +33,7 @@ class StrategyResult:
     daily_goals: dict[int, str]
     schedule: list[ScheduleBlock] = field(default_factory=list)
     season_warnings: list[str] = field(default_factory=list)
+    bonuses: Bonuses = NO_BONUSES  # 职业与肥料加成
     markdown: str = ""
     raw_response: str = ""
     guide_excerpts: str = ""     # 检索到并放进 Prompt 的攻略片段
@@ -127,6 +130,8 @@ def generate_strategy(
     data: GameData | None = None,
     guide_store: GuideStore | None = None,
     n_guides: int = 3,
+    professions: Iterable[str] = (),
+    fertilizer: str | None = None,
     max_retries: int = 1,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
@@ -138,8 +143,11 @@ def generate_strategy(
         provider: anthropic / openai / mock（默认读环境变量 LLM_PROVIDER）。
         guide_store: 攻略向量库，默认使用 data/.chroma_db；不可用时退回关键词检索。
         n_guides: 检索的攻略片段数。
+        professions: 职业，如 ["tiller", "artisan"] 或中文名；10 级职业会自动加入前置的农耕人。
+        fertilizer: 加速肥料：speed_gro / deluxe_speed_gro / hyper_speed_gro（或中文名）。
     """
     season_key = normalize_season(season)
+    bonuses = resolve_bonuses(professions, fertilizer)
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
     client = client or get_client(provider, model)
@@ -149,7 +157,7 @@ def generate_strategy(
     guide_excerpts = search_guides(
         guide_query, n_results=n_guides, store=guide_store, fallback_chunks=data.guide_chunks
     )
-    context = build_data_context(data, season_key, guide_excerpts)
+    context = build_data_context(data, season_key, guide_excerpts, bonuses)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -179,7 +187,7 @@ def generate_strategy(
             ]
 
     # 3) 跨季规则校验：检查来不及成熟的种植，并强制第 28 天写入清理目标
-    warnings = [f"⚠️ {w}" for w in check_plantings(goals, data, season_key)]
+    warnings = [f"⚠️ {w}" for w in check_plantings(goals, data, season_key, bonuses)]
     goals, inserted = enforce_season_end(goals)
     dying = "、".join(c.name for c in withering_crops(data, season_key))
     if dying:
@@ -190,6 +198,7 @@ def generate_strategy(
     # 4) 合并日程 + 渲染
     result = StrategyResult(
         playstyle=playstyle,
+        bonuses=bonuses,
         pacing=pacing,
         season=season_key,
         year=year,
