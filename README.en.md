@@ -151,6 +151,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 
 ```
 ├── main.py                     CLI entry point
+├── scripts/eval_llm.py         stability evaluation against the real API
 ├── stardew_planner/
 │   ├── data_loader.py          data loading, guide chunking, ChromaDB indexing and semantic search
 │   ├── analysis.py             profit calculation, builds the prompt's data reference
@@ -199,6 +200,19 @@ python -m pytest
 ```
 
 There are currently 311 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), birthday injection and gift checks (gift detection, preferences and exceptions, gifts on the birthday), multi-season planning (cross-season harvests, gold and cash flow, injecting the end-of-season state into the next prompt, season order), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), crop quality and quality fertilizers (odds checked against the wiki tables, quality prices, expected profit with Deluxe Fertilizer, capacity-based sell-or-process plans), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, and `sv.py` output and exit codes.
+
+## Model stability evaluation
+
+`scripts/eval_llm.py` runs a set of preset cases against the real API (spring speedrun profit, relaxed spring fishing, summer corn into fall, fall winemaking, winter mining and collecting, year-2 spring socializing with birthday gifts, fall Deluxe Fertilizer quality farming). It reports the success rate, first-try success rate, `attempts`, JSON parse methods, how often `season_warnings` and gift warnings fire and what they say, and `finance.end_gold`, then prints Markdown tables.
+
+```bash
+python scripts/eval_llm.py --list                          # list the cases
+python scripts/eval_llm.py --runs 3 --json eval.json       # run each case 3 times and save raw results
+python scripts/eval_llm.py --only spring_rush fall_wine    # run only some cases
+python scripts/eval_llm.py --provider mock                 # check the script offline, no API cost
+```
+
+Real providers call the model at least once per run, which costs API credit. `--cases my_cases.json` swaps in your own cases (same fields as `DEFAULT_CASES` in the script). The script exits with code 1 if any run fails.
 
 ## Claude Code skill: `stardew-data-guard`
 

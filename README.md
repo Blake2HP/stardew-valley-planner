@@ -147,6 +147,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 
 ```
 ├── main.py                     命令行入口
+├── scripts/eval_llm.py         真实 API 稳定性评估
 ├── stardew_planner/
 │   ├── data_loader.py          数据加载、攻略切块、ChromaDB 入库与语义检索
 │   ├── analysis.py             收益计算，生成 Prompt 中的【数据参考】
@@ -195,6 +196,19 @@ python -m pytest
 ```
 
 目前有 311 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、按年份过滤作物（第 2 年起出售的种子）、NPC 生日注入与送礼校验（礼物识别、喜好与例外、生日当天送礼）、跨季连续规划（跨季收获模拟、资金与现金流、季末状态注入下一季 Prompt、季节连续性）、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、作物品质与品质肥料（概率对照 wiki 表格、四档售价、顶级肥料收益期望值、按机器容量分配的出售策略）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
+
+## 模型稳定性评估
+
+`scripts/eval_llm.py` 用真实 API 跑一组预设用例（春季极限赚钱、春季休闲钓鱼、夏季种玉米跨秋、秋季酿酒、冬季挖矿全收集、第 2 年春季社交送礼、秋季顶级肥料品质农业），统计成功率、一次生成成功率、`attempts`、JSON 解析方式、`season_warnings` 与送礼警告的触发频率和内容、`finance.end_gold`，结束后打印 Markdown 统计表。
+
+```bash
+python scripts/eval_llm.py --list                          # 查看用例
+python scripts/eval_llm.py --runs 3 --json eval.json       # 每个用例跑 3 次，并保存原始结果
+python scripts/eval_llm.py --only spring_rush fall_wine    # 只跑部分用例
+python scripts/eval_llm.py --provider mock                 # 离线检查脚本本身，不消耗额度
+```
+
+真实 provider 每次运行至少调用一次模型，会产生 API 费用。用 `--cases my_cases.json` 可以换成自定义用例（字段同脚本里的 `DEFAULT_CASES`）。有运行失败时脚本退出码为 1。
 
 ## Claude Code skill：`stardew-data-guard`
 
