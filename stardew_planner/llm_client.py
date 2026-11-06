@@ -188,7 +188,7 @@ MOCK_FALL = {
     },
     "key_milestones": [
         {"day": 16, "event": "星露谷展览会", "preparation": "准备 9 类展品", "prepare_by_day": 15},
-        {"day": 27, "event": "万灵节前夜", "preparation": "晚上去小镇广场", "prepare_by_day": 27},
+        {"day": 27, "event": "万灵节", "preparation": "晚上去小镇广场", "prepare_by_day": 27},
         {"day": 28, "event": "换季日", "preparation": "收完所有作物", "prepare_by_day": 27},
     ],
     "daily_goals": _goals(

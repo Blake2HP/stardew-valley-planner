@@ -86,8 +86,9 @@ class ArtisanRule:
 class CalendarEvent:
     day: int
     name: str
-    type: str
+    type: str  # festival / event / forage / unlock / season，见 data/calendar.json 的 _note
     tip: str
+    name_en: str = ""  # 中文名为本项目译名时附上英文名
 
 
 @dataclass(frozen=True)

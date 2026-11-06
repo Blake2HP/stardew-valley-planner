@@ -22,7 +22,7 @@ Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://creativecommons.org/l
 
 ## 本项目自行编写的内容
 
-- `calendar.json`：节日、采集季与换季日期为游戏内固定日程，提示文字（`tip`）由本项目编写；
+- `calendar.json`：节日、采集季与换季日期为游戏内固定日程（已与 wiki 各节日页面核对），中文名取自官方 wiki 中文版（沙漠节、鳟鱼大赛为本项目译名），提示文字（`tip`）由本项目编写；
 - `guides/`：攻略文本由本项目编写，没有从任何 wiki 复制。
 
 这部分内容随项目代码一起发布。
