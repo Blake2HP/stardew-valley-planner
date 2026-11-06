@@ -44,6 +44,16 @@ def normalize_season(season: str) -> str:
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class Byproduct:
+    """收获时附带的副产物（如小麦的干草）。"""
+    name: str
+    name_en: str
+    chance: float          # 每次收获掉落 1 个的几率
+    sell_price: int = 0
+    note: str = ""
+
+
+@dataclass(frozen=True)
 class Crop:
     name: str
     name_en: str
@@ -59,6 +69,8 @@ class Crop:
     available_year: int = 1  # 种子从第几年开始出售（如大蒜、红叶卷心菜 = 2）
     # 加速后的生长天数，键为总加速百分比（"10"/"20"/"25"/"33"/"35"/"43"），见 bonuses.py
     speed_grow_days: dict = field(default_factory=dict, compare=False, hash=False)
+    seed_drop: float = 0.0  # 每次收获平均掉落的种子数（向日葵 = 1），补种时先用掉落的种子
+    byproducts: tuple[Byproduct, ...] = field(default=(), compare=False, hash=False)
 
 
 @dataclass(frozen=True)
@@ -204,7 +216,8 @@ def _read_json(path: Path) -> dict:
 
 def load_crops(path: Path) -> list[Crop]:
     raw = _read_json(path)["crops"]
-    return [Crop(**{**item, "seasons": tuple(item["seasons"])}) for item in raw]
+    return [Crop(**{**item, "seasons": tuple(item["seasons"]),
+                    "byproducts": tuple(Byproduct(**b) for b in item.get("byproducts", ()))}) for item in raw]
 
 
 def load_artisan_rules(path: Path) -> list[ArtisanRule]:

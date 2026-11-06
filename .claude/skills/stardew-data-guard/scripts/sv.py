@@ -23,7 +23,7 @@ PROJECT_ROOT = Path(os.getenv("STARDEW_PROJECT_ROOT", Path(__file__).resolve().p
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from stardew_planner.analysis import (  # noqa: E402
-    available_growing_days, effective_plant_day, harvest_plan, sale_plan, season_profit,
+    available_growing_days, crop_note, effective_plant_day, harvest_plan, sale_plan, season_profit, seeds_to_buy,
 )
 from stardew_planner.bonuses import QUALITIES, Bonuses, floor_mul, gold_chance, resolve_bonuses  # noqa: E402
 from stardew_planner.data_loader import SEASON_ZH, Crop, GameData, load_game_data, normalize_season  # noqa: E402
@@ -95,6 +95,8 @@ def cmd_crop(data: GameData, a) -> None:
     print(f"  种子价: {c.seed_price}g（{c.seed_source}）  售价: {c.sell_price}g  类别: {c.category}")
     print(f"  生长天数: {c.grow_days}  再生天数: {c.regrow_days or '不可再生'}  单次产量: {c.harvest_yield}")
     print(f"  最早开售日: 第 {c.earliest_available_day} 天  开售年份: 第 {c.available_year} 年起")
+    if crop_note(c):
+        print(f"  备注: {crop_note(c)}")
     speeds = "  ".join(f"{k}%→{v}天" for k, v in c.speed_grow_days.items())
     print(f"  加速后生长天数: {speeds or '无数据'}")
     if not b.is_empty:
@@ -181,13 +183,20 @@ def cmd_profit(data: GameData, a) -> None:
     else:
         print(f"  收获次数 = ⌊(可用天数 {n} − 1) / 生长 {g}⌋ = {harvests}（收获后立即补种，种子 {seeds} 份）")
 
+    bought = seeds_to_buy(c, harvests, seeds)
+    if bought != seeds:
+        replants = seeds - 1
+        print(f"  购买种子数 = 种子 {seeds} 份 − 补种 {replants} 次 × min(1, 每次掉落 {c.seed_drop:g} 颗) = {bought:g} 份"
+              f"（补种先用收获掉落的种子）")
     revenue = harvests * value
-    profit = revenue - seeds * c.seed_price - fert
+    profit = revenue - bought * c.seed_price - fert
     # 与项目代码 analysis.season_profit 保持一致（它对净利取整）
     assert (harvests, int(profit)) == season_profit(c, d, b), "sv.py 与 analysis.season_profit 计算不一致"
     fert_text = f" − 肥料 {fert}" if b.fertilizer else ""
-    print(f"  单格净利 = 收获次数 {harvests} × {unit_text} − 种子数 {seeds} × 种子价 {c.seed_price}"
-          f"{fert_text} = {revenue:g} − {seeds * c.seed_price}{fert_text} = {profit:g}g")
+    print(f"  单格净利 = 收获次数 {harvests} × {unit_text} − 购买种子 {bought:g} × 种子价 {c.seed_price}"
+          f"{fert_text} = {revenue:g} − {bought * c.seed_price:g}{fert_text} = {profit:g}g")
+    if crop_note(c):
+        print(f"  备注：{crop_note(c)}")
     print(f"  占地日均 = 单格净利 {profit:g} / 可用天数 {n} = {profit / n:.2f}g/天")
     if b.fertilizer and not b.fertilizer.price:
         print(f"  注：{b.fertilizer.name_zh}无法直接购买（{b.fertilizer.source}），肥料成本按 0 计。")

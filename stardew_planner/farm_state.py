@@ -207,12 +207,16 @@ def compute_finance(
 ) -> SeasonFinance:
     """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。"""
     revenue_by_day: dict[int, float] = {}
+    drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
     lines = []
 
     def add_harvests(crop: Crop, tiles: int, days, label: str):
         days = [d for d in days if d <= SEASON_DAYS]
         if not days:
             return
+        for d in days:
+            if crop.seed_drop:
+                drops_by_day[(crop.name, d)] = drops_by_day.get((crop.name, d), 0) + tiles * crop.seed_drop
         price = bonuses.crop_price(crop)
         value = bonuses.expected_crop_value(crop)  # 每格每次收获的期望收入（计入品质）
         each = tiles * value
@@ -230,10 +234,27 @@ def compute_finance(
     for p in plantings:
         add_harvests(p.crop, p.tiles, p.harvests, f"{p.crop.name}（第 {p.day} 天种）")
 
-    seed_cost = sum(p.tiles * p.crop.seed_price for p in plantings)
+    # 种子：逐日先收进掉落的种子，补种时先用掉落的，不够再买（同一天先收获、再播种）
+    inventory: dict[str, float] = {}
+    spent_by_day: dict[int, float] = {}
+    terms, seed_total = [], 0.0
+    by_day: dict[int, list[Planting]] = {}
+    for p in plantings:
+        by_day.setdefault(p.day, []).append(p)
+    for day in range(1, SEASON_DAYS + 1):
+        for (name, d), n in drops_by_day.items():
+            if d == day:
+                inventory[name] = inventory.get(name, 0) + n
+        for p in by_day.get(day, []):
+            used = min(inventory.get(p.crop.name, 0), p.tiles)
+            inventory[p.crop.name] = inventory.get(p.crop.name, 0) - used
+            cost = (p.tiles - used) * p.crop.seed_price
+            spent_by_day[day] = spent_by_day.get(day, 0) + cost
+            seed_total += cost
+            terms.append(f"({p.tiles} − 掉落种子 {used:g}) × {p.crop.seed_price}" if used else f"{p.tiles} × {p.crop.seed_price}")
+    seed_cost = int(seed_total)
     if plantings:
-        lines.append("种子支出 = " + " + ".join(f"{p.tiles} × {p.crop.seed_price}" for p in plantings)
-                     + f" = {seed_cost}g")
+        lines.append("种子支出 = " + " + ".join(terms) + f" = {seed_cost}g")
 
     fert_cost = 0
     fert = bonuses.fertilizer
@@ -256,9 +277,6 @@ def compute_finance(
     # 逐日现金流（只算种植收支）：找出第一次买不起种子的日子
     if start_gold is not None:
         cash = float(start_gold)
-        spent_by_day: dict[int, int] = {}
-        for p in plantings:
-            spent_by_day[p.day] = spent_by_day.get(p.day, 0) + p.tiles * p.crop.seed_price
         for day in range(1, SEASON_DAYS + 1):
             cash += revenue_by_day.get(day, 0) - spent_by_day.get(day, 0)
             if cash < 0:

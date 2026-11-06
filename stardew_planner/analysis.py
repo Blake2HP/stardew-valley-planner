@@ -57,6 +57,18 @@ def harvest_plan(grow_days: int, regrow_days: int | None, days_left: int) -> tup
     return harvests, max(harvests, 1)
 
 
+def seeds_to_buy(crop: Crop, harvests: int, seeds: int) -> float:
+    """需要购买的种子数（期望值）。
+
+    非再生作物每次收获后立即补种，共补种 seeds − 1 次；每次收获平均掉落 seed_drop 颗种子，
+    补种时先用掉落的种子，不够的部分才买。向日葵平均每次掉 1 颗，所以只需买第一次的种子。
+    """
+    if crop.regrow_days or not crop.seed_drop or harvests == 0:
+        return seeds
+    replants = seeds - 1
+    return seeds - replants * min(1.0, crop.seed_drop)
+
+
 def season_profit(
     crop: Crop, plant_day: int = 1, bonuses: Bonuses = NO_BONUSES, value_per_harvest: float | None = None
 ) -> tuple[int, int]:
@@ -73,7 +85,8 @@ def season_profit(
     harvests, seeds = harvest_plan(bonuses.grow_days(crop), crop.regrow_days, days_left)
     value = bonuses.expected_crop_value(crop) if value_per_harvest is None else value_per_harvest
     revenue = harvests * value
-    return harvests, int(revenue - seeds * crop.seed_price - bonuses.fertilizer_cost)
+    bought = seeds_to_buy(crop, harvests, seeds)
+    return harvests, int(revenue - bought * crop.seed_price - bonuses.fertilizer_cost)
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +262,11 @@ def build_data_context(
 
     event_lines = [f"- 第 {e.day} 天【{e.name}】：{e.tip}" for e in data.events_in_season(season)]
 
+    notes = [crop_note(r.crop) for r in rank_crops(data, season, bonuses=bonuses, year=year)]
+    notes = [n for n in notes if n]
+    if notes:
+        crop_lines += ["", "作物备注（程序计算）："] + [f"- {n}" for n in notes]
+
     return {
         "crop_table": "\n".join(crop_lines),
         "artisan_rules": "\n".join(artisan_lines),
@@ -258,6 +276,17 @@ def build_data_context(
         "carryover": carryover,
         "npc_birthdays": describe_birthdays(data, season),
     }
+
+
+def crop_note(crop: Crop) -> str:
+    """种子掉落、副产物等不在表格列里的信息。"""
+    parts = []
+    if crop.seed_drop:
+        parts.append(f"每次收获平均掉落 {crop.seed_drop:g} 颗种子，补种可直接用（净利已按此少算种子钱）")
+    for b in crop.byproducts:
+        value = f"售价 {b.sell_price}g" if b.sell_price else "不计入收入"
+        parts.append(f"收获时 {b.chance:.0%} 几率掉 1 个{b.name}（{b.note}；{value}）")
+    return f"{crop.name}：" + "；".join(parts) if parts else ""
 
 
 LOVED_POINTS, LIKED_POINTS, BIRTHDAY_MULTIPLIER = 80, 45, 8  # wiki Friendship
