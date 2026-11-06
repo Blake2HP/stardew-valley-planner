@@ -43,6 +43,7 @@ class StrategyResult:
     guide_excerpts: str = ""     # 检索到并放进 Prompt 的攻略片段
     attempts: int = 1            # 调用模型的次数（1 = 没有重试）
     json_parse_method: str = ""  # strict / cleaned / repaired
+    processing_share: float = 1.0  # 机器能加工的收获比例（出售策略用）
     plantings: list[Planting] = field(default_factory=list)       # 种植清单（已剔除不合法条目）
     other_income: list[OtherIncome] = field(default_factory=list)  # 模型估算的其他收入
     finance: SeasonFinance | None = None   # 本季资金预期（程序计算）
@@ -192,6 +193,8 @@ def generate_strategy(
     max_retries: int = 1,
     start_gold: int | None = None,
     prior_state: FarmState | None = None,
+    farming_level: int | None = None,
+    processing_share: float = 1.0,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -206,6 +209,8 @@ def generate_strategy(
         fertilizer: 加速肥料：speed_gro / deluxe_speed_gro / hyper_speed_gro（或中文名）。
         start_gold: 期初资金；不传时第 1 年春季用开局金币（data/farm.json），其他季节为未知。
         prior_state: 上一季结束时的农场状态（跨季连续规划时由 generate_plan 传入）。
+        farming_level: 耕种等级（0-14）；给出或用了品质肥料时计入作物品质。
+        processing_share: 机器能加工的收获比例（0-1），决定“高星直接卖、低星加工”的分界。
     """
     season_key = normalize_season(season)
     if year < 1:
@@ -215,7 +220,9 @@ def generate_strategy(
         raise ValueError(f"上季状态只能衔接{expected}，收到第 {year} 年{SEASON_ZH[season_key]}")
     if start_gold is not None and start_gold < 0:
         raise ValueError(f"期初资金必须 ≥ 0，收到 {start_gold}")
-    bonuses = resolve_bonuses(professions, fertilizer)
+    bonuses = resolve_bonuses(professions, fertilizer, farming_level=farming_level)
+    if not 0 <= processing_share <= 1:
+        raise ValueError(f"加工比例必须在 0-1 之间，收到 {processing_share}")
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
     client = client or get_client(provider, model)
@@ -235,7 +242,7 @@ def generate_strategy(
         guide_query, n_results=n_guides, store=guide_store, fallback_chunks=data.guide_chunks
     )
     carryover = render_state_for_prompt(prior_state, start_gold)
-    context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover)
+    context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -303,6 +310,7 @@ def generate_strategy(
         season_warnings=warnings,
         raw_response=raw,
         guide_excerpts=guide_excerpts,
+        processing_share=processing_share,
         attempts=attempts,
         json_parse_method=parse_method,
         plantings=plantings,

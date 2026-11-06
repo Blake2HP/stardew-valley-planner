@@ -179,7 +179,7 @@ def test_profession_aliases_and_dedupe(names):
     assert [p.key for p in resolve_bonuses(names).professions] == ["tiller"]
 
 
-@pytest.mark.parametrize("kwargs", [{"professions": ["rancher"]}, {"fertilizer": "basic_fertilizer"}])
+@pytest.mark.parametrize("kwargs", [{"professions": ["rancher"]}, {"fertilizer": "basic_retaining_soil"}])
 def test_unknown_names_rejected(kwargs):
     with pytest.raises(ValueError, match="未知"):
         resolve_bonuses(**kwargs)

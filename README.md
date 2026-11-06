@@ -84,7 +84,9 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
 | `--start-gold` | 期初资金 | 第 1 年春季为开局金币 500g（`data/farm.json`），其他季节为未知 |
 | `--professions` | 职业，逗号分隔：`tiller`（农耕人，作物 +10%）、`artisan`（工匠，加工品 +40%）、`agriculturist`（农业学家，生长 +10%）。也可以写中文名；选工匠或农业学家会自动加入农耕人，两者只能二选一 | 无 |
-| `--fertilizer` | 加速肥料：`speed_gro`（生长激素 10%）、`deluxe_speed_gro`（高级 25%）、`hyper_speed_gro`（顶级 33%） | 无 |
+| `--fertilizer` | 肥料（每格只能施一种）。加速：`speed_gro`（生长激素 10%）、`deluxe_speed_gro`（高级 25%）、`hyper_speed_gro`（顶级 33%）；品质：`basic_fertilizer`（普通肥料）、`quality_fertilizer`（高级肥料）、`deluxe_fertilizer`（顶级肥料，唯一能出铱星） | 无 |
+| `--farming-level` | 耕种等级 0-14；给出时（或用了品质肥料时）按品质概率计算收益期望值，没给就取所选职业要求的最低等级 | 不计品质 |
+| `--processing-share` | 机器能加工的收获比例 0-1；不足 1 时自动算出“高星直接卖、低星加工”的分界 | `1`（机器充足） |
 
 ### 在代码中调用
 
@@ -99,6 +101,8 @@ print(result.season_warnings)   # 换季校验结果
 print(result.attempts, result.json_parse_method)  # 调用模型次数、JSON 解析方式
 print(result.bonuses.describe())  # 职业：农耕人、工匠；肥料：生长激素
 print(result.finance.end_gold)    # 期末资金（只算种植收支，程序计算）
+result = generate_strategy("种田为主", "速通极限", "spring", provider="mock",
+                           fertilizer="deluxe_fertilizer", farming_level=10, processing_share=0.5)
 ```
 
 跨季连续规划：
@@ -134,8 +138,9 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
    - 第 28 天的目标必须包含“清理农场/停止种植”。
    - 能识别否定说法（“不再补种”）、括号里的解释和“只买种子不种”，不会把这些误判为种植。
 6. **日程合并与渲染**：连续几天目标相同时合并为一个区间（如“第 3-5 天：钓鱼”），包含节日的区间会标出 🎉。
-7. **种植清单与资金**：模型必须在 `plantings` 里列出每次播种的作物、日期和格数（漏写会重试）。程序据此模拟每次收获（可跨季，例如夏季种的玉米会一直收获到秋季末），算出种子、肥料支出和作物收入，并逐日检查现金是否够买种子。模型还会在 `other_income` 里估算钓鱼、挖矿等收入，攻略中与程序计算的部分分开显示，标为“模型估算，仅供参考”。
-8. **跨季连续规划**：逐季生成。每季结束后提取农场状态（期末资金、仍在地里的跨季作物及其在下一季的收获日、清空的作物、上季计划目标），写进下一季用户 Prompt【数据参考】的“上季延续状态”一节；系统 Prompt 保持不变，只多一条衔接规则。下一季再种仍在地里的作物会报警，第 28 天的清理目标会注明保留跨季作物（如“清理农场/停止种植（保留玉米）”）。
+7. **作物品质与出售策略**：给出耕种等级或使用品质肥料时，按 wiki 公式计算每次收获的品质分布（金星几率 g = 0.2 × 等级 / 10 + 0.2 × 肥料等级 × (等级 + 2) / 12 + 0.01，银星 min(0.75, 2g)，铱星 g / 2 且只有顶级肥料才有），售价 = ⌊基础 × 品质倍率⌋ 再计农耕人；额外产出一律普通品质。加工品不继承品质，所以“加工多赚的钱”在普通品质最大、铱星最小：机器充足时全部加工；机器不够时（`--processing-share`）按这个差额从大到小分配，得到“高星直接卖、低星加工”。
+8. **种植清单与资金**：模型必须在 `plantings` 里列出每次播种的作物、日期和格数（漏写会重试）。程序据此模拟每次收获（可跨季，例如夏季种的玉米会一直收获到秋季末），算出种子、肥料支出和作物收入，并逐日检查现金是否够买种子。模型还会在 `other_income` 里估算钓鱼、挖矿等收入，攻略中与程序计算的部分分开显示，标为“模型估算，仅供参考”。
+9. **跨季连续规划**：逐季生成。每季结束后提取农场状态（期末资金、仍在地里的跨季作物及其在下一季的收获日、清空的作物、上季计划目标），写进下一季用户 Prompt【数据参考】的“上季延续状态”一节；系统 Prompt 保持不变，只多一条衔接规则。下一季再种仍在地里的作物会报警，第 28 天的清理目标会注明保留跨季作物（如“清理农场/停止种植（保留玉米）”）。
 
 ## 项目结构
 
@@ -157,7 +162,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── crops.json              作物：季节、种子价、售价、生长/再生天数、产量
 │   ├── artisan.json            加工规则：倍率、加成、固定价格、耗时
 │   ├── calendar.json           每季节日、采集季、换季日
-│   ├── bonuses.json            职业与肥料规则
+│   ├── bonuses.json            职业、肥料与作物品质规则
 │   ├── farm.json               开局金币
 │   ├── NOTICE.md               数据来源与许可
 │   └── guides/*.md             攻略文本
@@ -187,7 +192,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 python -m pytest
 ```
 
-目前有 236 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、按年份过滤作物（第 2 年起出售的种子）、跨季连续规划（跨季收获模拟、资金与现金流、季末状态注入下一季 Prompt、季节连续性）、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
+目前有 281 个测试，覆盖：种植识别（15 种写法）、跨季校验与边界情况、日程合并、收获次数与收益计算、JSON 容错解析（多逗号、漏括号、单引号等）、种子最早开售日对收益的影响、按年份过滤作物（第 2 年起出售的种子）、跨季连续规划（跨季收获模拟、资金与现金流、季末状态注入下一季 Prompt、季节连续性）、职业与加速肥料（价格取整、查表生长天数、职业冲突、肥料成本）、作物品质与品质肥料（概率对照 wiki 表格、四档售价、顶级肥料收益期望值、按机器容量分配的出售策略）、攻略切块与向量入库（MD5 去重、增量更新、换模型后重建）、语义检索与兜底、数据完整性、生成流程的重试与兜底，以及 `sv.py` 的输出与退出码。
 
 ## Claude Code skill：`stardew-data-guard`
 
@@ -205,6 +210,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py artisan 草莓
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 草莓 --plant-day 14
 python .claude/skills/stardew-data-guard/scripts/sv.py simulate 玉米 --season summer --tiles 8
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professions agriculturist --fertilizer speed_gro
+python .claude/skills/stardew-data-guard/scripts/sv.py quality 花椰菜 --fertilizer deluxe_fertilizer --farming-level 10 --processing-share 0.5
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --fix
 ```
@@ -215,7 +221,9 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 
 - [x] 用游戏 1.6 版本的真实数值替换 mock 数据（来源：Stardew Valley Wiki）
 - [x] 职业加成（农耕人、工匠、农业学家）与加速肥料（生长激素、高级、顶级）
-- [ ] 补充 NPC 数据（喜好、生日、好感度）、作物品质加成、品质类肥料（普通 / 高级 / 顶级肥料）
+- [x] 作物品质（银星 / 金星 / 铱星）与品质肥料（普通 / 高级 / 顶级），以及“高星直接卖、低星加工”的出售策略
+- [ ] 补充 NPC 数据（喜好、生日、好感度）
+- [ ] 出售策略计入机器数量与加工耗时（目前用加工比例近似）
 - [x] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
 - [x] 补充大蒜、红叶卷心菜、向日葵，并用 `available_year` 记录只在第二年起出售的种子
 - [x] 补充蓝爵、小麦、虞美人（小麦酿啤酒用作物专属加工规则）

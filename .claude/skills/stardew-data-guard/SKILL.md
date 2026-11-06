@@ -15,7 +15,7 @@ description: 《星露谷物语》(Stardew Valley) 数值操作守则。只要�
 | `data/artisan.json` | 加工规则：倍率、加成、固定价格、加工耗时 |
 | `data/calendar.json` | 每季节日、采集季、换季日 |
 | `data/farm.json` | 开局金币（500g，来自 wiki Gold 页面） |
-| `data/bonuses.json` | 职业加成（农耕人、工匠、农业学家）与加速肥料（生长激素、高级、顶级） |
+| `data/bonuses.json` | 职业加成（农耕人、工匠、农业学家）、加速肥料（生长激素、高级、顶级）、品质肥料（普通、高级、顶级）与作物品质公式 |
 | `data/guides/*.md` | 非结构化攻略文本，只能用作思路参考，**不能作为数值来源** |
 
 查询和计算工具都在 `scripts/sv.py`（在项目根目录运行），它直接读取上面的 JSON 文件，并把计算公式打印出来：
@@ -28,6 +28,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py profit 草莓 --plant-day
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professions agriculturist --fertilizer speed_gro  # 计入职业与肥料
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer      # 节日与换季信息
 python .claude/skills/stardew-data-guard/scripts/sv.py simulate 玉米 --season summer --tiles 8  # 跨季收获模拟（带公式）
+python .claude/skills/stardew-data-guard/scripts/sv.py quality 花椰菜 --fertilizer deluxe_fertilizer --farming-level 10 --processing-share 0.5  # 品质概率、各品质售价与出售策略
 python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json --season spring --year 1 --fix  # 跨季校验（含开售年份）
 ```
 
@@ -85,7 +86,10 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 
 | 计算项 | 公式 |
 |---|---|
-| 加工售价 | `基础售价 × 倍率 + 加成`（固定价产品直接取固定价；`input_crops` 专属规则优先，如小麦 → 啤酒 200g） |
+| 加工售价 | `基础售价 × 倍率 + 加成`（固定价产品直接取固定价；`input_crops` 专属规则优先，如小麦 → 啤酒 200g）；**加工品不继承原料品质** |
+| 金星几率 | `g = 0.2 × (耕种等级 / 10) + 0.2 × 肥料等级 × ((耕种等级 + 2) / 12) + 0.01`；银星 `min(0.75, 2g)`；铱星 `g / 2`（仅顶级肥料）；依次独立掷骰 |
+| 品质售价 | `⌊基础售价 × 品质倍率⌋`（银 1.25 / 金 1.5 / 铱 2.0），农耕人再 `⌊× 1.1⌋` |
+| 每次收获期望收入 | `Σ 概率 × 品质售价 + (单次产量 − 1) × 普通售价`（额外产出一律普通品质） |
 | 加工溢价 | `加工售价 − 基础售价` |
 | 单轮日均利润 | `(售价 × 单次产量 − 种子成本) / 生长天数` |
 | 实际种植日 | `max(计划种植日, 种子最早开售日)`（草莓 = 13） |
@@ -106,7 +110,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 
 > 草莓果酒售价 = 基础售价 × 3 = 120 × 3 = 360g（来源：data/crops.json、data/artisan.json）
 
-职业加成和加速肥料已在 `data/bonuses.json` 中，计算时给 `sv.py` 加上 `--professions` / `--fertilizer`。**作物品质加成（银星 / 金星 / 铱星）和品质类肥料目前不在数据库里**，需要计入时先请用户提供确切数值。
+职业加成和加速肥料已在 `data/bonuses.json` 中，计算时给 `sv.py` 加上 `--professions` / `--fertilizer`。作物品质和品质肥料也已入库：给 `sv.py` 加 `--farming-level`（或品质肥料）即可按品质期望值计算，`sv.py quality` 会写出概率公式、各品质售价和“高星直接卖、低星加工”的出售策略。
 
 ## 修改本项目时
 

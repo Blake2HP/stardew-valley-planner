@@ -1,7 +1,14 @@
 {
-  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Farming（职业）、https://stardewvalleywiki.com/Fertilizer 与 /Speed-Gro（肥料），核对日期 2026-11-05。",
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Farming（职业、品质概率公式）、https://stardewvalleywiki.com/Fertilizer、/Speed-Gro、/Basic_Fertilizer、/Quality_Fertilizer、/Deluxe_Fertilizer（肥料）、/Crops#Crop_Quality（品质），核对日期 2026-11-05。",
   "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_rounding": "价格逐步向下取整：加工品先按 基础售价 × 倍率 + 加成 取整，再乘职业倍率取整。wiki 例：花椰菜 175g → 农耕人 192g；果汁 393g → 工匠 550g；腌菜 400g → 工匠 560g。",
+  "quality": {
+    "_note": "作物品质。售价 = ⌊基础售价 × 品质倍率⌋，农耕人再 ⌊× 1.1⌋（与 wiki 29 种作物信息框的四档售价逐一核对一致）。加工品不继承原料品质。",
+    "multipliers": {"normal": 1.0, "silver": 1.25, "gold": 1.5, "iridium": 2.0},
+    "names_zh": {"normal": "普通", "silver": "银星", "gold": "金星", "iridium": "铱星"},
+    "max_farming_level": 14,
+    "_formula": "金星几率 g = 0.2 × (耕种等级 / 10) + 0.2 × 肥料等级 × ((耕种等级 + 2) / 12) + 0.01；银星几率 = min(0.75, 2g)；铱星几率 = g / 2（仅肥料等级 ≥ 3，即顶级肥料）。游戏依次独立掷骰：铱星 → 金星 → 银星 → 普通；顶级肥料不会产出普通品质（落到普通的改为银星）。品质只作用于每次收获的第一个作物，额外产出（蓝莓、蔓越莓、土豆的额外个数）一律普通品质。"
+  },
   "professions": {
     "tiller": {
       "name_zh": "农耕人", "level": 5, "requires": null, "excludes": ["rancher"],
@@ -32,6 +39,18 @@
     "hyper_speed_gro": {
       "name_zh": "顶级生长激素", "name_en": "Hyper Speed-Gro", "growth_speed_percent": 33,
       "price": null, "source": "齐先生的核桃屋用齐钻兑换，或自制（需要配方）"
+    },
+    "basic_fertilizer": {
+      "name_zh": "普通肥料", "name_en": "Basic Fertilizer", "quality_level": 1,
+      "price": 100, "source": "皮埃尔杂货店（第一年春季第 15 天起）或自制（耕种等级 1）；需在种子发芽前施用"
+    },
+    "quality_fertilizer": {
+      "name_zh": "高级肥料", "name_en": "Quality Fertilizer", "quality_level": 2,
+      "price": 150, "source": "皮埃尔杂货店（第二年起）或自制（耕种等级 9）；需在种子发芽前施用"
+    },
+    "deluxe_fertilizer": {
+      "name_zh": "顶级肥料", "name_en": "Deluxe Fertilizer", "quality_level": 3,
+      "price": null, "source": "只能自制（配方在姜岛齐先生的核桃屋用 20 齐钻兑换）；唯一能产出铱星作物的肥料"
     }
   }
 }

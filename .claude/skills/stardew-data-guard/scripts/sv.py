@@ -23,9 +23,9 @@ PROJECT_ROOT = Path(os.getenv("STARDEW_PROJECT_ROOT", Path(__file__).resolve().p
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from stardew_planner.analysis import (  # noqa: E402
-    available_growing_days, effective_plant_day, harvest_plan, season_profit,
+    available_growing_days, effective_plant_day, harvest_plan, sale_plan, season_profit,
 )
-from stardew_planner.bonuses import Bonuses, floor_mul, resolve_bonuses  # noqa: E402
+from stardew_planner.bonuses import QUALITIES, Bonuses, floor_mul, gold_chance, resolve_bonuses  # noqa: E402
 from stardew_planner.data_loader import SEASON_ZH, Crop, GameData, load_game_data, normalize_season  # noqa: E402
 from stardew_planner.farm_state import alive_seasons, harvest_days, season_label  # noqa: E402
 from stardew_planner.season_rules import (  # noqa: E402
@@ -56,7 +56,7 @@ def fmt_yield(c: Crop) -> str:
 
 def get_bonuses(a) -> Bonuses:
     try:
-        b = resolve_bonuses([a.professions], a.fertilizer)
+        b = resolve_bonuses([a.professions], a.fertilizer, farming_level=a.farming_level)
     except ValueError as e:
         print(f"❌ {e}")
         sys.exit(EXIT_INVALID)
@@ -162,8 +162,14 @@ def cmd_profit(data: GameData, a) -> None:
               f"实际种植日 = max(计划种植日, 最早开售日) = {d}")
     n = available_growing_days(d)
     print(f"  实际可用生长天数 = 28 − 种植日 {d} + 1 = {n}")
-    single = price * c.harvest_yield - c.seed_price
-    print(f"  单轮日均利润 = (售价 {price}{fmt_yield(c)} − 种子成本 {c.seed_price}) / 生长天数 {g}"
+    value = b.expected_crop_value(c)
+    if b.quality_active:
+        print(f"  {explain_quality_value(b, c)}")
+        unit_text = f"品质期望收入 {value:.2f}"
+    else:
+        unit_text = f"售价 {price}{fmt_yield(c)}"
+    single = value - c.seed_price
+    print(f"  单轮日均利润 = ({unit_text} − 种子成本 {c.seed_price}) / 生长天数 {g}"
           f" = {single:g} / {g} = {single / g:.2f}g/天")
 
     harvests, seeds = harvest_plan(g, c.regrow_days, n)
@@ -175,17 +181,67 @@ def cmd_profit(data: GameData, a) -> None:
     else:
         print(f"  收获次数 = ⌊(可用天数 {n} − 1) / 生长 {g}⌋ = {harvests}（收获后立即补种，种子 {seeds} 份）")
 
-    revenue = harvests * price * c.harvest_yield
+    revenue = harvests * value
     profit = revenue - seeds * c.seed_price - fert
     # 与项目代码 analysis.season_profit 保持一致（它对净利取整）
     assert (harvests, int(profit)) == season_profit(c, d, b), "sv.py 与 analysis.season_profit 计算不一致"
     fert_text = f" − 肥料 {fert}" if b.fertilizer else ""
-    print(f"  单格净利 = 收获次数 {harvests} × 售价 {price}{fmt_yield(c)} − 种子数 {seeds} × 种子价 {c.seed_price}"
+    print(f"  单格净利 = 收获次数 {harvests} × {unit_text} − 种子数 {seeds} × 种子价 {c.seed_price}"
           f"{fert_text} = {revenue:g} − {seeds * c.seed_price}{fert_text} = {profit:g}g")
     print(f"  占地日均 = 单格净利 {profit:g} / 可用天数 {n} = {profit / n:.2f}g/天")
     if b.fertilizer and not b.fertilizer.price:
         print(f"  注：{b.fertilizer.name_zh}无法直接购买（{b.fertilizer.source}），肥料成本按 0 计。")
-    print("  注：未计入作物品质加成；职业与肥料只计入了上面列出的部分。")
+    if b.quality_active:
+        print("  注：净利是按品质分布的期望值（直接卖）；加工策略见 sv.py quality。")
+    else:
+        print("  注：未计入作物品质（加 --farming-level 或品质肥料即可计入）；职业与肥料只计入了上面列出的部分。")
+
+
+def explain_quality_value(b: Bonuses, c: Crop) -> str:
+    """每次收获的品质期望收入：Σ 概率 × 该品质售价 + 额外产出 × 普通售价。"""
+    odds = b.quality_odds()
+    terms = " + ".join(f"{odds[q]:.4f} × {b.crop_price(c, q)}" for q in QUALITIES if odds[q])
+    extra = c.harvest_yield - 1
+    extra_text = f" + 额外产出 {extra:g} × 普通 {b.crop_price(c)}" if extra else ""
+    return f"品质期望收入 = {terms}{extra_text} = {b.expected_crop_value(c):.2f}g（每次收获）"
+
+
+def cmd_quality(data: GameData, a) -> None:
+    """品质概率、各品质售价，以及“高星直接卖、低星加工”的出售策略。"""
+    c = find_crop(data, a.name)
+    print(f"【{c.name} 品质与出售策略】 来源: data/bonuses.json、data/crops.json、data/artisan.json")
+    b = get_bonuses(a)
+    if not b.quality_active:
+        print("  未给出耕种等级，也没有用品质肥料：按耕种等级 0 计算。")
+        b = resolve_bonuses([p.key for p in b.professions], b.fertilizer.key if b.fertilizer else None,
+                            farming_level=b.effective_farming_level)
+    lv, f = b.effective_farming_level, b.fertilizer_quality_level
+    g = gold_chance(lv, f)
+    print(f"  金星几率 g = 0.2 × ({lv} / 10) + 0.2 × 肥料等级 {f} × (({lv} + 2) / 12) + 0.01 = {g:.4f}"
+          + ("（> 1，掷骰必中）" if g > 1 else ""))
+    print(f"  银星几率 = min(0.75, 2g) = {min(0.75, 2 * g):.4f}" + ("；铱星几率 = g / 2" if f >= 3 else ""))
+    print(f"  品质分布（依次独立掷骰）：{b.describe_quality()}" + ("；顶级肥料不产出普通品质" if f >= 3 else ""))
+    print("  售价 = ⌊基础售价 × 品质倍率⌋" + ("，农耕人再 ⌊× 1.1⌋" if any(p.crop_price_multiplier != 1 for p in b.professions) else "")
+          + "：" + "、".join(f"{b.quality_name(q)} {b.crop_price(c, q)}g" for q in QUALITIES))
+    print(f"  {explain_quality_value(b, c)}")
+    if c.harvest_yield != 1:
+        print(f"  注：品质只作用于每次收获的第一个作物，额外的 {c.harvest_yield - 1:g} 个一律普通品质。")
+
+    plan = sale_plan(c, data.artisan_rules_for(c), b, a.processing_share)
+    if plan.artisan_label is None:
+        print("  出售策略：直接卖（数据库中没有这种作物的加工规则）")
+        return
+    artisan = plan.options[0].artisan_price
+    print(f"  最佳加工：{plan.artisan_label} {artisan}g（加工品不继承原料品质）")
+    for o in plan.options:
+        if o.units <= 0:
+            continue
+        print(f"    {o.name}：直接卖 {o.direct_price}g，加工 {artisan}g，加工多赚 {o.gain:+d}g，"
+              f"每次收获 {o.units:.4f} 个，其中加工 {o.processed_share:.0%}")
+    share = f"机器能加工每次收获的 {a.processing_share:.0%}"
+    print(f"  出售策略（{share}，按“加工多赚”从大到小分配）：{plan.summary()}")
+    print(f"  每次收获期望收入：全部直接卖 {plan.expected_direct:.2f}g → 按策略 {plan.expected_best:.2f}g"
+          "（不计机器成本与加工时间）")
 
 
 def cmd_simulate(data: GameData, a) -> None:
@@ -265,7 +321,9 @@ def main() -> None:
 
     def with_bonus_args(parser):
         parser.add_argument("--professions", default="", help="tiller,artisan,agriculturist（或中文名）")
-        parser.add_argument("--fertilizer", default=None, help="speed_gro / deluxe_speed_gro / hyper_speed_gro")
+        parser.add_argument("--fertilizer", default=None,
+                            help="speed_gro / deluxe_speed_gro / hyper_speed_gro / basic_fertilizer / quality_fertilizer / deluxe_fertilizer")
+        parser.add_argument("--farming-level", type=int, default=None, help="耕种等级 0-14；给出时计入作物品质")
         return parser
 
     with_bonus_args(sub.add_parser("crop")).add_argument("name")
@@ -283,6 +341,9 @@ def main() -> None:
     ps.add_argument("--season", required=True)
     ps.add_argument("--plant-day", type=int, default=1)
     ps.add_argument("--tiles", type=int, default=0, help="格数；给出时计算总收入与种子钱")
+    pq = with_bonus_args(sub.add_parser("quality"))
+    pq.add_argument("name")
+    pq.add_argument("--processing-share", type=float, default=1.0, help="机器能加工的收获比例 0-1")
     pcal = sub.add_parser("calendar")
     pcal.add_argument("season")
     pcal.add_argument("--year", type=int, default=None, help=year_help)

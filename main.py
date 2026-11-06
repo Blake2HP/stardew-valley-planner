@@ -44,11 +44,17 @@ def main() -> None:
     parser.add_argument("--professions", default="",
                         help="职业，逗号分隔：tiller（农耕人）、artisan（工匠）、agriculturist（农业学家）；"
                              "选工匠或农业学家会自动加入农耕人")
+    parser.add_argument("--farming-level", type=int, default=None,
+                        help="耕种等级 0-14；给出（或用了品质肥料）时按品质概率计算收益期望值")
+    parser.add_argument("--processing-share", type=float, default=1.0,
+                        help="机器能加工的收获比例 0-1（默认 1 = 机器充足）；不足时自动算出“高星直接卖、低星加工”")
     parser.add_argument("--fertilizer", default=None,
-                        help="加速肥料：speed_gro（生长激素）、deluxe_speed_gro（高级）、hyper_speed_gro（顶级）")
+                        help="肥料（每格只能一种）：加速 speed_gro / deluxe_speed_gro / hyper_speed_gro，品质 basic_fertilizer / quality_fertilizer / deluxe_fertilizer")
     args = parser.parse_args()
     if args.year < 1:
         parser.error("年份必须 ≥ 1")
+    if not 0 <= args.processing_share <= 1:
+        parser.error("加工比例必须在 0-1 之间")
     if args.start_gold is not None and args.start_gold < 0:
         parser.error("期初资金必须 ≥ 0")
     try:
@@ -57,7 +63,7 @@ def main() -> None:
         parser.error(str(e))
 
     try:
-        bonuses = resolve_bonuses([args.professions], args.fertilizer)
+        bonuses = resolve_bonuses([args.professions], args.fertilizer, farming_level=args.farming_level)
     except ValueError as e:
         parser.error(str(e))
 
@@ -65,6 +71,7 @@ def main() -> None:
         provider=args.provider, model=args.model, start_gold=args.start_gold,
         professions=[p.key for p in bonuses.professions],
         fertilizer=bonuses.fertilizer.key if bonuses.fertilizer else None,
+        farming_level=args.farming_level, processing_share=args.processing_share,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

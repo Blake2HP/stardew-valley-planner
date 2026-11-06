@@ -214,11 +214,15 @@ def compute_finance(
         if not days:
             return
         price = bonuses.crop_price(crop)
-        each = tiles * crop.harvest_yield * price
+        value = bonuses.expected_crop_value(crop)  # 每格每次收获的期望收入（计入品质）
+        each = tiles * value
         for d in days:
             revenue_by_day[d] = revenue_by_day.get(d, 0) + each
-        yield_text = "" if crop.harvest_yield == 1 else f" × 单次产量 {crop.harvest_yield}"
-        lines.append(f"{label}：{len(days)} 次 × {tiles} 格{yield_text} × {price}g = {len(days) * each:g}g"
+        if bonuses.quality_active:
+            unit = f" × 品质期望收入 {value:.2f}g"
+        else:
+            unit = ("" if crop.harvest_yield == 1 else f" × 单次产量 {crop.harvest_yield}") + f" × {price}g"
+        lines.append(f"{label}：{len(days)} 次 × {tiles} 格{unit} = {len(days) * each:g}g"
                      f"（第 {'、'.join(map(str, days))} 天）")
 
     for c in carry_in:
