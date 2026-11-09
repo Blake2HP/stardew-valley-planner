@@ -9,6 +9,7 @@
     "max_farming_level": 14,
     "_formula": "金星几率 g = 0.2 × (耕种等级 / 10) + 0.2 × 肥料等级 × ((耕种等级 + 2) / 12) + 0.01；银星几率 = min(0.75, 2g)；铱星几率 = g / 2（仅肥料等级 ≥ 3，即顶级肥料）。游戏依次独立掷骰：铱星 → 金星 → 银星 → 普通；顶级肥料不会产出普通品质（落到普通的改为银星）。品质只作用于每次收获的第一个作物，额外产出（蓝莓、蔓越莓、土豆的额外个数）一律普通品质。"
   },
+  "_fertilizer_availability": "sold_from_year / sold_from_day：从第几年春季第几天起在皮埃尔杂货店出售（null = 商店不卖）；craft_level：达到这个耕种等级可以自制（null = 需要另外取得配方）。",
   "professions": {
     "tiller": {
       "name_zh": "农耕人", "level": 5, "requires": null, "excludes": ["rancher"],
@@ -29,27 +30,27 @@
   },
   "fertilizers": {
     "speed_gro": {
-      "name_zh": "生长激素", "name_en": "Speed-Gro", "growth_speed_percent": 10,
+      "name_zh": "生长激素", "name_en": "Speed-Gro", "sold_from_year": 1, "sold_from_day": 15, "craft_level": 3, "growth_speed_percent": 10,
       "price": 100, "source": "皮埃尔杂货店（第一年春季第 15 天起）或自制（耕种等级 3）"
     },
     "deluxe_speed_gro": {
-      "name_zh": "高级生长激素", "name_en": "Deluxe Speed-Gro", "growth_speed_percent": 25,
+      "name_zh": "高级生长激素", "name_en": "Deluxe Speed-Gro", "sold_from_year": 2, "sold_from_day": 1, "craft_level": 8, "growth_speed_percent": 25,
       "price": 150, "source": "皮埃尔杂货店（第二年起）或自制（耕种等级 8）"
     },
     "hyper_speed_gro": {
-      "name_zh": "顶级生长激素", "name_en": "Hyper Speed-Gro", "growth_speed_percent": 33,
+      "name_zh": "顶级生长激素", "name_en": "Hyper Speed-Gro", "sold_from_year": null, "sold_from_day": 1, "craft_level": null, "growth_speed_percent": 33,
       "price": null, "source": "齐先生的核桃屋用齐钻兑换，或自制（需要配方）"
     },
     "basic_fertilizer": {
-      "name_zh": "普通肥料", "name_en": "Basic Fertilizer", "quality_level": 1,
+      "name_zh": "普通肥料", "name_en": "Basic Fertilizer", "sold_from_year": 1, "sold_from_day": 15, "craft_level": 1, "quality_level": 1,
       "price": 100, "source": "皮埃尔杂货店（第一年春季第 15 天起）或自制（耕种等级 1）；需在种子发芽前施用"
     },
     "quality_fertilizer": {
-      "name_zh": "高级肥料", "name_en": "Quality Fertilizer", "quality_level": 2,
+      "name_zh": "高级肥料", "name_en": "Quality Fertilizer", "sold_from_year": 2, "sold_from_day": 1, "craft_level": 9, "quality_level": 2,
       "price": 150, "source": "皮埃尔杂货店（第二年起）或自制（耕种等级 9）；需在种子发芽前施用"
     },
     "deluxe_fertilizer": {
-      "name_zh": "顶级肥料", "name_en": "Deluxe Fertilizer", "quality_level": 3,
+      "name_zh": "顶级肥料", "name_en": "Deluxe Fertilizer", "sold_from_year": null, "sold_from_day": 1, "craft_level": null, "quality_level": 3,
       "price": null, "source": "只能自制（配方在姜岛齐先生的核桃屋用 20 齐钻兑换）；唯一能产出铱星作物的肥料"
     }
   }

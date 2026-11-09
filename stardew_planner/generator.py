@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Iterable
 
 from .analysis import SEASON_DAYS, build_data_context
-from .bonuses import NO_BONUSES, Bonuses, resolve_bonuses
+from .bonuses import NO_BONUSES, Bonuses, fertilizer_availability_note, resolve_bonuses
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .farm_state import (
     FarmState, OtherIncome, Planting, SeasonFinance, compute_finance, extract_farm_state,
@@ -289,6 +289,8 @@ def generate_strategy(
     warnings += planting_warnings
     warnings += late_planting_warnings(plantings, season_key, bonuses, {(w.day, w.crop) for w in goal_checks})
     warnings += finance.warnings
+    if plantings and (note := fertilizer_availability_note(bonuses, season_key, year, plantings[0].day)):
+        warnings.append(note)
     goals, inserted = enforce_season_end(goals, end_state.carried_names)
     nxt_zh = SEASON_ZH[next_season(season_key)]
     dying = "、".join(c.name for c in withering_crops(data, season_key, year))

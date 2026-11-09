@@ -19,7 +19,7 @@ from math import floor
 from pathlib import Path
 from typing import Iterable
 
-from .data_loader import DEFAULT_DATA_DIR, ArtisanRule, Crop
+from .data_loader import DEFAULT_DATA_DIR, SEASON_ZH, ArtisanRule, Crop
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,9 @@ class Fertilizer:
     source: str
     growth_speed_percent: int = 0  # 加速肥料
     quality_level: int = 0         # 品质肥料：普通 1 / 高级 2 / 顶级 3
+    sold_from_year: int | None = None  # 从第几年春季起在商店出售（None = 商店不卖）
+    sold_from_day: int = 1
+    craft_level: int | None = None     # 达到这个耕种等级可以自制（None = 需要另外取得配方）
 
 
 QUALITIES = ("normal", "silver", "gold", "iridium")
@@ -212,6 +215,22 @@ class Bonuses:
 
 
 NO_BONUSES = Bonuses()
+
+
+def fertilizer_availability_note(bonuses: Bonuses, season: str, year: int, first_day: int) -> str | None:
+    """规划开始用肥料时，商店是否已经在卖。买不到但能自制时给提示，都不行时给警告；在卖或商店本来不卖时返回 None。"""
+    f = bonuses.fertilizer
+    if f is None or f.sold_from_year is None:
+        return None
+    if year > f.sold_from_year or (year == f.sold_from_year and (season != "spring" or first_day >= f.sold_from_day)):
+        return None
+    when = f"第 {f.sold_from_year} 年起" if f.sold_from_day == 1 else f"第 {f.sold_from_year} 年春季第 {f.sold_from_day} 天起"
+    level = bonuses.effective_farming_level
+    if f.craft_level is not None and level >= f.craft_level:
+        return f"ℹ️ {f.name_zh}{when}才在商店出售；耕种等级 {level} 已达到自制要求（{f.craft_level} 级），可以自制，费用仍按售价估算。"
+    craft = f"，自制需要耕种等级 {f.craft_level}（当前按 {level} 级）" if f.craft_level is not None else ""
+    return (f"⚠️ {f.name_zh}{when}才在商店出售，第 {year} 年{SEASON_ZH[season]}第 {first_day} 天买不到{craft}；"
+            "资金预期里的肥料费用和生长、品质加成可能不成立。")
 
 
 def _match(name: str, table: dict, aliases: dict[str, str], kind: str) -> str:
