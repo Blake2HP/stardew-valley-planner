@@ -1,4 +1,4 @@
-"""日程校验加固：种植清单来不及成熟、肥料是否买得到、清理目标保留跨季作物。"""
+"""日程校验加固：种植清单来不及成熟、肥料是否买得到、清理目标保留跨季作物、沙漠作物与完整作物列表。"""
 
 import copy
 import json
@@ -7,9 +7,10 @@ import pytest
 
 from stardew_planner import generate_strategy
 from stardew_planner.bonuses import fertilizer_availability_note, load_bonus_rules, resolve_bonuses
-from stardew_planner.farm_state import compute_finance, late_planting_warnings, resolve_plantings
+from stardew_planner.analysis import _compact_crop, build_data_context, crop_note, rank_crops
+from stardew_planner.farm_state import bus_warnings, compute_finance, late_planting_warnings, resolve_plantings
 from stardew_planner.llm_client import MOCK_RESPONSE, MOCK_SUMMER
-from stardew_planner.season_rules import CLEANUP_GOAL, enforce_season_end
+from stardew_planner.season_rules import CLEANUP_GOAL, check_plantings, enforce_season_end
 
 
 class Scripted:
@@ -193,3 +194,64 @@ def test_generator_annotates_model_cleanup(data, indexed_store):
     assert result.daily_goals[28].endswith("（保留玉米）")
     assert any("第 28 天的清理目标已注明保留玉米" in w for w in result.season_warnings)
     assert not any("已自动在第 28 天加入" in w for w in result.season_warnings)
+
+
+# ---------------------------------------------------------------------------
+# 沙漠作物与完整作物列表
+# ---------------------------------------------------------------------------
+
+def test_desert_crops_are_flagged(data):
+    assert {c.name for c in data.crops if c.requires_bus} == {"大黄", "杨桃", "甜菜"}
+    assert all("沙漠绿洲" in c.seed_source for c in data.crops if c.requires_bus)
+
+
+def test_goal_check_warns_in_year_1_only(data):
+    (w,) = check_plantings({1: "种大黄"}, data, "spring", year=1)
+    assert "要先修好巴士" in w.message and w.formula == "种子来源 = 沙漠绿洲"
+    assert check_plantings({1: "种大黄"}, data, "spring", year=2) == []
+    assert check_plantings({1: "种大黄"}, data, "spring") == []          # 没传年份：不检查
+
+
+def test_bus_warning_does_not_hide_late_planting(data):
+    messages = [w.message for w in check_plantings({20: "种大黄"}, data, "spring", year=1)]
+    assert len(messages) == 2 and "来不及成熟" in messages[1]
+
+
+def test_bus_warnings_from_plantings_list(data):
+    listed = plantings(data, "spring", (1, "大黄", 5), (1, "土豆", 5))
+    (w,) = bus_warnings(listed, 1)
+    assert "种植清单第 1 天的大黄" in w
+    assert bus_warnings(listed, 2) == [] and bus_warnings(listed, 1, {(1, "大黄")}) == []
+
+
+def test_generator_warns_once_for_desert_crop(data, indexed_store):
+    payload = copy.deepcopy(MOCK_RESPONSE)
+    payload["plantings"].append({"day": 1, "crop": "大黄", "tiles": 1})
+    payload["daily_goals"]["1"] = "种大黄"
+    assert sum("大黄" in w and "修好巴士" in w for w in run(data, indexed_store, payload).season_warnings) == 1
+
+
+def test_desert_crop_stays_listed_with_a_note(data, crops):
+    table = build_data_context(data, "spring", year=1)["crop_table"]
+    assert "| 大黄 |" in table and "- 大黄：种子在沙漠绿洲出售，要先修好巴士才能买到" in table
+    assert crop_note(crops["土豆"]) == ""
+
+
+def test_prompt_lists_every_crop_in_season(data):
+    table = build_data_context(data, "spring", year=1)["crop_table"]
+    for crop in data.crops_in_season("spring", 1):
+        assert crop.name in table
+    assert "防风草（种子 20g，售价 35g，生长 4 天，净利 " in table
+    assert "大蒜" not in table                                            # 第 2 年才出售
+
+
+def test_prompt_extra_list_uses_bonuses(data):
+    b = resolve_bonuses(["tiller"], "speed_gro")
+    table = build_data_context(data, "spring", bonuses=b, year=1)["crop_table"]
+    assert "防风草（种子 20g，售价 38g，生长 3 天" in table
+
+
+def test_compact_entry_marks_desert_crops(data):
+    by_name = {r.crop.name: r for r in rank_crops(data, "spring", top_n=50, year=1)}
+    assert _compact_crop(by_name["大黄"]).endswith("，需先修好巴士）")
+    assert "巴士" not in _compact_crop(by_name["土豆"])

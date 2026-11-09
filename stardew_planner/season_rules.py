@@ -125,6 +125,12 @@ def check_plantings(
     warnings = []
     for day in sorted(daily_goals):
         for crop in _planted_crops(daily_goals[day], data.crops):
+            if year == 1 and crop.requires_bus and season in crop.seasons:
+                warnings.append(SeasonWarning(
+                    day, crop.name,
+                    f"{crop.name}种子在{crop.seed_source}出售，要先修好巴士才能买到；第 1 年如果还没修好，这次种植无法进行",
+                    f"种子来源 = {crop.seed_source}",
+                ))
             if season not in crop.seasons:
                 allowed = "/".join(SEASON_ZH[s] for s in crop.seasons)
                 warnings.append(SeasonWarning(

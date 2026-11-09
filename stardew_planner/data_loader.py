@@ -70,6 +70,7 @@ class Crop:
     # 加速后的生长天数，键为总加速百分比（"10"/"20"/"25"/"33"/"35"/"43"），见 bonuses.py
     speed_grow_days: dict = field(default_factory=dict, compare=False, hash=False)
     seed_drop: float = 0.0  # 每次收获平均掉落的种子数（向日葵 = 1），补种时先用掉落的种子
+    requires_bus: bool = False  # 种子只在沙漠绿洲出售，要先修好巴士
     byproducts: tuple[Byproduct, ...] = field(default=(), compare=False, hash=False)
 
 

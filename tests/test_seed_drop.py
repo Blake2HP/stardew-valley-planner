@@ -65,7 +65,7 @@ def test_prompt_notes_for_listed_crops(data):
     table = build_data_context(only, "summer", year=1)["crop_table"]
     assert "作物备注（程序计算）：" in table
     assert "- 向日葵：每次收获平均掉落 1 颗种子" in table and "- 小麦：收获时 40% 几率掉 1 个干草" in table
-    assert "作物备注" not in build_data_context(data, "spring", year=1)["crop_table"]
+    assert "向日葵" not in build_data_context(data, "spring", year=1)["crop_table"]
 
 
 def run(*args):

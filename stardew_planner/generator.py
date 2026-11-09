@@ -10,7 +10,7 @@ from .bonuses import NO_BONUSES, Bonuses, fertilizer_availability_note, resolve_
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .farm_state import (
     FarmState, OtherIncome, Planting, SeasonFinance, compute_finance, extract_farm_state,
-    following_season, late_planting_warnings, render_state_for_prompt, resolve_plantings,
+    bus_warnings, following_season, late_planting_warnings, render_state_for_prompt, resolve_plantings,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .llm_client import LLMClient, TruncatedOutput, get_client
@@ -315,7 +315,9 @@ def generate_strategy(
     warnings = _fallback_warnings(fallback_error, goals, payload, parsed_strategy)
     warnings += [f"⚠️ {w}" for w in goal_checks]
     warnings += planting_warnings
-    warnings += late_planting_warnings(plantings, season_key, bonuses, {(w.day, w.crop) for w in goal_checks})
+    reported = {(w.day, w.crop) for w in goal_checks}
+    warnings += late_planting_warnings(plantings, season_key, bonuses, reported)
+    warnings += bus_warnings(plantings, year, reported)
     warnings += finance.warnings
     if plantings and (note := fertilizer_availability_note(bonuses, season_key, year, plantings[0].day)):
         warnings.append(note)

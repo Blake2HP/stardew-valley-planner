@@ -176,6 +176,15 @@ def resolve_plantings(
     return sorted(plantings, key=lambda p: p.day), warnings
 
 
+def bus_warnings(plantings: list[Planting], year: int, already: set[tuple[int, str]] = frozenset()) -> list[str]:
+    """第 1 年的种植清单里需要先修好巴士才买得到的作物；already 是日程校验已经报过的 (日期, 作物)。"""
+    if year != 1:
+        return []
+    return [f"⚠️ 种植清单第 {p.day} 天的{p.crop.name}：种子在{p.crop.seed_source}出售，要先修好巴士才能买到；"
+            "第 1 年如果还没修好，这笔支出和收益都不成立"
+            for p in plantings if p.crop.requires_bus and (p.day, p.crop.name) not in already]
+
+
 def late_planting_warnings(
     plantings: list[Planting], season: str, bonuses: Bonuses = NO_BONUSES, already: set[tuple[int, str]] = frozenset()
 ) -> list[str]:

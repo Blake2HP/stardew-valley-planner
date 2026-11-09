@@ -288,6 +288,13 @@ def build_data_context(
 
     event_lines = [f"- 第 {e.day} 天【{e.name}】：{e.tip}" for e in data.events_in_season(season)]
 
+    listed = {line.split("|")[1].strip() for line in crop_lines[2:]}
+    rest = [r for r in rank_crops(data, season, top_n=len(data.crops), bonuses=bonuses, year=year,
+                                  processing_share=processing_share) if r.crop.name not in listed]
+    if rest:
+        crop_lines += ["", "其余本季可种作物（数值同样可用，也可以安排种植，按单格净利排序）："
+                       + "、".join(_compact_crop(r) for r in rest)]
+
     notes = [crop_note(r.crop) for r in rank_crops(data, season, bonuses=bonuses, year=year)]
     notes = [n for n in notes if n]
     if notes:
@@ -304,9 +311,18 @@ def build_data_context(
     }
 
 
+def _compact_crop(r: CropProfit) -> str:
+    c = r.crop
+    regrow = f"，再生 {c.regrow_days} 天" if c.regrow_days else ""
+    bus = "，需先修好巴士" if c.requires_bus else ""
+    return f"{c.name}（种子 {c.seed_price}g，售价 {r.sell_price}g，生长 {r.grow_days} 天{regrow}，净利 {r.profit_text}{bus}）"
+
+
 def crop_note(crop: Crop) -> str:
     """种子掉落、副产物等不在表格列里的信息。"""
     parts = []
+    if crop.requires_bus:
+        parts.append(f"种子在{crop.seed_source}出售，要先修好巴士才能买到")
     if crop.seed_drop:
         parts.append(f"每次收获平均掉落 {crop.seed_drop:g} 颗种子，补种可直接用（净利已按此少算种子钱）")
     for b in crop.byproducts:
