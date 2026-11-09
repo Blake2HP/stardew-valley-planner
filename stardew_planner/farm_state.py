@@ -176,6 +176,24 @@ def resolve_plantings(
     return sorted(plantings, key=lambda p: p.day), warnings
 
 
+def late_planting_warnings(
+    plantings: list[Planting], season: str, bonuses: Bonuses = NO_BONUSES, already: set[tuple[int, str]] = frozenset()
+) -> list[str]:
+    """种植清单里来不及成熟的播种：没有任何收获，种子钱仍计入支出。
+
+    already 是日程校验已经报过的 (日期, 作物)，不重复警告。
+    """
+    out = []
+    for p in plantings:
+        if p.harvests or (p.day, p.crop.name) in already:
+            continue
+        grow = bonuses.grow_days(p.crop)
+        limit = SEASON_DAYS * alive_seasons(p.crop, season)
+        out.append(f"⚠️ 种植清单第 {p.day} 天的{p.crop.name}来不及成熟，这次播种没有收获，种子钱仍计入支出"
+                   f"（成熟日 = 种植日 {p.day} + 生长 {grow} 天 = {p.day + grow} > 最后存活日 {limit}）")
+    return out
+
+
 # ---------------------------------------------------------------------------
 # 资金
 # ---------------------------------------------------------------------------

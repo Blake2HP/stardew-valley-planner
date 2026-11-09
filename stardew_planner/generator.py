@@ -10,7 +10,7 @@ from .bonuses import NO_BONUSES, Bonuses, resolve_bonuses
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .farm_state import (
     FarmState, OtherIncome, Planting, SeasonFinance, compute_finance, extract_farm_state,
-    following_season, render_state_for_prompt, resolve_plantings,
+    following_season, late_planting_warnings, render_state_for_prompt, resolve_plantings,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .llm_client import LLMClient, get_client
@@ -284,8 +284,11 @@ def generate_strategy(
 
     # 4) 跨季规则校验：检查来不及成熟的种植，并强制第 28 天写入清理目标（保留跨季作物）
     carried = prior_state.carried_names if prior_state else ()
-    warnings = [f"⚠️ {w}" for w in check_plantings(goals, data, season_key, bonuses, year, carried)]
-    warnings += planting_warnings + finance.warnings
+    goal_checks = check_plantings(goals, data, season_key, bonuses, year, carried)
+    warnings = [f"⚠️ {w}" for w in goal_checks]
+    warnings += planting_warnings
+    warnings += late_planting_warnings(plantings, season_key, bonuses, {(w.day, w.crop) for w in goal_checks})
+    warnings += finance.warnings
     goals, inserted = enforce_season_end(goals, end_state.carried_names)
     nxt_zh = SEASON_ZH[next_season(season_key)]
     dying = "、".join(c.name for c in withering_crops(data, season_key, year))
