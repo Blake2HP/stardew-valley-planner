@@ -20,7 +20,10 @@ import threading
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
+from html import escape
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import markdown as md
 from fastapi import FastAPI, HTTPException, Request
@@ -91,13 +94,67 @@ class RateLimiter:
             return True
 
 
-_JS_HREF = re.compile(r'href\s*=\s*"\s*javascript:[^"]*"', re.IGNORECASE)
+ALLOWED_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "p", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td",
+                "blockquote", "strong", "em", "code", "pre", "hr", "br", "a"}
+VOID_TAGS = {"hr", "br"}
+_TEXT_ALIGN = re.compile(r"text-align:\s*(left|right|center);?")
+_URL_NOISE = re.compile(r"[\x00-\x20\x7f]+")
+
+
+def _safe_url(url: str | None) -> str | None:
+    """只放行 http / https 的绝对地址。HTMLParser 已解码实体，浏览器会忽略的空白和控制字符也先去掉再判断。"""
+    cleaned = _URL_NOISE.sub("", url or "")
+    try:
+        parts = urlsplit(cleaned)
+    except ValueError:
+        return None
+    return cleaned if parts.scheme.lower() in ("http", "https") and parts.netloc else None
+
+
+class _Sanitizer(HTMLParser):
+    """按白名单重建 HTML：其余标签和属性全部丢弃（保留文字），图片不渲染，避免加载外部资源。"""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.out: list[str] = []
+        self.dropped_links = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in ALLOWED_TAGS:
+            return
+        attrs = dict(attrs)
+        extra = ""
+        if tag == "a":
+            url = _safe_url(attrs.get("href"))
+            if url is None:
+                self.dropped_links += 1
+                return
+            extra = f' href="{escape(url, quote=True)}" rel="noopener noreferrer nofollow" target="_blank"'
+        elif tag in ("th", "td") and (m := _TEXT_ALIGN.fullmatch((attrs.get("style") or "").strip())):
+            extra = f' style="text-align: {m.group(1)};"'
+        self.out.append(f"<{tag}{extra}>")
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag):
+        if tag not in ALLOWED_TAGS or tag in VOID_TAGS:
+            return
+        if tag == "a" and self.dropped_links:  # 对应的 <a> 没有输出
+            self.dropped_links -= 1
+            return
+        self.out.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        self.out.append(escape(data, quote=False))
 
 
 def render_html(markdown_text: str) -> str:
-    """Markdown → HTML。模型输出可能夹带 HTML，先转义“<”（不影响 Markdown 的表格和引用），再去掉 javascript 链接。"""
-    html = md.markdown(markdown_text.replace("<", "&lt;"), extensions=["tables"])
-    return _JS_HREF.sub('href="#"', html)
+    """Markdown → 安全的 HTML：先转义“<”（不影响 Markdown 的表格和引用），再按白名单清洗。"""
+    sanitizer = _Sanitizer()
+    sanitizer.feed(md.markdown(markdown_text.replace("<", "&lt;"), extensions=["tables"]))
+    sanitizer.close()
+    return "".join(sanitizer.out)
 
 
 def season_summary(result) -> dict:

@@ -103,3 +103,34 @@ def test_html_from_model_is_escaped():
     assert "<script>" not in html and "&lt;script&gt;" in html
     assert "javascript:" not in html
     assert "<blockquote>" in html and "<table>" in html     # Markdown 的引用和表格不受影响
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["java&#115;cript:alert(1)", "JaVaScRiPt:alert(1)", "java&#x09;script:alert(1)", "&#106;avascript:alert(1)",
+     "data:text/html,x", "vbscript:x", "//evil.example/x", "/relative"],
+)
+def test_unsafe_links_lose_href_but_keep_text(url):
+    html = render_html(f"[点我]({url})")
+    assert "href" not in html and "<a" not in html and "点我" in html
+
+
+def test_external_images_are_not_rendered():
+    html = render_html("开头 ![a](http://evil.example/t.png) 结尾")
+    assert "<img" not in html and "evil.example" not in html and "开头" in html and "结尾" in html
+
+
+def test_safe_links_are_kept_and_hardened():
+    html = render_html("[wiki](https://stardewvalleywiki.com/Crops?a=1&b=2)")
+    assert 'href="https://stardewvalleywiki.com/Crops?a=1&amp;b=2"' in html
+    assert 'rel="noopener noreferrer nofollow"' in html and html.count("</a>") == 1
+
+
+def test_attributes_cannot_be_injected():
+    html = render_html('[x](https://a.example/"onmouseover="alert(1))')
+    assert 'onmouseover="' not in html
+
+
+def test_table_alignment_survives():
+    html = render_html("| a | b |\n|:--|--:|\n| 1 | 2 |")
+    assert "text-align: left;" in html and "text-align: right;" in html
