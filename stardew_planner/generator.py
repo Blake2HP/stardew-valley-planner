@@ -291,6 +291,8 @@ def generate_strategy(
     warnings += finance.warnings
     if plantings and (note := fertilizer_availability_note(bonuses, season_key, year, plantings[0].day)):
         warnings.append(note)
+    last_goal = goals.get(SEASON_DAYS, "")
+    had_cleanup = "清理农场" in last_goal and "停止种植" in last_goal
     goals, inserted = enforce_season_end(goals, end_state.carried_names)
     nxt_zh = SEASON_ZH[next_season(season_key)]
     dying = "、".join(c.name for c in withering_crops(data, season_key, year))
@@ -299,7 +301,9 @@ def generate_strategy(
     if end_state.carry:
         kept = "；".join(c.describe(end_state.next_season) for c in end_state.carry)
         warnings.append(f"ℹ️ 跨入{nxt_zh}继续生长：{kept}。")
-    if inserted:
+    if inserted and had_cleanup:
+        warnings.append(f"ℹ️ 第 28 天的清理目标已注明保留{'、'.join(end_state.carried_names)}。")
+    elif inserted:
         warnings.append(f"ℹ️ 已自动在第 28 天加入“{goals[SEASON_DAYS].split('；')[-1]}”。")
 
     # 4) 合并日程 + 渲染

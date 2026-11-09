@@ -1,4 +1,4 @@
-"""日程校验加固：种植清单来不及成熟、肥料是否买得到。"""
+"""日程校验加固：种植清单来不及成熟、肥料是否买得到、清理目标保留跨季作物。"""
 
 import copy
 import json
@@ -8,7 +8,8 @@ import pytest
 from stardew_planner import generate_strategy
 from stardew_planner.bonuses import fertilizer_availability_note, load_bonus_rules, resolve_bonuses
 from stardew_planner.farm_state import compute_finance, late_planting_warnings, resolve_plantings
-from stardew_planner.llm_client import MOCK_RESPONSE
+from stardew_planner.llm_client import MOCK_RESPONSE, MOCK_SUMMER
+from stardew_planner.season_rules import CLEANUP_GOAL, enforce_season_end
 
 
 class Scripted:
@@ -144,3 +145,51 @@ def test_generator_skips_note_without_plantings(data, indexed_store):
     payload = {**copy.deepcopy(MOCK_RESPONSE), "plantings": []}
     result = run(data, indexed_store, payload, fertilizer="speed_gro")
     assert not any("才在商店出售" in w for w in result.season_warnings)
+
+
+# ---------------------------------------------------------------------------
+# 清理目标保留跨季作物
+# ---------------------------------------------------------------------------
+
+def test_existing_cleanup_gets_kept_crops():
+    goals, changed = enforce_season_end({28: CLEANUP_GOAL}, keep=["玉米"])
+    assert changed and goals[28] == f"{CLEANUP_GOAL}（保留玉米）"
+
+
+def test_mentioning_a_crop_is_not_keeping_it():
+    goals, changed = enforce_season_end({28: f"收获玉米；{CLEANUP_GOAL}"}, keep=["玉米"])
+    assert changed and goals[28].endswith("（保留玉米）")
+
+
+@pytest.mark.parametrize(
+    "goal",
+    [f"{CLEANUP_GOAL}（保留玉米）", f"{CLEANUP_GOAL}，玉米留下", f"不清理玉米；{CLEANUP_GOAL}", f"{CLEANUP_GOAL}（玉米别动）"],
+)
+def test_already_kept_crops_are_left_alone(goal):
+    goals, changed = enforce_season_end({28: goal}, keep=["玉米"])
+    assert not changed and goals[28] == goal
+
+
+def test_only_missing_crops_are_added():
+    goals, changed = enforce_season_end({28: f"{CLEANUP_GOAL}（保留玉米）"}, keep=["玉米", "小麦"])
+    assert changed and goals[28] == f"{CLEANUP_GOAL}（保留玉米）（保留小麦）"
+
+
+def test_annotation_is_idempotent():
+    once, _ = enforce_season_end({28: CLEANUP_GOAL}, keep=["玉米"])
+    twice, changed = enforce_season_end(once, keep=["玉米"])
+    assert not changed and twice == once
+
+
+def test_no_kept_crops_leaves_cleanup_alone():
+    goals, changed = enforce_season_end({28: CLEANUP_GOAL})
+    assert not changed and goals[28] == CLEANUP_GOAL
+
+
+def test_generator_annotates_model_cleanup(data, indexed_store):
+    payload = copy.deepcopy(MOCK_SUMMER)
+    payload["daily_goals"]["28"] = "收获蓝莓；清理农场/停止种植"              # 模型自己写了清理，但没提玉米
+    result = run(data, indexed_store, payload, season="summer", start_gold=5000)
+    assert result.daily_goals[28].endswith("（保留玉米）")
+    assert any("第 28 天的清理目标已注明保留玉米" in w for w in result.season_warnings)
+    assert not any("已自动在第 28 天加入" in w for w in result.season_warnings)

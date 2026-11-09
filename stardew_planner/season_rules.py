@@ -175,15 +175,28 @@ def cleanup_goal(keep: Iterable[str] = ()) -> str:
     return f"{CLEANUP_GOAL}（保留{'、'.join(keep)}）" if keep else CLEANUP_GOAL
 
 
+KEEP_WORDS = ("保留", "留下", "别动", "不动", "不清理", "不要清理", "别清理")
+
+
+def _marked_as_kept(goal: str, crop: str) -> bool:
+    """同一子句里同时有作物名和“保留”类说法才算；“收获玉米；清理农场”只是提到了玉米。"""
+    return any(crop in seg and any(w in seg for w in KEEP_WORDS) for seg in _SEGMENT_SPLIT.split(goal))
+
+
 def enforce_season_end(daily_goals: dict[int, str], keep: Iterable[str] = ()) -> tuple[dict[int, str], bool]:
     """确保第 28 天包含“清理农场/停止种植”。返回 (新日程, 是否做了修改)。
 
     keep 是会跨入下一季继续生长的作物名，写进清理目标里（例如“清理农场/停止种植（保留玉米）”）。
+    目标里已经有清理任务、但没说明保留哪些跨季作物时，也会补上，避免玩家把它们铲掉。
     """
     goals = dict(daily_goals)
     current = goals.get(SEASON_DAYS, "").strip()
     if "清理农场" in current and "停止种植" in current:
-        return goals, False
+        missing = [k for k in dict.fromkeys(keep) if not _marked_as_kept(current, k)]
+        if not missing:
+            return goals, False
+        goals[SEASON_DAYS] = f"{current}（保留{'、'.join(missing)}）"
+        return goals, True
     goal = cleanup_goal(keep)
     goals[SEASON_DAYS] = f"{current}；{goal}" if current else goal
     return goals, True
