@@ -134,6 +134,34 @@ def test_cash_shortfall_warns(data):
     assert len(f.warnings) == 1 and "第 1 天" in f.warnings[0] and "-700g" in f.warnings[0]
 
 
+def test_cash_check_includes_fertilizer(data):
+    # 种子 10 × 20 = 200g 买得起，肥料 10 × 100 = 1000g 买不起：第 1 天现金 250 − 1200 = −950
+    b = resolve_bonuses([], "speed_gro")
+    f = compute_finance(plant(data, "spring", 1, (1, "防风草", 10), bonuses=b), start_gold=250, bonuses=b)
+    assert len(f.warnings) == 1 and "第 1 天" in f.warnings[0] and "-950g" in f.warnings[0]
+    enough = compute_finance(plant(data, "spring", 1, (1, "防风草", 10), bonuses=b), start_gold=1200, bonuses=b)
+    assert enough.warnings == []
+
+
+def test_fertilizer_bought_only_when_new_tiles_are_used(data):
+    # 第 7 天在收获后的同样 10 格补种，不用再买肥料；第 8 天多种 5 格，才买 5 份
+    b = resolve_bonuses([], "speed_gro")
+    plantings = plant(data, "spring", 1, (1, "土豆", 10), (7, "土豆", 10), (8, "土豆", 5), bonuses=b)
+    f = compute_finance(plantings, bonuses=b)
+    assert f.fertilizer_cost == 15 * 100
+    # 现金变化：第 1 天 −500 −1000；第 6 天收获 +1000；第 7 天种子 −500；第 8 天种子 −250、肥料 −500
+    # 最低点在第 8 天：期初 − 1750，所以期初 1750g 刚好够
+    assert compute_finance(plantings, start_gold=1750, bonuses=b).warnings == []
+    short = compute_finance(plantings, start_gold=1749, bonuses=b)
+    assert "第 8 天" in short.warnings[0] and "-1g" in short.warnings[0]
+
+
+def test_unpriced_fertilizer_costs_no_cash(data):
+    b = resolve_bonuses([], "deluxe_fertilizer", farming_level=10)
+    f = compute_finance(plant(data, "spring", 1, (1, "防风草", 10), bonuses=b), start_gold=200, bonuses=b)
+    assert f.fertilizer_cost == 0 and f.warnings == []
+
+
 def test_unknown_start_gold(data):
     f = compute_finance(plant(data, "spring", 1, (1, "花椰菜", 10)))
     assert f.end_gold is None and f.end_gold_estimated is None and f.warnings == []

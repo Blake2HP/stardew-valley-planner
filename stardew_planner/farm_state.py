@@ -180,9 +180,12 @@ def resolve_plantings(
 # 资金
 # ---------------------------------------------------------------------------
 
-def _peak_tiles(plantings: list[Planting]) -> int:
-    """本季新播种同时占用的最多格数：非再生作物收获当天就空出来，可再生作物一直占到季末。"""
-    peak = 0
+def _new_fertilized_tiles(plantings: list[Planting]) -> dict[int, int]:
+    """每天需要新施肥的格数：占用格数创新高时才买，补种到已施肥的格子不用再买。
+
+    本季新播种的占用：非再生作物收获当天就空出来，可再生作物一直占到季末。
+    """
+    peak, purchases = 0, {}
     for day in range(1, SEASON_DAYS + 1):
         used = 0
         for p in plantings:
@@ -192,8 +195,15 @@ def _peak_tiles(plantings: list[Planting]) -> int:
                 used += p.tiles
             elif day < p.harvests[0]:
                 used += p.tiles
-        peak = max(peak, used)
-    return peak
+        if used > peak:
+            purchases[day] = used - peak
+            peak = used
+    return purchases
+
+
+def _peak_tiles(plantings: list[Planting]) -> int:
+    """本季新播种同时占用的最多格数。"""
+    return sum(_new_fertilized_tiles(plantings).values())
 
 
 def compute_finance(
@@ -263,6 +273,8 @@ def compute_finance(
         fert_cost = peak * (fert.price or 0)
         price = f"{fert.price}g" if fert.price else "0g（无法直接购买，按 0 计）"
         lines.append(f"肥料支出 = 同时占用的最多格数 {peak} × {fert.name_zh} {price} = {fert_cost}g")
+        for day, tiles in _new_fertilized_tiles(plantings).items():
+            spent_by_day[day] = spent_by_day.get(day, 0) + tiles * (fert.price or 0)
 
     finance = SeasonFinance(
         start_gold=start_gold,
@@ -274,14 +286,14 @@ def compute_finance(
         lines=lines,
     )
 
-    # 逐日现金流（只算种植收支）：找出第一次买不起种子的日子
+    # 逐日现金流（只算种植收支）：找出第一次买不起种子或肥料的日子
     if start_gold is not None:
         cash = float(start_gold)
         for day in range(1, SEASON_DAYS + 1):
             cash += revenue_by_day.get(day, 0) - spent_by_day.get(day, 0)
             if cash < 0:
                 finance.warnings.append(
-                    f"⚠️ 第 {day} 天买种子后现金为 {int(cash)}g：只算种植收支时资金不足"
+                    f"⚠️ 第 {day} 天买种子和肥料后现金为 {int(cash)}g：只算种植收支时资金不足"
                     f"（未计入钓鱼、挖矿等其他收入，请确认届时有足够现金）")
                 break
     return finance
