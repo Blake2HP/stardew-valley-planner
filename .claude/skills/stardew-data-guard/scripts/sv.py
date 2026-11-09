@@ -200,6 +200,8 @@ def cmd_profit(data: GameData, a) -> None:
     print(f"  占地日均 = 单格净利 {profit:g} / 可用天数 {n} = {profit / n:.2f}g/天")
     if b.fertilizer and not b.fertilizer.price:
         print(f"  注：{b.fertilizer.name_zh}无法直接购买（{b.fertilizer.source}），肥料成本按 0 计。")
+    if len(c.seasons) > 1:
+        print(f"  注：这里只算当季 28 天；{c.name}可跨季生长，收益表按完整存活期计算，收获日见 sv.py simulate。")
     if b.quality_active:
         print("  注：净利是按品质分布的期望值（直接卖）；加工策略见 sv.py quality。")
     else:

@@ -120,12 +120,12 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
             if r.profit_with_plan is not None:
                 plan += f"，按此单格净利 {r.profit_with_plan}g"
             out.append(f"| {r.crop.name} | {r.crop.seed_price}g | {r.sell_price}g | {r.grow_days} 天 | 第 {r.plant_day} 天 | "
-                       f"{r.harvests} 次 | {r.profit_per_tile}g | {artisan} | {_cell(plan)} |")
+                       f"{r.harvests} 次{r.span_text} | {r.profit_text} | {artisan} | {_cell(plan)} |")
         applied = "未计入职业与肥料加成" if result.bonuses.is_empty else f"已计入 {result.bonuses.describe()}"
         quality = (f"售价为普通品质，净利按品质分布（{result.bonuses.describe_quality()}）取期望值"
                    if result.bonuses.quality_active else "未计入作物品质（全部按普通品质）")
         out += ["", "> 收益为本地数据计算的估算值（从种子最早开售日起种植、收获后立即补种），"
-                f"{applied}，{quality}。出售策略不计机器成本与加工时间"
+                f"{applied}，{quality}。跨季作物按完整存活期计算、按平均每季净利排序。出售策略不计机器成本与加工时间"
                 + ("" if result.processing_share >= 1 else f"，并假设机器只够加工 {result.processing_share:.0%} 的收获")
                 + "。数值来源：Stardew Valley Wiki（1.6）。", ""]
 

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, QUALITIES, Bonuses
 from .data_loader import NO_GUIDES_TEXT, SEASON_ZH, ArtisanRule, Crop, GameData, GiftItem, normalize_season
-from .farm_state import NO_PRIOR_STATE_TEXT
+from .farm_state import NO_PRIOR_STATE_TEXT, alive_seasons
 
 SEASON_DAYS = 28
 
@@ -28,10 +28,26 @@ class CropProfit:
     sell_price: int = 0         # 实际售价（普通品质，已计入农耕人）
     sale_plan: "SalePlan | None" = None  # 按品质决定直接卖还是加工
     profit_with_plan: int | None = None  # 按出售策略（部分加工）的单格整季净利
+    seasons_alive: int = 1      # 从本季起能连续生长几季；> 1 时收获次数和净利按完整存活期计算
 
     @property
     def available_days(self) -> int:
-        return available_growing_days(self.plant_day)
+        return available_growing_days(self.plant_day) + SEASON_DAYS * (self.seasons_alive - 1)
+
+    @property
+    def profit_per_season(self) -> float:
+        """平均每季净利：跨季作物占地时间更长，比较时不能直接用总额。"""
+        return self.profit_per_tile / self.seasons_alive
+
+    @property
+    def span_text(self) -> str:
+        return f"（跨 {self.seasons_alive} 季）" if self.seasons_alive > 1 else ""
+
+    @property
+    def profit_text(self) -> str:
+        if self.seasons_alive == 1:
+            return f"{self.profit_per_tile}g"
+        return f"{self.profit_per_tile}g（跨 {self.seasons_alive} 季，平均每季 {self.profit_per_season:.0f}g）"
 
     @property
     def profit_per_day(self) -> float:
@@ -70,7 +86,11 @@ def seeds_to_buy(crop: Crop, harvests: int, seeds: int) -> float:
 
 
 def season_profit(
-    crop: Crop, plant_day: int = 1, bonuses: Bonuses = NO_BONUSES, value_per_harvest: float | None = None
+    crop: Crop,
+    plant_day: int = 1,
+    bonuses: Bonuses = NO_BONUSES,
+    value_per_harvest: float | None = None,
+    season: str | None = None,
 ) -> tuple[int, int]:
     """返回 (收获次数, 单格整季净利润期望值)。
 
@@ -79,9 +99,11 @@ def season_profit(
     - 每次收获的收入 = 品质期望售价（第一个作物按品质分布，额外产出为普通品质），计入农耕人；
       不计入品质时就是 售价 × 单次产量；
     - 肥料每格每季施一次，成本只扣一次；
-    - value_per_harvest 用来替换每次收获的收入（例如按出售策略部分加工后的期望值）。
+    - value_per_harvest 用来替换每次收获的收入（例如按出售策略部分加工后的期望值）；
+    - 传入 season 时按完整存活期计算：夏季种的玉米一直算到秋季末；不传则只算当季 28 天。
     """
-    days_left = available_growing_days(effective_plant_day(crop, plant_day))
+    seasons = alive_seasons(crop, season) if season else 1
+    days_left = available_growing_days(effective_plant_day(crop, plant_day)) + SEASON_DAYS * (seasons - 1)
     harvests, seeds = harvest_plan(bonuses.grow_days(crop), crop.regrow_days, days_left)
     value = bonuses.expected_crop_value(crop) if value_per_harvest is None else value_per_harvest
     revenue = harvests * value
@@ -202,14 +224,17 @@ def rank_crops(
     year: int | None = None,
     processing_share: float = 1.0,
 ) -> list[CropProfit]:
-    """本季作物按单格整季净利（直接卖）排序；传入 year 时过滤掉当年买不到种子的作物（如第 1 年的大蒜）。"""
+    """本季作物按平均每季净利（直接卖）排序；传入 year 时过滤掉当年买不到种子的作物（如第 1 年的大蒜）。
+
+    跨季作物按完整存活期计算，并且始终列出（即使排在 top_n 之后），否则模型看不到这个选项。
+    """
     results = []
     for crop in data.crops_in_season(season, year):
-        harvests, profit = season_profit(crop, bonuses=bonuses)
+        harvests, profit = season_profit(crop, bonuses=bonuses, season=season)
         rules = data.artisan_rules_for(crop)
         best = max(rules, key=lambda r: bonuses.artisan_price(r, crop), default=None)
         plan = sale_plan(crop, rules, bonuses, processing_share)
-        _, planned = season_profit(crop, bonuses=bonuses, value_per_harvest=plan.expected_best)
+        _, planned = season_profit(crop, bonuses=bonuses, value_per_harvest=plan.expected_best, season=season)
         results.append(CropProfit(
             crop=crop,
             harvests=harvests,
@@ -221,9 +246,10 @@ def rank_crops(
             sell_price=bonuses.crop_price(crop),
             sale_plan=plan,
             profit_with_plan=planned if best else None,
+            seasons_alive=alive_seasons(crop, season),
         ))
-    results.sort(key=lambda r: r.profit_per_tile, reverse=True)
-    return results[:top_n]
+    results.sort(key=lambda r: r.profit_per_season, reverse=True)
+    return results[:top_n] + [r for r in results[top_n:] if r.seasons_alive > 1]
 
 
 def build_data_context(
@@ -244,8 +270,8 @@ def build_data_context(
         regrow = f"{r.grow_days}/{c.regrow_days}" if c.regrow_days else f"{r.grow_days}/-"
         artisan = f"{r.best_artisan}({r.artisan_unit_price}g)" if r.best_artisan else "-"
         crop_lines.append(
-            f"| {c.name} | {c.seed_price}g | {r.sell_price}g | {regrow} | 第 {r.plant_day} 天 | {r.harvests} | "
-            f"{r.profit_per_tile}g | {artisan} | {c.seed_source} | {r.sale_plan.summary()} | "
+            f"| {c.name} | {c.seed_price}g | {r.sell_price}g | {regrow} | 第 {r.plant_day} 天 | {r.harvests}{r.span_text} | "
+            f"{r.profit_text} | {artisan} | {c.seed_source} | {r.sale_plan.summary()} | "
             + (f"{r.profit_with_plan}g |" if r.profit_with_plan is not None else "- |")
         )
 
