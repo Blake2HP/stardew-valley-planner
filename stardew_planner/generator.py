@@ -13,13 +13,14 @@ from .farm_state import (
     following_season, late_planting_warnings, render_state_for_prompt, resolve_plantings,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
-from .llm_client import LLMClient, get_client
+from .llm_client import LLMClient, TruncatedOutput, get_client
 from .prompts import REPAIR_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
 from .renderer import render_markdown
 from .schedule import ScheduleBlock, merge_daily_goals
 from .season_rules import check_gifts, check_plantings, enforce_season_end, next_season, withering_crops
 
 FALLBACK_GOAL = "自由安排"
+TRUNCATED_ERROR = "输出太长被截断了：请精简 pillars、key_milestones 和各字段的文字，输出完整的 JSON"
 
 
 class StrategyParseError(ValueError):
@@ -173,6 +174,23 @@ def _lenient_parse(payload: dict) -> ParsedStrategy:
                           _parse_other_income(payload.get("other_income")))
 
 
+def _fallback_warnings(error: str | None, goals: dict[int, str], payload: dict, parsed: ParsedStrategy) -> list[str]:
+    """走了兜底解析时明确告诉用户：哪些内容缺失，资金预期不可靠。"""
+    if error is None:
+        return []
+    parts = []
+    missing = [d for d in sorted(goals) if goals[d] == FALLBACK_GOAL]
+    if missing:
+        parts.append(f"第 {'、'.join(map(str, missing))} 天没有目标（显示为“{FALLBACK_GOAL}”）")
+    raw = payload.get("plantings")
+    if not isinstance(raw, list):
+        parts.append("种植清单缺失")
+    elif len(parsed.plantings) < len(raw):
+        parts.append(f"种植清单有 {len(raw) - len(parsed.plantings)} 条无效")
+    detail = "；".join(parts) + "；" if parts else ""
+    return [f"⚠️ 模型重试后输出仍不合格，已用兜底结果：{detail}攻略可能不完整，资金预期不可靠（原因：{error[:150]}）"]
+
+
 # ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
@@ -252,24 +270,33 @@ def generate_strategy(
     # 2) 调用模型 + 校验，失败时把错误回传给模型自我修正
     raw, parse_method, attempts = "", "", 0
     payload: dict = {}
+    fallback_error: str | None = None  # 重试后仍不合格、改用兜底解析时的原因
     for attempt in range(max_retries + 1):
         attempts = attempt + 1
-        raw = client.complete(SYSTEM_PROMPT, messages)
+        truncated = False
+        try:
+            raw = client.complete(SYSTEM_PROMPT, messages)
+        except TruncatedOutput as e:  # 截断的 JSON 可能被修复成“看起来完整”的结果，不能直接采信
+            raw, truncated = e.text, True
         payload = {}
         try:
             parsed = extract_json(raw)  # 语法错误在本地修复，不消耗重试次数
             payload, parse_method = parsed.data, parsed.method
             parsed_strategy = validate_payload(payload)
+            if truncated:
+                raise StrategyParseError(TRUNCATED_ERROR)
             break
         except StrategyParseError as e:
+            reason = TRUNCATED_ERROR if truncated else str(e)
             if attempt == max_retries:
                 if not payload:
-                    raise
+                    raise StrategyParseError(reason) from e
                 parsed_strategy = _lenient_parse(payload)
+                fallback_error = reason
                 break
             messages += [
                 {"role": "assistant", "content": raw},
-                {"role": "user", "content": REPAIR_PROMPT_TEMPLATE.format(error=e)},
+                {"role": "user", "content": REPAIR_PROMPT_TEMPLATE.format(error=reason)},
             ]
 
     macro, milestones, goals = parsed_strategy.macro, parsed_strategy.milestones, parsed_strategy.goals
@@ -285,7 +312,8 @@ def generate_strategy(
     # 4) 跨季规则校验：检查来不及成熟的种植，并强制第 28 天写入清理目标（保留跨季作物）
     carried = prior_state.carried_names if prior_state else ()
     goal_checks = check_plantings(goals, data, season_key, bonuses, year, carried)
-    warnings = [f"⚠️ {w}" for w in goal_checks]
+    warnings = _fallback_warnings(fallback_error, goals, payload, parsed_strategy)
+    warnings += [f"⚠️ {w}" for w in goal_checks]
     warnings += planting_warnings
     warnings += late_planting_warnings(plantings, season_key, bonuses, {(w.day, w.crop) for w in goal_checks})
     warnings += finance.warnings

@@ -95,6 +95,7 @@ def load_cases(path: str | None) -> list[dict]:
 
 # (类别, 正则, 是否算“问题”)。“固定提示”每季都会出现（如换季枯死提醒），不计入问题率。
 WARNING_CATEGORIES: list[tuple[str, str, bool]] = [
+    ("模型输出不合格（已用兜底结果）", r"已用兜底结果", True),
     ("来不及成熟", r"来不及成熟", True),
     ("种了非本季作物", r"不是.{1,4}作物", True),
     ("种子尚未开售（日期 / 年份）", r"才能买到|才开售|年起才出售", True),

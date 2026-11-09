@@ -10,6 +10,14 @@ from typing import Protocol
 Message = dict  # {"role": "user" | "assistant", "content": str}
 
 
+class TruncatedOutput(Exception):
+    """模型输出达到 max_tokens 被截断。text 是已经生成的部分。"""
+
+    def __init__(self, text: str):
+        super().__init__("模型输出达到 max_tokens，被截断")
+        self.text = text
+
+
 class LLMClient(Protocol):
     def complete(self, system: str, messages: list[Message]) -> str: ...
 
@@ -29,7 +37,10 @@ class AnthropicClient:
             system=system,
             messages=messages,
         )
-        return "".join(block.text for block in resp.content if block.type == "text")
+        text = "".join(block.text for block in resp.content if block.type == "text")
+        if resp.stop_reason == "max_tokens":
+            raise TruncatedOutput(text)
+        return text
 
 
 class OpenAIClient:
@@ -47,7 +58,11 @@ class OpenAIClient:
             response_format={"type": "json_object"},
             messages=[{"role": "system", "content": system}, *messages],
         )
-        return resp.choices[0].message.content or ""
+        choice = resp.choices[0]
+        text = choice.message.content or ""
+        if choice.finish_reason == "length":
+            raise TruncatedOutput(text)
+        return text
 
 
 class MockClient:
