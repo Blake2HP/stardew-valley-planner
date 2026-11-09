@@ -170,6 +170,38 @@ def check_plantings(
     return warnings
 
 
+def check_plantings_match(
+    daily_goals: dict[int, str], plantings, data: GameData, already: set[tuple[int, str]] = frozenset()
+) -> list[SeasonWarning]:
+    """日程和种植清单互相核对：资金只按清单计算，两边对不上时资金预期没有意义。
+
+    连续几天目标相同时算作一段（“第 1-3 天：种土豆”只需要清单里有其中一天）；
+    already 是日程校验已经报过的 (日期, 作物)，不重复警告。
+    """
+    listed = {(p.day, p.crop.name) for p in plantings}
+    runs: list[list[int]] = []
+    for day in sorted(daily_goals):
+        if runs and runs[-1][-1] == day - 1 and daily_goals[runs[-1][-1]] == daily_goals[day]:
+            runs[-1].append(day)
+        else:
+            runs.append([day])
+
+    warnings = []
+    for run in runs:
+        goal = daily_goals[run[0]]
+        for crop in _planted_crops(goal, data.crops):
+            if any((d, crop.name) in listed or (d, crop.name) in already for d in run):
+                continue
+            warnings.append(SeasonWarning(run[0], crop.name, f"日程安排种{crop.name}，但种植清单没有这一条，资金预期没有计入",
+                                          f"目标：{goal}"))
+    for p in plantings:
+        goal = daily_goals.get(p.day, "")
+        if p.crop.name not in goal:
+            warnings.append(SeasonWarning(p.day, p.crop.name, f"种植清单里的{p.crop.name}在当天日程没有提到",
+                                          f"目标：{goal or '无'}"))
+    return sorted(warnings, key=lambda w: w.day)
+
+
 def withering_crops(data: GameData, season: str, year: int | None = None) -> list[Crop]:
     """本季作物中，换季后会枯死的那些（传入 year 时只列当年能种的）。"""
     return [c for c in data.crops_in_season(season, year) if not survives_season_change(c, season)]

@@ -17,7 +17,9 @@ from .llm_client import LLMClient, TruncatedOutput, get_client
 from .prompts import REPAIR_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
 from .renderer import render_markdown
 from .schedule import ScheduleBlock, merge_daily_goals
-from .season_rules import check_gifts, check_plantings, enforce_season_end, next_season, withering_crops
+from .season_rules import (
+    check_gifts, check_plantings, check_plantings_match, enforce_season_end, next_season, withering_crops,
+)
 
 FALLBACK_GOAL = "自由安排"
 TRUNCATED_ERROR = "输出太长被截断了：请精简 pillars、key_milestones 和各字段的文字，输出完整的 JSON"
@@ -318,6 +320,8 @@ def generate_strategy(
     reported = {(w.day, w.crop) for w in goal_checks}
     warnings += late_planting_warnings(plantings, season_key, bonuses, reported)
     warnings += bus_warnings(plantings, year, reported)
+    if fallback_error is None:  # 兜底时清单本来就不可靠，上面已经警告过
+        warnings += [f"⚠️ {w}" for w in check_plantings_match(goals, plantings, data, reported)]
     warnings += finance.warnings
     if plantings and (note := fertilizer_availability_note(bonuses, season_key, year, plantings[0].day)):
         warnings.append(note)

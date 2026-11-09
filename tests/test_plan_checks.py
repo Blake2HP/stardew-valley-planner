@@ -1,4 +1,4 @@
-"""日程校验加固：种植清单来不及成熟、肥料是否买得到、清理目标保留跨季作物、沙漠作物与完整作物列表。"""
+"""日程校验加固：种植清单来不及成熟、肥料是否买得到、清理目标保留跨季作物、沙漠作物与完整作物列表、日程与清单一致。"""
 
 import copy
 import json
@@ -10,7 +10,7 @@ from stardew_planner.bonuses import fertilizer_availability_note, load_bonus_rul
 from stardew_planner.analysis import _compact_crop, build_data_context, crop_note, rank_crops
 from stardew_planner.farm_state import bus_warnings, compute_finance, late_planting_warnings, resolve_plantings
 from stardew_planner.llm_client import MOCK_RESPONSE, MOCK_SUMMER
-from stardew_planner.season_rules import CLEANUP_GOAL, check_plantings, enforce_season_end
+from stardew_planner.season_rules import CLEANUP_GOAL, check_plantings, check_plantings_match, enforce_season_end
 
 
 class Scripted:
@@ -255,3 +255,71 @@ def test_compact_entry_marks_desert_crops(data):
     by_name = {r.crop.name: r for r in rank_crops(data, "spring", top_n=50, year=1)}
     assert _compact_crop(by_name["大黄"]).endswith("，需先修好巴士）")
     assert "巴士" not in _compact_crop(by_name["土豆"])
+
+
+# ---------------------------------------------------------------------------
+# 日程与种植清单一致
+# ---------------------------------------------------------------------------
+
+def test_matching_goal_and_list(data):
+    assert check_plantings_match({1: "种土豆"}, plantings(data, "spring", (1, "土豆", 5)), data) == []
+
+
+def test_goal_without_list_entry_warns(data):
+    (w,) = check_plantings_match({1: "种土豆"}, [], data)
+    assert w.day == 1 and w.crop == "土豆" and "种植清单没有这一条" in w.message
+
+
+def test_list_without_goal_warns(data):
+    (w,) = check_plantings_match({1: "钓鱼"}, plantings(data, "spring", (1, "土豆", 5)), data)
+    assert "种植清单里的土豆在当天日程没有提到" in w.message and "钓鱼" in w.formula
+
+
+def test_different_day_does_not_match(data):
+    warnings = check_plantings_match({1: "种土豆", 2: "钓鱼"}, plantings(data, "spring", (2, "土豆", 5)), data)
+    assert {w.day for w in warnings} == {1, 2}
+
+
+def test_repeated_goal_needs_one_entry(data):
+    goals = {1: "种土豆", 2: "种土豆", 3: "种土豆", 4: "钓鱼"}
+    assert check_plantings_match(goals, plantings(data, "spring", (2, "土豆", 5)), data) == []
+
+
+def test_repeated_goal_span_is_reported_once(data):
+    warnings = check_plantings_match({1: "种土豆", 2: "种土豆", 3: "钓鱼"}, [], data)
+    assert [(w.day, w.crop) for w in warnings] == [(1, "土豆")]
+
+
+def test_same_goal_after_a_gap_is_a_new_span(data):
+    goals = {1: "种土豆", 2: "钓鱼", 3: "种土豆"}
+    warnings = check_plantings_match(goals, plantings(data, "spring", (1, "土豆", 5)), data)
+    assert [w.day for w in warnings] == [3]
+
+
+def test_negated_and_seed_only_goals_are_not_plantings(data):
+    assert check_plantings_match({1: "不再补种土豆", 2: "买土豆种子"}, [], data) == []
+
+
+def test_already_reported_crop_is_skipped(data):
+    assert check_plantings_match({1: "种蓝莓"}, [], data, {(1, "蓝莓")}) == []
+
+
+def test_generator_reports_empty_list(data, indexed_store):
+    payload = {**copy.deepcopy(MOCK_RESPONSE), "plantings": []}
+    result = run(data, indexed_store, payload)
+    assert any("日程安排种防风草，但种植清单没有这一条" in w for w in result.season_warnings)
+
+
+def test_out_of_season_goal_warns_once(data, indexed_store):
+    payload = copy.deepcopy(MOCK_RESPONSE)
+    payload["daily_goals"]["3"] = "种蓝莓"
+    warnings = [w for w in run(data, indexed_store, payload).season_warnings if "蓝莓" in w and "第 3 天" in w]
+    assert len(warnings) == 1 and "不是春季作物" in warnings[0]
+
+
+def test_no_match_check_after_fallback(data, indexed_store):
+    payload = copy.deepcopy(MOCK_RESPONSE)
+    payload["plantings"] = "坏数据"
+    warnings = run(data, indexed_store, payload).season_warnings
+    assert any("已用兜底结果" in w for w in warnings)
+    assert not any("种植清单没有这一条" in w for w in warnings)
