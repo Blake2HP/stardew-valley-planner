@@ -1,5 +1,4 @@
 anthropic>=2.7.0  # 需要 output_config、fallbacks 等参数
-openai>=1.40.0
 python-dotenv>=1.0.0
 json-repair>=0.30.0
 chromadb>=1.0.0

@@ -2,13 +2,12 @@
 
 import copy
 import json
-from types import SimpleNamespace
 
 import pytest
 
 from stardew_planner import generate_strategy
 from stardew_planner.generator import StrategyParseError
-from stardew_planner.llm_client import MOCK_RESPONSE, AnthropicClient, OpenAIClient, TruncatedOutput
+from stardew_planner.llm_client import MOCK_RESPONSE, TruncatedOutput
 
 GOOD = json.dumps(MOCK_RESPONSE, ensure_ascii=False)
 
@@ -84,21 +83,3 @@ def test_always_truncated_uses_fallback_and_says_why(data, indexed_store):
 def test_unparseable_truncation_raises_with_reason(data, indexed_store):
     with pytest.raises(StrategyParseError, match="被截断"):
         run(data, indexed_store, Scripted(TruncatedOutput("")))
-
-
-def fake(create):
-    return SimpleNamespace(create=create)
-
-
-def test_openai_detects_length():
-    client = OpenAIClient.__new__(OpenAIClient)
-    client.model, client.max_tokens = "m", 10
-    for finish, raises in (("length", True), ("stop", False)):
-        choice = SimpleNamespace(finish_reason=finish, message=SimpleNamespace(content="半截"))
-        resp = SimpleNamespace(choices=[choice])
-        client.client = SimpleNamespace(chat=SimpleNamespace(completions=fake(lambda **_: resp)))
-        if raises:
-            with pytest.raises(TruncatedOutput):
-                client.complete("s", [])
-        else:
-            assert client.complete("s", []) == "半截"

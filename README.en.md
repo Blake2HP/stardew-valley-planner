@@ -64,11 +64,9 @@ python main.py --provider mock
 **Use a real LLM**: copy `.env.example` to `.env` and fill in your key:
 
 ```ini
-LLM_PROVIDER=anthropic          # anthropic / openai / mock
+LLM_PROVIDER=anthropic          # anthropic / mock
 ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-opus-5-5
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1
 ```
 
 Claude request settings (all can go in `.env`):
@@ -93,8 +91,8 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `-c, --pacing` | Pacing, e.g. "relaxed", "speedrun" | `休闲慢节奏` |
 | `-s, --season` | `spring/summer/fall/winter` (Chinese names like `春季` also work); a comma-separated list of **consecutive** seasons plans them in a row, e.g. `spring,summer` (winter is followed by spring of the next year) | `spring` |
 | `-y, --year` | In-game year; in year 1 the profit table and checks leave out crops whose seeds are only sold from year 2 (Garlic, Red Cabbage) | `1` |
-| `--provider` | `anthropic` / `openai` / `mock` | env var `LLM_PROVIDER`, else `anthropic` |
-| `--model` | Override the default model name | env var `ANTHROPIC_MODEL` / `OPENAI_MODEL` |
+| `--provider` | `anthropic` / `mock` | env var `LLM_PROVIDER`, else `anthropic` |
+| `--model` | Override the default model name | env var `ANTHROPIC_MODEL` |
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
 | `--start-gold` | Starting gold | 500g starting gold (`data/farm.json`) in year-1 spring, unknown otherwise |
 | `--professions` | Comma-separated professions: `tiller` (crops +10%), `artisan` (artisan goods +40%), `agriculturist` (growth +10%). Chinese names also work; choosing Artisan or Agriculturist adds Tiller automatically, and the two exclude each other | none |
@@ -167,7 +165,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── data_loader.py          data loading, guide chunking, ChromaDB indexing and semantic search
 │   ├── analysis.py             profit calculation, builds the prompt's data reference
 │   ├── prompts.py              system / user / repair prompt templates
-│   ├── llm_client.py           Anthropic / OpenAI / mock clients
+│   ├── llm_client.py           Anthropic (Claude) / mock clients
 │   ├── json_utils.py           tolerant parsing of LLM JSON output
 │   ├── season_rules.py         season-change checks
 │   ├── schedule.py             schedule merging

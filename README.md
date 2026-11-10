@@ -60,11 +60,9 @@ python main.py --provider mock
 **调用真实大模型**：把 `.env.example` 复制为 `.env`，填入 Key：
 
 ```ini
-LLM_PROVIDER=anthropic          # anthropic / openai / mock
+LLM_PROVIDER=anthropic          # anthropic / mock
 ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-opus-5-5
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1
 ```
 
 Claude 的调用参数（都可以在 `.env` 里改）：
@@ -89,8 +87,8 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | `-c, --pacing` | 节奏偏好，如“休闲慢节奏”“速通极限” | `休闲慢节奏` |
 | `-s, --season` | `spring/summer/fall/winter`，也可以写 `春季`、`夏` 等；用逗号分隔多个**连续**季节做跨季规划，如 `spring,summer`（冬季之后进入下一年春季） | `spring` |
 | `-y, --year` | 游戏年份；第 1 年的收益表和校验不计入第 2 年起才出售种子的作物（大蒜、红叶卷心菜） | `1` |
-| `--provider` | `anthropic` / `openai` / `mock` | 环境变量 `LLM_PROVIDER`，未设置时为 `anthropic` |
-| `--model` | 覆盖默认模型名 | 环境变量 `ANTHROPIC_MODEL` / `OPENAI_MODEL` |
+| `--provider` | `anthropic` / `mock` | 环境变量 `LLM_PROVIDER`，未设置时为 `anthropic` |
+| `--model` | 覆盖默认模型名 | 环境变量 `ANTHROPIC_MODEL` |
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
 | `--start-gold` | 期初资金 | 第 1 年春季为开局金币 500g（`data/farm.json`），其他季节为未知 |
 | `--professions` | 职业，逗号分隔：`tiller`（农耕人，作物 +10%）、`artisan`（工匠，加工品 +40%）、`agriculturist`（农业学家，生长 +10%）。也可以写中文名；选工匠或农业学家会自动加入农耕人，两者只能二选一 | 无 |
@@ -163,7 +161,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── data_loader.py          数据加载、攻略切块、ChromaDB 入库与语义检索
 │   ├── analysis.py             收益计算，生成 Prompt 中的【数据参考】
 │   ├── prompts.py              系统 Prompt / 用户 Prompt / 修正 Prompt 模板
-│   ├── llm_client.py           Anthropic / OpenAI / Mock 客户端
+│   ├── llm_client.py           Anthropic（Claude）/ Mock 客户端
 │   ├── json_utils.py           大模型 JSON 容错解析
 │   ├── season_rules.py         跨季规则校验
 │   ├── schedule.py             日程合并

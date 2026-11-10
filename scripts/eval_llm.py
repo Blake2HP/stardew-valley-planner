@@ -300,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(description="评估真实大模型生成攻略的稳定性")
-    parser.add_argument("--provider", default="anthropic", help="anthropic / openai / mock（默认 anthropic）")
+    parser.add_argument("--provider", default="anthropic", help="anthropic / mock（默认 anthropic）")
     parser.add_argument("--model", default=None, help="覆盖默认模型名")
     parser.add_argument("--runs", type=int, default=1, help="每个用例重复运行的次数（默认 1）")
     parser.add_argument("--only", nargs="+", default=None, metavar="ID", help="只跑这些用例 id")
@@ -322,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.runs < 1:
         parser.error("--runs 必须 ≥ 1")
-    key_env = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}.get(args.provider.lower())
+    key_env = {"anthropic": "ANTHROPIC_API_KEY"}.get(args.provider.lower())
     if key_env and not os.getenv(key_env):
         parser.error(f"没有找到环境变量 {key_env}（可以写在项目根目录的 .env 里），或者用 --provider mock 离线检查脚本")
 

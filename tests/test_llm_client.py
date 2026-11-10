@@ -137,5 +137,10 @@ def test_refusal_is_not_retried_as_parse_error(data, indexed_store):
     assert len(sdk.calls) == 1                          # 拒答不当成 JSON 错误去重试
 
 
-def test_mock_and_openai_accept_client_options():
+def test_mock_accepts_client_options():
     assert get_client("mock", timeout=5, max_retries=0).complete("s", [])
+
+
+def test_openai_provider_is_gone():
+    with pytest.raises(ValueError, match="未知 provider"):
+        get_client("openai")

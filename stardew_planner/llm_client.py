@@ -1,4 +1,4 @@
-"""大模型客户端：统一 `complete(system, messages) -> str` 接口，支持 Anthropic / OpenAI / Mock。"""
+"""大模型客户端：统一 `complete(system, messages) -> str` 接口，支持 Anthropic（Claude）与 Mock。"""
 
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ class AnthropicClient:
         self.timeout = timeout if timeout is not None else _env_number("ANTHROPIC_TIMEOUT", 300.0)
         self.max_retries = max_retries if max_retries is not None else int(_env_number("ANTHROPIC_MAX_RETRIES", 1, int))
         if client is None:
-            import anthropic  # 延迟导入：只装 openai 时也能用
+            import anthropic  # 延迟导入：只用 mock 时不需要安装
 
             client = anthropic.Anthropic(timeout=self.timeout, max_retries=self.max_retries)  # 读取 ANTHROPIC_API_KEY
         self.client = client
@@ -110,30 +110,6 @@ class AnthropicClient:
         return text
 
 
-class OpenAIClient:
-    def __init__(self, model: str | None = None, max_tokens: int = 8000, *,
-                 timeout: float | None = None, max_retries: int | None = None, **_):
-        import openai
-
-        options = {k: v for k, v in (("timeout", timeout), ("max_retries", max_retries)) if v is not None}
-        self.client = openai.OpenAI(**options)  # 读取 OPENAI_API_KEY
-        self.model = model or os.getenv("OPENAI_MODEL", "gpt-4.1")
-        self.max_tokens = max_tokens
-
-    def complete(self, system: str, messages: list[Message]) -> str:
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            response_format={"type": "json_object"},
-            messages=[{"role": "system", "content": system}, *messages],
-        )
-        choice = resp.choices[0]
-        text = choice.message.content or ""
-        if choice.finish_reason == "length":
-            raise TruncatedOutput(text)
-        return text
-
-
 class MockClient:
     """离线调试用：按 Prompt 中的季节返回一份固定规划，不消耗 API 额度。"""
 
@@ -149,7 +125,7 @@ class MockClient:
         return json.dumps(MOCK_RESPONSES[season], ensure_ascii=False)
 
 
-_PROVIDERS = {"anthropic": AnthropicClient, "openai": OpenAIClient, "mock": MockClient}
+_PROVIDERS = {"anthropic": AnthropicClient, "mock": MockClient}
 
 
 def get_client(provider: str | None = None, model: str | None = None, **options) -> LLMClient:

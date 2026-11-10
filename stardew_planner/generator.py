@@ -223,7 +223,7 @@ def generate_strategy(
         playstyle: 玩法风格，例如 "钓鱼赚钱"、"全收集"、"种田为主"。
         pacing: 节奏偏好，例如 "速通极限"、"休闲慢节奏"。
         season: spring/summer/fall/winter 或中文。
-        provider: anthropic / openai / mock（默认读环境变量 LLM_PROVIDER）。
+        provider: anthropic / mock（默认读环境变量 LLM_PROVIDER）。
         guide_store: 攻略向量库，默认使用 data/.chroma_db；不可用时退回关键词检索。
         n_guides: 检索的攻略片段数。
         professions: 职业，如 ["tiller", "artisan"] 或中文名；10 级职业会自动加入前置的农耕人。

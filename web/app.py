@@ -5,7 +5,7 @@
     DEMO_PROVIDER=anthropic python -m web  # 用真实模型（需要 ANTHROPIC_API_KEY）
 
 环境变量：
-    DEMO_PROVIDER       mock / anthropic / openai（默认 mock）
+    DEMO_PROVIDER       mock / anthropic（默认 mock）
     DEMO_MODEL          覆盖默认模型名
     DEMO_RATE_LIMIT     每个 IP 每小时最多生成几次（默认：mock 不限，真实模型 10 次）
     DEMO_MAX_SEASONS    一次最多规划几个季节（默认 4）

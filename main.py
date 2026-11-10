@@ -36,7 +36,7 @@ def main() -> None:
     parser.add_argument("-s", "--season", default="spring",
                         help="spring/summer/fall/winter 或 春季/夏季…；逗号分隔多个连续季节做跨季规划，如 spring,summer")
     parser.add_argument("-y", "--year", type=int, default=1, help="游戏年份；第 1 年不计入第 2 年起才出售种子的作物")
-    parser.add_argument("--provider", default=None, help="anthropic / openai / mock（默认读 LLM_PROVIDER）")
+    parser.add_argument("--provider", default=None, help="anthropic / mock（默认读 LLM_PROVIDER）")
     parser.add_argument("--model", default=None, help="覆盖默认模型名")
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
     parser.add_argument("--start-gold", type=int, default=None,
