@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -425,13 +426,17 @@ class GuideStore:
 _default_store: GuideStore | None = None
 _vector_disabled = False
 _fallback_chunks: list[GuideChunk] | None = None  # 兜底检索用的切块缓存，避免每次都读盘
+# 网页启动时的预加载线程和第一个请求可能同时初始化：加锁，保证只建一次库
+_store_lock = threading.Lock()
 
 
 def get_fallback_chunks() -> list[GuideChunk]:
     """懒加载并缓存 data/guides 的切块。和向量库一样，进程运行期间不感知攻略文件的修改。"""
     global _fallback_chunks
     if _fallback_chunks is None:
-        _fallback_chunks = load_guides(DEFAULT_GUIDE_DIR)
+        with _store_lock:
+            if _fallback_chunks is None:
+                _fallback_chunks = load_guides(DEFAULT_GUIDE_DIR)
     return _fallback_chunks
 
 
@@ -439,14 +444,16 @@ def get_guide_store() -> GuideStore | None:
     """懒加载默认向量库，并同步 data/guides 的最新内容。chromadb 不可用时返回 None。"""
     global _default_store, _vector_disabled
     if _default_store is None and not _vector_disabled:
-        try:
-            store = GuideStore()
-            stats = store.index(load_guides(DEFAULT_GUIDE_DIR))
-            logger.info("攻略向量库已同步：%s", stats)
-            _default_store = store
-        except Exception as e:  # 未安装 chromadb、模型下载失败、数据库损坏等
-            _vector_disabled = True
-            logger.warning("向量检索不可用，改用关键词检索：%s", e)
+        with _store_lock:  # 双重检查：拿到锁后再确认一次，另一个线程可能已经建好了
+            if _default_store is None and not _vector_disabled:
+                try:
+                    store = GuideStore()
+                    stats = store.index(load_guides(DEFAULT_GUIDE_DIR))
+                    logger.info("攻略向量库已同步：%s", stats)
+                    _default_store = store
+                except Exception as e:  # 未安装 chromadb、模型下载失败、数据库损坏等
+                    _vector_disabled = True
+                    logger.warning("向量检索不可用，改用关键词检索：%s", e)
     return _default_store
 
 
