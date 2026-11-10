@@ -323,3 +323,12 @@ def test_no_match_check_after_fallback(data, indexed_store):
     warnings = run(data, indexed_store, payload).season_warnings
     assert any("已用兜底结果" in w for w in warnings)
     assert not any("种植清单没有这一条" in w for w in warnings)
+
+
+def test_goal_length_rule_allows_required_items():
+    from stardew_planner.prompts import SYSTEM_PROMPT
+
+    rule6 = next(line for line in SYSTEM_PROMPT.splitlines() if line.startswith("6. "))
+    # 第 6 条不能再要求“只写一件事”，否则和播种、送礼、清理三条规则冲突
+    assert "只写当天最重要的一件事" not in rule6
+    assert all(k in rule6 for k in ("播种", "生日送礼", "第 28 天的清理", "完全相同"))
