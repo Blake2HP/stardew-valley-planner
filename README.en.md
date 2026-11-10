@@ -283,10 +283,11 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 
 | Content | Source | License |
 |---|---|---|
+| Code (`stardew_planner/`, `web/`, `scripts/`, `tests/`, `main.py`, etc.) | Written for this project | [MIT](LICENSE) |
 | Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
-| `data/calendar.json`, `data/guides/` | Written for this project (festival dates are the game's fixed schedule) | Same as the project code |
+| `data/calendar.json`, `data/guides/` | Written for this project (festival dates are the game's fixed schedule) | [MIT](LICENSE) |
 
-Stardew Valley Wiki content is licensed under [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights): it requires attribution, **does not allow commercial use**, and adaptations must be shared under the same license. The data files derived from the wiki are therefore also provided under CC BY-NC-SA 3.0. Commercial use of this project requires permission from the wiki's copyright holders, or replacing that data with independently verified values. See [data/NOTICE.md](data/NOTICE.md).
+Stardew Valley Wiki content is licensed under [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights): it requires attribution, **does not allow commercial use**, and adaptations must be shared under the same license. The data files derived from the wiki are therefore also provided under CC BY-NC-SA 3.0. The code is MIT-licensed and free to use, including commercially; commercial use together with that data requires permission from the wiki's copyright holders, or replacing the data with independently verified values. See [data/NOTICE.md](data/NOTICE.md).
 
 ## Disclaimer
 
