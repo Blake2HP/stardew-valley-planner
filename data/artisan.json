@@ -5,11 +5,76 @@
   "_input_crops": "input_crops 列出只适用于特定作物（name_en）的规则；某作物在一台机器上有专属规则时，就不再套用该机器的类别规则。例：小麦放进小桶得到啤酒（200g），而不是蔬菜果汁。",
   "_processing": "processing_minutes 为游戏内分钟数，processing_days = 分钟数 / 1600（wiki：一整天 = 1600 分钟）。",
   "rules": [
-    {"machine": "小桶",   "product": "果酒",   "input_category": "fruit",     "multiplier": 3.0,  "bonus": 0,  "fixed_price": null, "processing_minutes": 10000, "processing_days": 6.25},
-    {"machine": "小桶",   "product": "果汁",   "input_category": "vegetable", "multiplier": 2.25, "bonus": 0,  "fixed_price": null, "processing_minutes": 6000,  "processing_days": 3.75},
-    {"machine": "小桶",   "product": "淡啤酒", "input_category": "special",   "multiplier": 0,    "bonus": 0,  "fixed_price": 300,  "processing_minutes": 2250,  "processing_days": 1.41},
-    {"machine": "小桶",   "product": "啤酒",   "input_category": "vegetable", "input_crops": ["Wheat"], "multiplier": 0, "bonus": 0, "fixed_price": 200, "processing_minutes": 1750, "processing_days": 1.09},
-    {"machine": "罐头瓶", "product": "果酱",   "input_category": "fruit",     "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_minutes": 4000,  "processing_days": 2.5},
-    {"machine": "罐头瓶", "product": "腌菜",   "input_category": "vegetable", "multiplier": 2.0,  "bonus": 50, "fixed_price": null, "processing_minutes": 4000,  "processing_days": 2.5}
-  ]
+    {
+      "machine": "小桶",
+      "product": "果酒",
+      "input_category": "fruit",
+      "multiplier": 3.0,
+      "bonus": 0,
+      "fixed_price": null,
+      "processing_minutes": 10000,
+      "processing_days": 6.25
+    },
+    {
+      "machine": "小桶",
+      "product": "果汁",
+      "input_category": "vegetable",
+      "multiplier": 2.25,
+      "bonus": 0,
+      "fixed_price": null,
+      "processing_minutes": 6000,
+      "processing_days": 3.75
+    },
+    {
+      "machine": "小桶",
+      "product": "淡啤酒",
+      "input_category": "special",
+      "multiplier": 0,
+      "bonus": 0,
+      "fixed_price": 300,
+      "processing_minutes": 2250,
+      "processing_days": 1.41
+    },
+    {
+      "machine": "小桶",
+      "product": "啤酒",
+      "input_category": "vegetable",
+      "input_crops": [
+        "Wheat"
+      ],
+      "multiplier": 0,
+      "bonus": 0,
+      "fixed_price": 200,
+      "processing_minutes": 1750,
+      "processing_days": 1.09
+    },
+    {
+      "machine": "罐头瓶",
+      "product": "果酱",
+      "input_category": "fruit",
+      "multiplier": 2.0,
+      "bonus": 50,
+      "fixed_price": null,
+      "processing_minutes": 4000,
+      "processing_days": 2.5
+    },
+    {
+      "machine": "罐头瓶",
+      "product": "腌菜",
+      "input_category": "vegetable",
+      "multiplier": 2.0,
+      "bonus": 50,
+      "fixed_price": null,
+      "processing_minutes": 4000,
+      "processing_days": 2.5
+    }
+  ],
+  "_honey": "蜂蜜（https://stardewvalleywiki.com/Honey ，核对日期 2026-11-10）：蜂房每 4 天产一罐（6100 分钟，跨过夜晚，wiki 写作每 4 天），冬季不产；蜂房 5 格范围内有成熟的花时产花蜜，售价 = 基础蜂蜜售价 100 + 花的基础售价 × 2，花不会被消耗；没有花时是野蜂蜜 100g。番红花、香豌豆不影响蜂蜜；黄水仙、蒲公英属于采集品，也不影响。蜂蜜不分品质，工匠职业 +40%。温室里的蜂房不产蜂蜜（https://stardewvalleywiki.com/Greenhouse）。",
+  "honey": {
+    "base_price": 100,
+    "flower_multiplier": 2,
+    "production_minutes": 6100,
+    "production_days": 4,
+    "range_tiles": 5
+  }
 }

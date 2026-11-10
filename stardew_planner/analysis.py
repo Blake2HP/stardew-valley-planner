@@ -10,7 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, QUALITIES, Bonuses
-from .data_loader import NO_GUIDES_TEXT, SEASON_ZH, ArtisanRule, Crop, GameData, GiftItem, normalize_season
+from .data_loader import (
+    NO_GUIDES_TEXT, SEASON_ZH, ArtisanRule, Crop, GameData, GiftItem, HoneyRule, normalize_season,
+)
 from .farm_state import NO_PRIOR_STATE_TEXT, alive_seasons
 
 SEASON_DAYS = 28
@@ -306,7 +308,7 @@ def build_data_context(
                        "（在 plantings 里写 \"place\": \"greenhouse\"，日程里写明“温室”）。"
                        f"上表之外，温室还可以种：{listed_other or '无'}。非当季作物的种子要在对应季节提前买好。"]
 
-    notes = [crop_note(r.crop) for r in rank_crops(data, season, bonuses=bonuses, year=year)]
+    notes = [crop_note(r.crop, data.honey) for r in rank_crops(data, season, bonuses=bonuses, year=year)]
     notes = [n for n in notes if n]
     if notes:
         crop_lines += ["", "作物备注（程序计算）："] + [f"- {n}" for n in notes]
@@ -337,8 +339,8 @@ def _machine_lines(machines: dict[str, int] | None) -> list[str]:
             "第 28 天还没做完的带到下一季；你只需在日程里安排装填和取货的时间，不用自己算加工收入。"]
 
 
-def crop_note(crop: Crop) -> str:
-    """种子掉落、副产物等不在表格列里的信息。"""
+def crop_note(crop: Crop, honey: HoneyRule | None = None) -> str:
+    """种子掉落、副产物、花蜜等不在表格列里的信息。"""
     parts = [crop.note] if crop.note else []
     if crop.requires_bus:
         parts.append(f"种子在{crop.seed_source}出售，要先修好巴士才能买到")
@@ -347,6 +349,10 @@ def crop_note(crop: Crop) -> str:
     for b in crop.byproducts:
         value = f"售价 {b.sell_price}g" if b.sell_price else "不计入收入"
         parts.append(f"收获时 {b.chance:.0%} 几率掉 1 个{b.name}（{b.note}；{value}）")
+    if honey and (price := honey.price_for(crop)) is not None:
+        parts.append(f"蜂房 {honey.range_tiles} 格内有成熟的{crop.name}时产{crop.name}蜂蜜，售价 = {honey.base_price} + "
+                     f"{crop.sell_price} × {honey.flower_multiplier:g} = {price}g（花不会被消耗，但要先取蜂蜜再收花，否则变成野蜂蜜 {honey.base_price}g；"
+                     f"每罐约 {honey.production_days:g} 天，冬季和温室里不产；程序不计入资金）")
     return f"{crop.name}：" + "；".join(parts) if parts else ""
 
 

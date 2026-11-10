@@ -95,8 +95,8 @@ def cmd_crop(data: GameData, a) -> None:
     print(f"  种子价: {c.seed_price}g（{c.seed_source}）  售价: {c.sell_price}g  类别: {c.category}")
     print(f"  生长天数: {c.grow_days}  再生天数: {c.regrow_days or '不可再生'}  单次产量: {c.harvest_yield}")
     print(f"  最早开售日: 第 {c.earliest_available_day} 天  开售年份: 第 {c.available_year} 年起")
-    if crop_note(c):
-        print(f"  备注: {crop_note(c)}")
+    if crop_note(c, data.honey):
+        print(f"  备注: {crop_note(c, data.honey)}")
     speeds = "  ".join(f"{k}%→{v}天" for k, v in c.speed_grow_days.items())
     print(f"  加速后生长天数: {speeds or '无数据'}")
     if not b.is_empty:
@@ -119,10 +119,19 @@ def cmd_list(data: GameData, a) -> None:
 def cmd_artisan(data: GameData, a) -> None:
     c = find_crop(data, a.name)
     rules = data.artisan_rules_for(c)
-    if not rules:
+    honey = data.honey.price_for(c) if data.honey else None
+    if not rules and honey is None:
         missing(f"{c.name}（类别 {c.category}）的加工规则")
     print(f"【{c.name} 加工收益】 来源: data/artisan.json，基础售价 {c.sell_price}g")
     b = get_bonuses(a)
+    if honey is not None:
+        h, line = data.honey, f"  蜂房→{c.name}蜂蜜: 基础蜂蜜 + 花的基础售价 × {data.honey.flower_multiplier:g} = "             f"{data.honey.base_price} + {c.sell_price} × {data.honey.flower_multiplier:g} = {honey}g"
+        for p in b.professions:
+            if p.artisan_price_multiplier != 1.0:
+                new = floor_mul(honey, p.artisan_price_multiplier)
+                line += f"；⌊{honey} × {p.name_zh} {p.artisan_price_multiplier}⌋ = {new}g"
+                honey = new
+        print(line + f"（花不会被消耗；每罐约 {h.production_days:g} 天，冬季和温室里不产）")
     raw_price = b.crop_price(c)
     for r in rules:
         base = r.price_for(c)
@@ -195,8 +204,8 @@ def cmd_profit(data: GameData, a) -> None:
     fert_text = f" − 肥料 {fert}" if b.fertilizer else ""
     print(f"  单格净利 = 收获次数 {harvests} × {unit_text} − 购买种子 {bought:g} × 种子价 {c.seed_price}"
           f"{fert_text} = {revenue:g} − {bought * c.seed_price:g}{fert_text} = {profit:g}g")
-    if crop_note(c):
-        print(f"  备注：{crop_note(c)}")
+    if crop_note(c, data.honey):
+        print(f"  备注：{crop_note(c, data.honey)}")
     print(f"  占地日均 = 单格净利 {profit:g} / 可用天数 {n} = {profit / n:.2f}g/天")
     if b.fertilizer and not b.fertilizer.price:
         print(f"  注：{b.fertilizer.name_zh}无法直接购买（{b.fertilizer.source}），肥料成本按 0 计。")

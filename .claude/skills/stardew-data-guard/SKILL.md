@@ -12,7 +12,7 @@ description: 《星露谷物语》(Stardew Valley) 数值操作守则。只要�
 | 文件 | 内容 |
 |---|---|
 | `data/crops.json` | 作物：季节、种子价、售价、生长/再生天数、单次产量、种子来源、开售日与开售年份 |
-| `data/artisan.json` | 加工规则：倍率、加成、固定价格、加工耗时 |
+| `data/artisan.json` | 加工规则：倍率、加成、固定价格、加工耗时；花蜜规则（honey） |
 | `data/calendar.json` | 每季节日、采集季、换季日 |
 | `data/npcs.json` | 6 位 NPC（海莉、谢恩、潘妮、阿比盖尔、塞巴斯蒂安、莉亚）的生日、最爱 / 喜欢物品、通用最爱及例外 |
 | `data/farm.json` | 开局金币（500g，wiki Gold）、开局赠送的 15 颗防风草种子（wiki Getting Started）、8 种农场地图（草原农场没有赠送的种子，改送 15 份干草） |
@@ -24,7 +24,7 @@ description: 《星露谷物语》(Stardew Valley) 数值操作守则。只要�
 ```bash
 python .claude/skills/stardew-data-guard/scripts/sv.py crop 草莓            # 单个作物的全部字段和最晚种植日
 python .claude/skills/stardew-data-guard/scripts/sv.py list --season spring --year 1  # 某季作物（给出年份时去掉当年买不到种子的）
-python .claude/skills/stardew-data-guard/scripts/sv.py artisan 草莓         # 加工收益（带公式）
+python .claude/skills/stardew-data-guard/scripts/sv.py artisan 草莓         # 加工收益（带公式）；花会给出花蜜售价
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 草莓 --plant-day 14  # 收益计算（带公式）
 python .claude/skills/stardew-data-guard/scripts/sv.py profit 土豆 --professions agriculturist --fertilizer speed_gro  # 计入职业与肥料
 python .claude/skills/stardew-data-guard/scripts/sv.py calendar summer      # 节日与换季信息

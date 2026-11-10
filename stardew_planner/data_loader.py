@@ -179,6 +179,22 @@ class NPCData:
         return sorted((n for n in self.npcs if n.birthday_season == season), key=lambda n: n.birthday_day)
 
 
+@dataclass(frozen=True)
+class HoneyRule:
+    """蜂房附近有成熟的花时产花蜜：售价 = base_price + 花的基础售价 × flower_multiplier（data/artisan.json）。"""
+    base_price: int
+    flower_multiplier: float
+    production_minutes: int
+    production_days: int   # wiki：每 4 天一罐
+    range_tiles: int
+
+    def price_for(self, crop: Crop) -> int | None:
+        """花蜜售价；不是花的作物返回 None。"""
+        if crop.category != "flower":
+            return None
+        return int(self.base_price + crop.sell_price * self.flower_multiplier)
+
+
 @dataclass
 class GameData:
     crops: list[Crop]
@@ -189,6 +205,7 @@ class GameData:
     starting_seeds: dict[str, int] = field(default_factory=dict)  # 开局赠送的种子（作物英文名 → 数量）
     farm_types: dict[str, dict] = field(default_factory=dict)      # 农场地图；可覆盖 starting_seeds
     greenhouse_tiles: int = 120  # 温室耕地格数（data/farm.json）
+    honey: HoneyRule | None = None  # 花蜜规则（data/artisan.json）
 
     def resolve_farm_type(self, name: str | None) -> str:
         """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
@@ -251,6 +268,11 @@ def load_crops(path: Path) -> list[Crop]:
                     "byproducts": tuple(Byproduct(**b) for b in item.get("byproducts", ()))}) for item in raw]
 
 
+def load_honey(path: Path) -> HoneyRule | None:
+    raw = _read_json(path).get("honey")
+    return HoneyRule(**raw) if raw else None
+
+
 def load_artisan_rules(path: Path) -> list[ArtisanRule]:
     return [ArtisanRule(**{**item, "input_crops": tuple(item.get("input_crops", ()))})
             for item in _read_json(path)["rules"]]
@@ -299,6 +321,7 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
     return GameData(
         crops=load_crops(data_dir / "crops.json"),
         artisan_rules=load_artisan_rules(data_dir / "artisan.json"),
+        honey=load_honey(data_dir / "artisan.json"),
         calendar=load_calendar(data_dir / "calendar.json"),
         guide_chunks=load_guides(data_dir / "guides"),
         starting_gold=load_starting_gold(data_dir / "farm.json"),
