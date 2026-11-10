@@ -10,7 +10,7 @@
 | `artisan.json` | [Keg](https://stardewvalleywiki.com/Keg)、[Preserves Jar](https://stardewvalleywiki.com/Preserves_Jar) |
 | `bonuses.json` | [Farming](https://stardewvalleywiki.com/Farming)、[Fertilizer](https://stardewvalleywiki.com/Fertilizer)、[Speed-Gro](https://stardewvalleywiki.com/Speed-Gro) |
 | `farm.json` | [Gold](https://stardewvalleywiki.com/Gold)、[Getting Started](https://stardewvalleywiki.com/Getting_Started)、[The Farm](https://stardewvalleywiki.com/The_Farm) |
-| `npcs.json` | 各 NPC 页面（[Haley](https://stardewvalleywiki.com/Haley) 等）的生日与 Gifts、[Friendship](https://stardewvalleywiki.com/Friendship)；中文名取自官方 wiki 中文版（zh.stardewvalleywiki.com）的跨语言链接 |
+| `npcs.json` | 34 位可送礼村民页面（[Haley](https://stardewvalleywiki.com/Haley) 等）的生日、是否可结婚与 Gifts、[Friendship](https://stardewvalleywiki.com/Friendship)；中文名取自官方 wiki 中文版（zh.stardewvalleywiki.com）的跨语言链接 |
 
 Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/) 授权（见 [Stardew_Valley_Wiki:Copyrights](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights)）。因此，上述文件同样按 **CC BY-NC-SA 3.0** 提供：
 

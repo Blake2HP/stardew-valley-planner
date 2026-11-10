@@ -16,8 +16,8 @@ from stardew_planner.season_rules import check_gifts, gift_tasks
 
 ROOT = Path(__file__).resolve().parent.parent
 SV = str(ROOT / ".claude" / "skills" / "stardew-data-guard" / "scripts" / "sv.py")
-# 春季其他天不送礼，只看被测的那天；生日当天的检查单独测试
-SPRING_BIRTHDAYS_OK = {14: "送海莉黄水仙", 20: "送谢恩披萨"}
+# 春季其他天不送礼，只看被测的那天；生日当天的检查单独测试（可以结婚的村民：海莉、谢恩、艾米丽）
+SPRING_BIRTHDAYS_OK = {14: "送海莉黄水仙", 20: "送谢恩披萨", 27: "送艾米丽紫水晶"}
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ def test_birthdays(data, name, season, day):
 
 def test_npc_data_shape():
     nd = load_npcs(DEFAULT_DATA_DIR / "npcs.json")
-    assert len(nd.npcs) == 6
+    assert len(nd.npcs) == 34 and sum(n.marriage for n in nd.npcs) == 12
     assert {i.name_en for i in nd.universal_loves} == {
         "Golden Pumpkin", "Magic Rock Candy", "Pearl", "Prismatic Shard", "Rabbit's Foot", "Stardrop Tea"}
     haley = nd.find("Haley")
@@ -56,13 +56,15 @@ def test_missing_npc_file_is_empty(tmp_path):
 
 def test_birthdays_injected_for_current_season(data):
     spring = build_data_context(data, "spring", year=1)["npc_birthdays"]
-    assert "第 14 天【海莉生日】最爱：椰子、水果沙拉、粉红蛋糕、向日葵（夏季/秋季作物）" in spring
+    assert "第 14 天【海莉生日】（必须送礼）最爱：椰子、水果沙拉、粉红蛋糕、向日葵（夏季/秋季作物）" in spring
+    assert "第 4 天【肯特生日】最爱" in spring           # 不能结婚的村民：可选
     assert "第 20 天【谢恩生日】" in spring and "潘妮" not in spring
     assert "80 × 8 = 640" in spring
     fall = build_data_context(data, "fall", year=1)["npc_birthdays"]
     assert "南瓜（本季可种）" in fall          # 阿比盖尔最爱的南瓜是秋季作物
     assert "讨厌兔子的脚" in fall               # 潘妮的通用最爱例外
-    assert "本季没有收录的 NPC 过生日" in build_data_context(data, "summer")["npc_birthdays"]
+    assert "讨厌（不要送）：啤酒、葡萄" in fall   # 潘妮专属讨厌的物品（wiki Penny）
+    assert "第 10 天【玛鲁生日】" in build_data_context(data, "summer")["npc_birthdays"]
 
 
 def test_system_prompt_has_gift_rule():
@@ -116,10 +118,31 @@ def test_valid_gifts_pass(data):
 
 
 def test_gift_not_in_preferences_warns(data):
-    w = check_gifts({**SPRING_BIRTHDAYS_OK, 14: "送海莉防风草"}, data, "spring")
+    w = check_gifts({**SPRING_BIRTHDAYS_OK, 14: "送海莉龙虾"}, data, "spring")
     assert len(w) == 1 and w[0].day == 14 and w[0].npc == "海莉"
-    assert "防风草不在 npcs.json 记录的海莉最爱 / 喜欢中" in w[0].message
+    assert "龙虾不在 npcs.json 记录的海莉喜好中" in w[0].message
     assert "黄水仙" in w[0].detail                            # 给出可选的礼物
+
+
+@pytest.mark.parametrize(
+    "goal, message",
+    [
+        ("送海莉防风草", "海莉不喜欢防风草（−20 好感度）"),          # 海莉：All Vegetables 不喜欢
+        ("送海莉虞美人", "海莉讨厌虞美人（−40 好感度）"),            # 虞美人是通用讨厌
+        ("送海莉粘土", "海莉讨厌粘土（−40 好感度）"),                # 页面逐项列出
+        ("送塞巴斯蒂安果酒", "塞巴斯蒂安讨厌果酒（−40 好感度）"),    # All Artisan Goods (except Coffee...)
+        ("送亚历克斯蓝莓", "蓝莓对亚历克斯只是中立礼物"),            # 普通水果不在通用喜欢里
+    ],
+)
+def test_disliked_hated_and_neutral_gifts(data, goal, message):
+    w = [x for x in check_gifts({**SPRING_BIRTHDAYS_OK, 3: goal}, data, "spring") if x.day == 3]
+    assert len(w) == 1 and message in w[0].message
+
+
+@pytest.mark.parametrize("goal", ["送潘妮虞美人", "送莉亚果酒", "送亚历克斯防风草", "送潘妮防风草", "送谢恩辣椒"])
+def test_liked_gifts_pass(data, goal):
+    # 潘妮最爱虞美人（通用讨厌的例外）；莉亚最爱果酒；蔬菜是通用喜欢；谢恩最爱辣椒
+    assert [x for x in check_gifts({**SPRING_BIRTHDAYS_OK, 3: goal}, data, "spring") if x.day == 3] == []
 
 
 def test_universal_love_exception_warns(data):
@@ -133,18 +156,20 @@ def test_gift_without_item_warns(data):
 
 
 def test_missing_birthday_gift_warns(data):
-    w = check_gifts({14: "送海莉黄水仙", 20: "下矿井"}, data, "spring")
+    w = check_gifts({14: "送海莉黄水仙", 20: "下矿井", 27: "送艾米丽紫水晶"}, data, "spring")
     assert len(w) == 1 and w[0].day == 20 and "谢恩生日当天没有送礼任务" in w[0].message
 
 
 def test_gift_on_wrong_day_still_misses_birthday(data):
     # 提前一天送不算生日礼物（生日 ×8 只在当天）
-    w = check_gifts({13: "送海莉黄水仙", 20: "送谢恩披萨"}, data, "spring")
+    w = check_gifts({13: "送海莉黄水仙", 20: "送谢恩披萨", 27: "送艾米丽紫水晶"}, data, "spring")
     assert [x.npc for x in w] == ["海莉"]
 
 
-def test_no_birthdays_no_warnings(data):
-    assert check_gifts({1: "种蓝莓"}, data, "summer") == []
+def test_only_marriage_candidates_need_birthday_gifts(data):
+    # 春季还有肯特（4）、刘易斯（7）、文森特（10）等人过生日，但不能结婚，不要求送礼
+    assert check_gifts(SPRING_BIRTHDAYS_OK, data, "spring") == []
+    assert [w.npc for w in check_gifts({1: "种蓝莓"}, data, "summer")] == ["玛鲁", "亚历克斯", "山姆"]
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +184,9 @@ def test_sv_npc_and_birthdays():
     r = run("npc", "海莉")
     assert r.returncode == 0 and "生日：春季第 14 天" in r.stdout and "讨厌 五彩碎片" in r.stdout
     assert "第 13 天 阿比盖尔" in run("birthdays", "fall").stdout
-    assert run("npc", "刘易斯").returncode == 2
+    lewis = run("npc", "刘易斯")
+    assert lewis.returncode == 0 and "生日：春季第 7 天" in lewis.stdout and "可以结婚：否" in lewis.stdout
+    assert run("npc", "甘瑟").returncode == 2
 
 
 def test_sv_check_schedule_gifts(tmp_path):
@@ -168,4 +195,4 @@ def test_sv_check_schedule_gifts(tmp_path):
                                ensure_ascii=False), encoding="utf-8")
     assert run("check-schedule", str(plan), "--season", "spring").returncode == 0        # 不加 --gifts 不查送礼
     r = run("check-schedule", str(plan), "--season", "spring", "--gifts")
-    assert r.returncode == 3 and "防风草不在 npcs.json 记录的海莉最爱 / 喜欢中" in r.stdout
+    assert r.returncode == 3 and "海莉不喜欢防风草" in r.stdout

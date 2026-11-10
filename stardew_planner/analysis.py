@@ -383,15 +383,17 @@ def describe_birthdays(data: GameData, season: str) -> str:
         return f"（本季没有收录的 NPC 过生日；目前收录：{covered}）"
     lines = [f"生日送最爱的礼物 = {LOVED_POINTS} × {BIRTHDAY_MULTIPLIER} = {LOVED_POINTS * BIRTHDAY_MULTIPLIER} 好感度，"
              f"喜欢的 = {LIKED_POINTS} × {BIRTHDAY_MULTIPLIER} = {LIKED_POINTS * BIRTHDAY_MULTIPLIER}；生日礼物不占每周 2 次的送礼次数。"]
-    universal = [i for i in npc_data.universal_loves]
+    lines.append(f"通用最爱（人人都爱，例外单独注明）：{'、'.join(i.name for i in npc_data.universal_loves)}。"
+                 "标“必须送礼”的是可以结婚的村民，生日当天要安排送礼；其他村民可选。")
     for n in birthdays:
         hated = npc_data.hated_universal(n)
-        uni = "、".join(i.name for i in universal if i not in hated)
         except_text = f"；讨厌{'、'.join(i.name for i in hated)}（通用最爱的例外）" if hated else ""
+        must = "（必须送礼）" if n.marriage else ""
         lines.append(
-            f"- 第 {n.birthday_day} 天【{n.name}生日】最爱：{_items_text(n.loves, data, season)}；"
-            f"通用最爱：{uni}{except_text}；喜欢：{_items_text(n.likes, data, season)}"
+            f"- 第 {n.birthday_day} 天【{n.name}生日】{must}最爱：{_items_text(n.loves, data, season)}{except_text}；"
+            f"喜欢：{_items_text(n.likes, data, season)}"
             + (f"（另有通用喜欢：{n.universal_likes_note}）" if n.universal_likes_note else "")
+            + (f"；讨厌（不要送）：{'、'.join(i.name for i in n.hates)}" if n.hates else "")
         )
     return "\n".join(lines)
 

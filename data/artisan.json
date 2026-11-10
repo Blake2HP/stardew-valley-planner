@@ -13,7 +13,8 @@
       "bonus": 0,
       "fixed_price": null,
       "processing_minutes": 10000,
-      "processing_days": 6.25
+      "processing_days": 6.25,
+      "product_en": "Wine"
     },
     {
       "machine": "小桶",
@@ -23,7 +24,8 @@
       "bonus": 0,
       "fixed_price": null,
       "processing_minutes": 6000,
-      "processing_days": 3.75
+      "processing_days": 3.75,
+      "product_en": "Juice"
     },
     {
       "machine": "小桶",
@@ -33,7 +35,8 @@
       "bonus": 0,
       "fixed_price": 300,
       "processing_minutes": 2250,
-      "processing_days": 1.41
+      "processing_days": 1.41,
+      "product_en": "Pale Ale"
     },
     {
       "machine": "小桶",
@@ -46,7 +49,8 @@
       "bonus": 0,
       "fixed_price": 200,
       "processing_minutes": 1750,
-      "processing_days": 1.09
+      "processing_days": 1.09,
+      "product_en": "Beer"
     },
     {
       "machine": "罐头瓶",
@@ -56,7 +60,8 @@
       "bonus": 50,
       "fixed_price": null,
       "processing_minutes": 4000,
-      "processing_days": 2.5
+      "processing_days": 2.5,
+      "product_en": "Jelly"
     },
     {
       "machine": "罐头瓶",
@@ -66,7 +71,8 @@
       "bonus": 50,
       "fixed_price": null,
       "processing_minutes": 4000,
-      "processing_days": 2.5
+      "processing_days": 2.5,
+      "product_en": "Pickles"
     }
   ],
   "_honey": "蜂蜜（https://stardewvalleywiki.com/Honey ，核对日期 2026-11-10）：蜂房每 4 天产一罐（6100 分钟，跨过夜晚，wiki 写作每 4 天），冬季不产；蜂房 5 格范围内有成熟的花时产花蜜，售价 = 基础蜂蜜售价 100 + 花的基础售价 × 2，花不会被消耗；没有花时是野蜂蜜 100g。番红花、香豌豆不影响蜂蜜；黄水仙、蒲公英属于采集品，也不影响。蜂蜜不分品质，工匠职业 +40%。温室里的蜂房不产蜂蜜（https://stardewvalleywiki.com/Greenhouse）。",

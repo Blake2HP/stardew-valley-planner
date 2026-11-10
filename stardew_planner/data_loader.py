@@ -93,6 +93,7 @@ class ArtisanRule:
     processing_minutes: int
     processing_days: float
     input_crops: tuple[str, ...] = ()  # 非空时只适用于这些作物（name_en），如小麦 → 啤酒
+    product_en: str = ""               # 加工品英文名，送礼校验用（如 Wine）
 
     def applies_to(self, crop: Crop) -> bool:
         return crop.name_en in self.input_crops if self.input_crops else crop.category == self.input_category
@@ -155,12 +156,28 @@ class NPC:
     likes: tuple[GiftItem, ...] = ()
     universal_love_exceptions: tuple[str, ...] = ()  # name_en，例如海莉讨厌五彩碎片
     universal_likes_note: str = ""
+    dislikes: tuple[GiftItem, ...] = ()
+    hates: tuple[GiftItem, ...] = ()
+    # wiki 表格上方的类别说明，键为 loves / likes / dislikes / hates，如 "All Vegetables (except Hops, Tea Leaves, & Wheat)"
+    gift_notes: dict = field(default_factory=dict, compare=False, hash=False)
+    marriage: bool = False  # 可以结婚的村民：生日当天要有送礼任务
+
+
+@dataclass(frozen=True)
+class GiftGroup:
+    """通用喜欢 / 中立 / 不喜欢 / 讨厌：wiki 的类别说明（不逐项展开）和逐项列出的物品。"""
+    categories: tuple[str, ...] = ()
+    items: tuple[GiftItem, ...] = ()
 
 
 @dataclass(frozen=True)
 class NPCData:
     npcs: tuple[NPC, ...] = ()
     universal_loves: tuple[GiftItem, ...] = ()
+    universal_likes: GiftGroup = GiftGroup()
+    universal_neutrals: GiftGroup = GiftGroup()
+    universal_dislikes: GiftGroup = GiftGroup()
+    universal_hates: GiftGroup = GiftGroup()
 
     def find(self, name: str) -> NPC | None:
         key = name.strip().lower()
@@ -349,10 +366,19 @@ def load_npcs(path: Path) -> NPCData:
             loves=_gift_items(n.get("loves")), likes=_gift_items(n.get("likes")),
             universal_love_exceptions=tuple(n.get("universal_love_exceptions", ())),
             universal_likes_note=n.get("universal_likes_note", ""),
+            dislikes=_gift_items(n.get("dislikes")), hates=_gift_items(n.get("hates")),
+            gift_notes={k: tuple(v) for k, v in n.get("gift_notes", {}).items()},
+            marriage=bool(n.get("marriage", False)),
         )
         for n in raw["npcs"]
     )
-    return NPCData(npcs, _gift_items(raw.get("universal_loves")))
+
+    def group(key: str) -> GiftGroup:
+        g = raw.get(key) or {}
+        return GiftGroup(tuple(g.get("categories", ())), _gift_items(g.get("items")))
+
+    return NPCData(npcs, _gift_items(raw.get("universal_loves")), group("universal_likes"),
+                   group("universal_neutrals"), group("universal_dislikes"), group("universal_hates"))
 
 
 def load_farm_types(path: Path) -> dict[str, dict]:

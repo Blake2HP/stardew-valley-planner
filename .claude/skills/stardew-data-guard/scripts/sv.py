@@ -323,7 +323,13 @@ def cmd_npc(data: GameData, a) -> None:
     print(f"  喜欢（专属）：{'、'.join(i.name for i in n.likes) or '无'}")
     if n.universal_likes_note:
         print(f"  通用喜欢（未逐项收录，wiki 原文）：{n.universal_likes_note}")
-    print("  好感度：最爱 +80、喜欢 +45；生日当天 ×8（最爱 = 80 × 8 = 640）")
+    print(f"  不喜欢（专属）：{'、'.join(i.name for i in n.dislikes) or '无'}")
+    print(f"  讨厌（专属）：{'、'.join(i.name for i in n.hates) or '无'}")
+    for key, label in (("dislikes", "不喜欢"), ("hates", "讨厌")):
+        if n.gift_notes.get(key):
+            print(f"  {label}的类别（wiki 原文）：{'; '.join(n.gift_notes[key])}")
+    print(f"  可以结婚：{'是（生日当天必须送礼）' if n.marriage else '否'}")
+    print("  好感度：最爱 +80、喜欢 +45、不喜欢 −20、讨厌 −40；生日当天 ×8（最爱 = 80 × 8 = 640）")
 
 
 def cmd_birthdays(data: GameData, a) -> None:

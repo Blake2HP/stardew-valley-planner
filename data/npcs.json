@@ -1,135 +1,4736 @@
 {
-  "_source": "Stardew Valley Wiki（1.6）：各 NPC 页面的 Birthday 与 Gifts（Love / Like）、https://stardewvalleywiki.com/Friendship（通用最爱、送礼好感度），核对日期 2026-11-05。中文名取自官方 wiki 英文页面指向中文版（zh.stardewvalleywiki.com）的跨语言链接。",
+  "_source": "Stardew Valley Wiki（1.6）：34 位可送礼村民页面的 Birthday 与 Gifts（Love / Like / Dislike / Hate）、https://stardewvalleywiki.com/Friendship（通用最爱 / 喜欢 / 中立 / 不喜欢 / 讨厌、送礼好感度），核对日期 2026-11-10。中文名取自官方 wiki 英文页面指向中文版（zh.stardewvalleywiki.com）的跨语言链接；“Pickles”页面是“果酱和腌菜”，这里沿用本项目的“腌菜”。",
   "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
-  "_friendship": "送最爱的礼物 +80 好感度，喜欢的 +45；生日当天 ×8（最爱 = 640）。每周最多送 2 次礼物，但生日礼物不受这个限制。",
-  "_coverage": "loves / likes 只收录各 NPC 的专属物品；通用最爱见 universal_loves（注意 universal_love_exceptions）。通用喜欢是很大的类别（大多数工匠物品、宝石、菜肴等），没有逐项收录，只在 universal_likes_note 里保留 wiki 原文说明。aliases 是同一物品在本项目其他数据中的叫法（如 crops.json 的“虞美人”）。",
+  "_friendship": "送最爱的礼物 +80 好感度，喜欢的 +45；生日当天 ×8（最爱 = 640）。每周最多送 2 次礼物，但生日礼物不受这个限制。 不喜欢的礼物 −20，讨厌的 −40（wiki Friendship）。",
+  "_coverage": "loves / likes / dislikes / hates 是各 NPC 页面表格里逐项列出的物品；表格上方的类别说明（如“All Universal Likes (except Vegetables)”“All Fish”）原样保存在 gift_notes。universal_likes / universal_neutrals / universal_dislikes / universal_hates 的 categories 是 wiki 的类别说明（不逐项展开），items 是逐项列出的物品。aliases 是同一物品在本项目其他数据中的叫法（如 crops.json 的“虞美人”）。",
   "universal_loves": [
-    {"name": "黄金南瓜", "name_en": "Golden Pumpkin"},
-    {"name": "魔法糖冰棍", "name_en": "Magic Rock Candy"},
-    {"name": "珍珠", "name_en": "Pearl"},
-    {"name": "五彩碎片", "name_en": "Prismatic Shard"},
-    {"name": "兔子的脚", "name_en": "Rabbit's Foot"},
-    {"name": "星之果茶", "name_en": "Stardrop Tea"}
+    {
+      "name": "黄金南瓜",
+      "name_en": "Golden Pumpkin"
+    },
+    {
+      "name": "魔法糖冰棍",
+      "name_en": "Magic Rock Candy"
+    },
+    {
+      "name": "珍珠",
+      "name_en": "Pearl"
+    },
+    {
+      "name": "五彩碎片",
+      "name_en": "Prismatic Shard"
+    },
+    {
+      "name": "兔子的脚",
+      "name_en": "Rabbit's Foot"
+    },
+    {
+      "name": "星之果茶",
+      "name_en": "Stardrop Tea"
+    }
   ],
+  "universal_likes": {
+    "categories": [
+      "All Artisan Goods (Except for Oil, which is universally disliked; and Void Mayonnaise, which is universally hated, except by Krobus who loves Void Mayonnaise.)",
+      "All Cooking (Except for Fried Egg and Bread, which are universally neutral; and Strange Bun and Seafoam Pudding, which are universally hated.)",
+      "All Flowers (Except for Poppy, which is universally hated, except by Penny who loves Poppies.)",
+      "All Foraged Minerals (Except Quartz, which varies by villager.)",
+      "All Fruit Tree Fruits (Except Banana & Mango, which follow villager-specific preferences for non-Fruit-Tree fruit.)",
+      "All Gems (Except Prismatic Shard, which is universally loved.)",
+      "All Vegetables (including Fiddlehead Fern, but excluding Hops, Tea Leaves, and Wheat, which are universally neutral, and Unmilled Rice, which is universally disliked.)"
+    ],
+    "items": [
+      {
+        "name": "生命药水",
+        "name_en": "Life Elixir"
+      },
+      {
+        "name": "枫糖浆",
+        "name_en": "Maple Syrup"
+      },
+      {
+        "name": "椰林飘香",
+        "name_en": "Piña Colada"
+      },
+      {
+        "name": "彩虹贝壳",
+        "name_en": "Rainbow Shell"
+      },
+      {
+        "name": "财宝箱",
+        "name_en": "Treasure Chest"
+      }
+    ]
+  },
+  "universal_neutrals": {
+    "categories": [
+      "All Books (Except the Price Catalogue, which is disliked.)"
+    ],
+    "items": [
+      {
+        "name": "面包",
+        "name_en": "Bread"
+      },
+      {
+        "name": "珊瑚",
+        "name_en": "Coral"
+      },
+      {
+        "name": "鸭毛",
+        "name_en": "Duck Feather"
+      },
+      {
+        "name": "煎鸡蛋",
+        "name_en": "Fried Egg"
+      },
+      {
+        "name": "啤酒花",
+        "name_en": "Hops"
+      },
+      {
+        "name": "神秘糖浆",
+        "name_en": "Mystic Syrup"
+      },
+      {
+        "name": "鹦鹉螺",
+        "name_en": "Nautilus Shell"
+      },
+      {
+        "name": "鱼籽",
+        "name_en": "Roe"
+      },
+      {
+        "name": "鱿鱼墨汁",
+        "name_en": "Squid Ink"
+      },
+      {
+        "name": "宝石甜莓",
+        "name_en": "Sweet Gem Berry"
+      },
+      {
+        "name": "茶叶",
+        "name_en": "Tea Leaves"
+      },
+      {
+        "name": "松露",
+        "name_en": "Truffle"
+      },
+      {
+        "name": "小麦",
+        "name_en": "Wheat"
+      },
+      {
+        "name": "动物毛",
+        "name_en": "Wool"
+      }
+    ]
+  },
+  "universal_dislikes": {
+    "categories": [
+      "All Building Materials -- Battery Packs, Clay, Fiber, Hardwood, Moss, Stone, and Wood",
+      "All Artifacts",
+      "All Bombs",
+      "All Crafted Floors & Paths",
+      "All Fences",
+      "All Fertilizer",
+      "All Fish (except for Carp and Snails, which are universally hated)",
+      "All Geode Minerals",
+      "All Geodes",
+      "All Seeds including Fruit Tree Saplings, Tea Saplings, and Tree seeds",
+      "All Sprinklers",
+      "All Tackle",
+      "All Trinkets",
+      "Fireworks -- Red, Green, and Purple",
+      "Misc. Mined/Metal Goods -- Bone Fragment, Cinder Shard, Coal, Copper Bars, Gold Bars, Gold Ore, Iridium Bars, Iridium Ore, Iron Bars, and Refined Quartz"
+    ],
+    "items": [
+      {
+        "name": "山洞萝卜",
+        "name_en": "Cave Carrot"
+      },
+      {
+        "name": "浮木",
+        "name_en": "Driftwood"
+      },
+      {
+        "name": "工作小食",
+        "name_en": "Field Snack"
+      },
+      {
+        "name": "南瓜灯",
+        "name_en": "Jack-O-Lantern"
+      },
+      {
+        "name": "橡树树脂",
+        "name_en": "Oak Resin"
+      },
+      {
+        "name": "油",
+        "name_en": "Oil"
+      },
+      {
+        "name": "松焦油",
+        "name_en": "Pine Tar"
+      },
+      {
+        "name": "价格目录",
+        "name_en": "Price Catalogue"
+      },
+      {
+        "name": "齐瓜",
+        "name_en": "Qi Fruit"
+      },
+      {
+        "name": "大米",
+        "name_en": "Rice"
+      },
+      {
+        "name": "太阳精华",
+        "name_en": "Solar Essence"
+      },
+      {
+        "name": "大葱",
+        "name_en": "Spring Onion"
+      },
+      {
+        "name": "茶具",
+        "name_en": "Tea Set"
+      },
+      {
+        "name": "未碾米",
+        "name_en": "Unmilled Rice"
+      },
+      {
+        "name": "醋",
+        "name_en": "Vinegar"
+      },
+      {
+        "name": "虚空蛋",
+        "name_en": "Void Egg"
+      },
+      {
+        "name": "虚空精华",
+        "name_en": "Void Essence"
+      },
+      {
+        "name": "大麦粉",
+        "name_en": "Wheat Flour"
+      }
+    ]
+  },
+  "universal_hates": {
+    "categories": [
+      "All Bait",
+      "All Fossils",
+      "All Monster Loot (except Solar Essence and Void Essence, which are disliked)",
+      "All Trash (except Driftwood, which is disliked)"
+    ],
+    "items": [
+      {
+        "name": "古物宝藏",
+        "name_en": "Artifact Trove"
+      },
+      {
+        "name": "蓝色草籽",
+        "name_en": "Blue Grass Starter"
+      },
+      {
+        "name": "花束",
+        "name_en": "Bouquet"
+      },
+      {
+        "name": "虫肉块",
+        "name_en": "Bug Steak"
+      },
+      {
+        "name": "蝴蝶粉",
+        "name_en": "Butterfly Powder"
+      },
+      {
+        "name": "鲤鱼",
+        "name_en": "Carp"
+      },
+      {
+        "name": "野炊工具",
+        "name_en": "Cookout Kit"
+      },
+      {
+        "name": "铜矿石",
+        "name_en": "Copper Ore"
+      },
+      {
+        "name": "蟹笼",
+        "name_en": "Crab Pot"
+      },
+      {
+        "name": "龙牙",
+        "name_en": "Dragon Tooth"
+      },
+      {
+        "name": "鼓块",
+        "name_en": "Drum Block"
+      },
+      {
+        "name": "哈维的诊所",
+        "name_en": "Energy Tonic"
+      },
+      {
+        "name": "错误物品",
+        "name_en": "Error Item"
+      },
+      {
+        "name": "爆炸弹丸",
+        "name_en": "Explosive Ammo"
+      },
+      {
+        "name": "仙尘",
+        "name_en": "Fairy Dust"
+      },
+      {
+        "name": "长笛块",
+        "name_en": "Flute Block"
+      },
+      {
+        "name": "黄金浮漂",
+        "name_en": "Golden Bobber"
+      },
+      {
+        "name": "金色椰子",
+        "name_en": "Golden Coconut"
+      },
+      {
+        "name": "金色谜之盒",
+        "name_en": "Golden Mystery Box"
+      },
+      {
+        "name": "黄金标签",
+        "name_en": "Golden Tag"
+      },
+      {
+        "name": "草籽",
+        "name_en": "Grass Starter"
+      },
+      {
+        "name": "绿藻",
+        "name_en": "Green Algae"
+      },
+      {
+        "name": "干草",
+        "name_en": "Hay"
+      },
+      {
+        "name": "铁矿石",
+        "name_en": "Iron Ore"
+      },
+      {
+        "name": "日记残页",
+        "name_en": "Journal Scrap"
+      },
+      {
+        "name": "怪兽香水",
+        "name_en": "Monster Musk"
+      },
+      {
+        "name": "哈维的诊所",
+        "name_en": "Muscle Remedy"
+      },
+      {
+        "name": "谜之盒",
+        "name_en": "Mystery Box"
+      },
+      {
+        "name": "蒜油",
+        "name_en": "Oil of Garlic"
+      },
+      {
+        "name": "虞美人花",
+        "name_en": "Poppy",
+        "aliases": [
+          "虞美人"
+        ]
+      },
+      {
+        "name": "齐氏调味料",
+        "name_en": "Qi Seasoning"
+      },
+      {
+        "name": "放射性矿锭",
+        "name_en": "Radioactive Bar"
+      },
+      {
+        "name": "放射性矿石",
+        "name_en": "Radioactive Ore"
+      },
+      {
+        "name": "雨水图腾",
+        "name_en": "Rain Totem"
+      },
+      {
+        "name": "红蘑菇",
+        "name_en": "Red Mushroom"
+      },
+      {
+        "name": "树液",
+        "name_en": "Sap"
+      },
+      {
+        "name": "海胆",
+        "name_en": "Sea Urchin"
+      },
+      {
+        "name": "海泡布丁",
+        "name_en": "Seafoam Pudding"
+      },
+      {
+        "name": "海草",
+        "name_en": "Seaweed"
+      },
+      {
+        "name": "秘密纸条",
+        "name_en": "Secret Note"
+      },
+      {
+        "name": "史莱姆蛋",
+        "name_en": "Green Slime Egg"
+      },
+      {
+        "name": "蜗牛",
+        "name_en": "Snail"
+      },
+      {
+        "name": "奇怪的小面包",
+        "name_en": "Strange Bun"
+      },
+      {
+        "name": "糖",
+        "name_en": "Sugar"
+      },
+      {
+        "name": "便携帐篷",
+        "name_en": "Tent Kit"
+      },
+      {
+        "name": "火把",
+        "name_en": "Torch"
+      },
+      {
+        "name": "虚空蛋黄酱",
+        "name_en": "Void Mayonnaise"
+      },
+      {
+        "name": "传送图腾：海滩",
+        "name_en": "Warp Totem Beach"
+      },
+      {
+        "name": "传送图腾：沙漠",
+        "name_en": "Warp Totem Desert"
+      },
+      {
+        "name": "传送图腾：农场",
+        "name_en": "Warp Totem Farm"
+      },
+      {
+        "name": "传送图腾：姜岛",
+        "name_en": "Warp Totem Island"
+      },
+      {
+        "name": "传送图腾：山岭",
+        "name_en": "Warp Totem Mountains"
+      },
+      {
+        "name": "白藻",
+        "name_en": "White Algae"
+      }
+    ]
+  },
   "npcs": [
     {
-      "name": "海莉", "name_en": "Haley", "birthday": {"season": "spring", "day": 14},
+      "name": "肯特",
+      "name_en": "Kent",
+      "birthday": {
+        "season": "spring",
+        "day": 4
+      },
       "loves": [
-        {"name": "椰子", "name_en": "Coconut"},
-        {"name": "水果沙拉", "name_en": "Fruit Salad"},
-        {"name": "粉红蛋糕", "name_en": "Pink Cake"},
-        {"name": "向日葵", "name_en": "Sunflower"}
+        {
+          "name": "意式蕨菜炖饭",
+          "name_en": "Fiddlehead Risotto"
+        },
+        {
+          "name": "烤榛子",
+          "name_en": "Roasted Hazelnuts"
+        }
       ],
       "likes": [
-        {"name": "黄水仙", "name_en": "Daffodil"}
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "矮人安全手册",
+          "name_en": "Dwarvish Safety Manual"
+        }
       ],
-      "universal_love_exceptions": ["Prismatic Shard"],
-      "universal_likes_note": "All Universal Likes (except Vegetables)"
+      "dislikes": [
+        {
+          "name": "椰林飘香",
+          "name_en": "Piña Colada"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        }
+      ],
+      "hates": [
+        {
+          "name": "海藻汤",
+          "name_en": "Algae Soup"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "生鱼片",
+          "name_en": "Sashimi"
+        },
+        {
+          "name": "墨西哥薄饼",
+          "name_en": "Tortilla"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Algae Soup, Piña Colada, Sashimi, & Tortilla); All Eggs (except Void Egg)*; All Fruit",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Algae Soup, Piña Colada, Sashimi, & Tortilla)",
+          "All Eggs (except Void Egg)*",
+          "All Fruit"
+        ],
+        "dislikes": [
+          "All Universal Dislikes"
+        ],
+        "hates": [
+          "All Universal Hates",
+          "All Milk"
+        ]
+      },
+      "marriage": false
     },
     {
-      "name": "谢恩", "name_en": "Shane", "birthday": {"season": "spring", "day": 20},
+      "name": "刘易斯",
+      "name_en": "Lewis",
+      "birthday": {
+        "season": "spring",
+        "day": 7
+      },
       "loves": [
-        {"name": "啤酒", "name_en": "Beer"},
-        {"name": "辣椒", "name_en": "Hot Pepper"},
-        {"name": "爆炒青椒", "name_en": "Pepper Poppers"},
-        {"name": "披萨", "name_en": "Pizza"}
+        {
+          "name": "秋日恩赐",
+          "name_en": "Autumn's Bounty"
+        },
+        {
+          "name": "琉璃山药",
+          "name_en": "Glazed Yams"
+        },
+        {
+          "name": "绿茶",
+          "name_en": "Green Tea"
+        },
+        {
+          "name": "辣椒",
+          "name_en": "Hot Pepper"
+        },
+        {
+          "name": "蔬菜杂烩",
+          "name_en": "Vegetable Medley"
+        }
+      ],
+      "likes": [
+        {
+          "name": "蓝莓",
+          "name_en": "Blueberry"
+        },
+        {
+          "name": "仙人掌果子",
+          "name_en": "Cactus Fruit"
+        },
+        {
+          "name": "椰子",
+          "name_en": "Coconut"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes"
+        ],
+        "dislikes": [
+          "All Universal Dislikes",
+          "All Milk"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "文森特",
+      "name_en": "Vincent",
+      "birthday": {
+        "season": "spring",
+        "day": 10
+      },
+      "loves": [
+        {
+          "name": "蔓越莓糖果",
+          "name_en": "Cranberry Candy"
+        },
+        {
+          "name": "青蛙蛋",
+          "name_en": "Frog Egg"
+        },
+        {
+          "name": "姜汁汽水",
+          "name_en": "Ginger Ale"
+        },
+        {
+          "name": "葡萄",
+          "name_en": "Grape"
+        },
+        {
+          "name": "粉红蛋糕",
+          "name_en": "Pink Cake"
+        },
+        {
+          "name": "蜗牛",
+          "name_en": "Snail"
+        }
+      ],
+      "likes": [
+        {
+          "name": "椰子",
+          "name_en": "Coconut"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "粘土",
+          "name_en": "Clay"
+        },
+        {
+          "name": "椰林飘香",
+          "name_en": "Piña Colada"
+        },
+        {
+          "name": "三倍浓缩咖啡",
+          "name_en": "Triple Shot Espresso"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Piña Colada, Triple Shot Espresso, Vegetables and Artisan Goods other than Honey, Jelly, & Oil); All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Piña Colada, Triple Shot Espresso, Vegetables and Artisan Goods other than Honey, Jelly, & Oil)",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Clay & Frog Egg)",
+          "All Eggs*",
+          "All Fruit (except Coconut, Grape, & Fruit Tree Fruit)",
+          "All Vegetables (except Hops, Tea Leaves, & Wheat)"
+        ],
+        "hates": [
+          "All Universal Hates (except Snail)",
+          "All Artisan Goods (except Honey, Jelly & Oil)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "海莉",
+      "name_en": "Haley",
+      "birthday": {
+        "season": "spring",
+        "day": 14
+      },
+      "loves": [
+        {
+          "name": "椰子",
+          "name_en": "Coconut"
+        },
+        {
+          "name": "水果沙拉",
+          "name_en": "Fruit Salad"
+        },
+        {
+          "name": "粉红蛋糕",
+          "name_en": "Pink Cake"
+        },
+        {
+          "name": "向日葵",
+          "name_en": "Sunflower"
+        }
+      ],
+      "likes": [
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "神秘糖浆",
+          "name_en": "Mystic Syrup"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "粘土",
+          "name_en": "Clay"
+        },
+        {
+          "name": "五彩碎片",
+          "name_en": "Prismatic Shard"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "universal_love_exceptions": [
+        "Prismatic Shard"
+      ],
+      "universal_likes_note": "All Universal Likes (except Vegetables)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves (except Prismatic Shard)"
+        ],
+        "likes": [
+          "All Universal Likes (except Vegetables)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Clay & Fish)",
+          "All Eggs*",
+          "All Fruit (except Coconut & Fruit Tree fruit)",
+          "All Milk",
+          "All Vegetables (except Hops, Tea Leaves, & Wheat)"
+        ],
+        "hates": [
+          "All Universal Hates",
+          "All Fish"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "潘姆",
+      "name_en": "Pam",
+      "birthday": {
+        "season": "spring",
+        "day": 18
+      },
+      "loves": [
+        {
+          "name": "啤酒",
+          "name_en": "Beer"
+        },
+        {
+          "name": "仙人掌果子",
+          "name_en": "Cactus Fruit"
+        },
+        {
+          "name": "琉璃山药",
+          "name_en": "Glazed Yams"
+        },
+        {
+          "name": "蜜蜂酒",
+          "name_en": "Mead"
+        },
+        {
+          "name": "淡啤酒",
+          "name_en": "Pale Ale"
+        },
+        {
+          "name": "防风草",
+          "name_en": "Parsnip"
+        },
+        {
+          "name": "防风草汤",
+          "name_en": "Parsnip Soup"
+        },
+        {
+          "name": "椰林飘香",
+          "name_en": "Piña Colada"
+        }
+      ],
+      "likes": [
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "章鱼",
+          "name_en": "Octopus"
+        },
+        {
+          "name": "鱿鱼",
+          "name_en": "Squid"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes; All Fruit (except Cactus Fruit); All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes",
+          "All Fruit (except Cactus Fruit)",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Fish)",
+          "All Eggs*"
+        ],
+        "hates": [
+          "All Universal Hates (except Joja Cola)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "谢恩",
+      "name_en": "Shane",
+      "birthday": {
+        "season": "spring",
+        "day": 20
+      },
+      "loves": [
+        {
+          "name": "啤酒",
+          "name_en": "Beer"
+        },
+        {
+          "name": "辣椒",
+          "name_en": "Hot Pepper"
+        },
+        {
+          "name": "爆炒青椒",
+          "name_en": "Pepper Poppers"
+        },
+        {
+          "name": "披萨",
+          "name_en": "Pizza"
+        }
       ],
       "likes": [],
-      "universal_love_exceptions": [],
-      "universal_likes_note": "All Universal Likes (except Pickles); All Eggs (except Void Egg); All Fruit (except Hot Pepper)"
-    },
-    {
-      "name": "潘妮", "name_en": "Penny", "birthday": {"season": "fall", "day": 2},
-      "loves": [
-        {"name": "钻石", "name_en": "Diamond"},
-        {"name": "绿宝石", "name_en": "Emerald"},
-        {"name": "甜瓜", "name_en": "Melon"},
-        {"name": "虞美人花", "name_en": "Poppy", "aliases": ["虞美人"]},
-        {"name": "虞美人籽松糕", "name_en": "Poppyseed Muffin"},
-        {"name": "红之盛宴", "name_en": "Red Plate"},
-        {"name": "块茎拼盘", "name_en": "Roots Platter"},
-        {"name": "沙鱼", "name_en": "Sandfish"},
-        {"name": "椰汁汤", "name_en": "Tom Kha Soup"}
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "海草",
+          "name_en": "Seaweed"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
       ],
-      "likes": [
-        {"name": "蒲公英", "name_en": "Dandelion"},
-        {"name": "韭葱", "name_en": "Leek"}
-      ],
-      "universal_love_exceptions": ["Rabbit's Foot"],
-      "universal_likes_note": "All Universal Likes (except Algae Soup, Beer, Mead, Pale Ale, Pale Broth, Piña Colada, & Wine); All Artifacts; All Milk; Penny also loves All Books"
-    },
-    {
-      "name": "阿比盖尔", "name_en": "Abigail", "birthday": {"season": "fall", "day": 13},
-      "loves": [
-        {"name": "紫水晶", "name_en": "Amethyst"},
-        {"name": "香蕉布丁", "name_en": "Banana Pudding"},
-        {"name": "黑莓脆皮饼", "name_en": "Blackberry Cobbler"},
-        {"name": "巧克力蛋糕", "name_en": "Chocolate Cake"},
-        {"name": "怪物图鉴", "name_en": "Monster Compendium"},
-        {"name": "河豚", "name_en": "Pufferfish"},
-        {"name": "南瓜", "name_en": "Pumpkin"},
-        {"name": "香辣鳗鱼", "name_en": "Spicy Eel"}
-      ],
-      "likes": [
-        {"name": "古剑", "name_en": "Ancient Sword"},
-        {"name": "蜥怪的爪子", "name_en": "Basilisk Paw"},
-        {"name": "骨笛", "name_en": "Bone Flute"},
-        {"name": "战斗季刊", "name_en": "Combat Quarterly"},
-        {"name": "石英", "name_en": "Quartz"}
-      ],
-      "universal_love_exceptions": [],
-      "universal_likes_note": "All Universal Likes (except Vegetables)"
-    },
-    {
-      "name": "塞巴斯蒂安", "name_en": "Sebastian", "birthday": {"season": "winter", "day": 10},
-      "loves": [
-        {"name": "青蛙蛋", "name_en": "Frog Egg"},
-        {"name": "泪晶", "name_en": "Frozen Tear"},
-        {"name": "黑曜石", "name_en": "Obsidian"},
-        {"name": "南瓜汤", "name_en": "Pumpkin Soup"},
-        {"name": "生鱼片", "name_en": "Sashimi"},
-        {"name": "虚空蛋", "name_en": "Void Egg"}
-      ],
-      "likes": [
-        {"name": "战斗季刊", "name_en": "Combat Quarterly"},
-        {"name": "比目鱼", "name_en": "Flounder"},
-        {"name": "怪物图鉴", "name_en": "Monster Compendium"},
-        {"name": "石英", "name_en": "Quartz"}
-      ],
-      "universal_love_exceptions": [],
-      "universal_likes_note": "All Universal Likes (except Flowers, Complete Breakfast, Farmer's Lunch, Omelet, Piña Colada, & Artisan Goods other than Coffee, Green Tea, & Oil)"
-    },
-    {
-      "name": "莉亚", "name_en": "Leah", "birthday": {"season": "winter", "day": 23},
-      "loves": [
-        {"name": "山羊奶酪", "name_en": "Goat Cheese"},
-        {"name": "虞美人籽松糕", "name_en": "Poppyseed Muffin"},
-        {"name": "沙拉", "name_en": "Salad"},
-        {"name": "蔬菜什锦盖饭", "name_en": "Stir Fry"},
-        {"name": "松露", "name_en": "Truffle"},
-        {"name": "蔬菜杂烩", "name_en": "Vegetable Medley"},
-        {"name": "果酒", "name_en": "Wine"}
-      ],
-      "likes": [
-        {"name": "鸡油菌", "name_en": "Chanterelle"},
-        {"name": "普通蘑菇", "name_en": "Common Mushroom"},
-        {"name": "黄水仙", "name_en": "Daffodil"},
-        {"name": "蒲公英", "name_en": "Dandelion"},
-        {"name": "浮木", "name_en": "Driftwood"},
-        {"name": "姜", "name_en": "Ginger"},
-        {"name": "榛子", "name_en": "Hazelnut"},
-        {"name": "冬青树", "name_en": "Holly"},
-        {"name": "韭葱", "name_en": "Leek"},
-        {"name": "熔岩菇", "name_en": "Magma Cap"},
-        {"name": "羊肚菌", "name_en": "Morel"},
-        {"name": "紫蘑菇", "name_en": "Purple Mushroom"},
-        {"name": "雪山药", "name_en": "Snow Yam"},
-        {"name": "大葱", "name_en": "Spring Onion"},
-        {"name": "野山葵", "name_en": "Wild Horseradish"},
-        {"name": "冬根", "name_en": "Winter Root"}
+      "hates": [
+        {
+          "name": "腌菜",
+          "name_en": "Pickles"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
       ],
       "universal_love_exceptions": [],
-      "universal_likes_note": "All Universal Likes (except Foraged Minerals other than Earth Crystal, Gems other than Diamond & Prismatic Shard, Carp Surprise, Cookie, Hashbrowns, Ice Cream, Pancakes, Pink Cake, Pizza, Rice Pudding, Survival Burger, & Tortilla); All Eggs (except Void Egg); All Fruit; All Milk"
+      "universal_likes_note": "All Universal Likes (except Pickles); All Eggs (except Void Egg)*; All Fruit (except Hot Pepper)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Pickles)",
+          "All Eggs (except Void Egg)*",
+          "All Fruit (except Hot Pepper)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes"
+        ],
+        "hates": [
+          "All Universal Hates (except Seaweed & Strange Bun)"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "皮埃尔",
+      "name_en": "Pierre",
+      "birthday": {
+        "season": "spring",
+        "day": 26
+      },
+      "loves": [
+        {
+          "name": "炸鱿鱼",
+          "name_en": "Fried Calamari"
+        },
+        {
+          "name": "价格目录",
+          "name_en": "Price Catalogue"
+        }
+      ],
+      "likes": [
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "玉米",
+          "name_en": "Corn"
+        },
+        {
+          "name": "蒜",
+          "name_en": "Garlic",
+          "aliases": [
+            "大蒜"
+          ]
+        },
+        {
+          "name": "防风草汤",
+          "name_en": "Parsnip Soup"
+        },
+        {
+          "name": "墨西哥薄饼",
+          "name_en": "Tortilla"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Corn, Garlic, Foraged Minerals, Gems other than Diamond & Prismatic Shard, Parsnip Soup, & Tortilla); All Eggs (except Void Egg)*; All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Corn, Garlic, Foraged Minerals, Gems other than Diamond & Prismatic Shard, Parsnip Soup, & Tortilla)",
+          "All Eggs (except Void Egg)*",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Fish & Price Catalogue)",
+          "All Foraged Minerals",
+          "All Gems (other than Diamond & Prismatic Shard)"
+        ],
+        "hates": [
+          "All Universal Hates",
+          "All Fish"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "艾米丽",
+      "name_en": "Emily",
+      "birthday": {
+        "season": "spring",
+        "day": 27
+      },
+      "loves": [
+        {
+          "name": "紫水晶",
+          "name_en": "Amethyst"
+        },
+        {
+          "name": "海蓝宝石",
+          "name_en": "Aquamarine"
+        },
+        {
+          "name": "布料",
+          "name_en": "Cloth"
+        },
+        {
+          "name": "绿宝石",
+          "name_en": "Emerald"
+        },
+        {
+          "name": "翡翠",
+          "name_en": "Jade"
+        },
+        {
+          "name": "鹦鹉蛋",
+          "name_en": "Parrot Egg"
+        },
+        {
+          "name": "红宝石",
+          "name_en": "Ruby"
+        },
+        {
+          "name": "救生汉堡",
+          "name_en": "Survival Burger"
+        },
+        {
+          "name": "黄水晶",
+          "name_en": "Topaz"
+        },
+        {
+          "name": "动物毛",
+          "name_en": "Wool"
+        }
+      ],
+      "likes": [
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "炒鳗鱼",
+          "name_en": "Fried Eel"
+        },
+        {
+          "name": "冰淇淋",
+          "name_en": "Ice Cream"
+        },
+        {
+          "name": "大米布丁",
+          "name_en": "Rice Pudding"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "香辣鳗鱼",
+          "name_en": "Spicy Eel"
+        }
+      ],
+      "hates": [
+        {
+          "name": "鱼肉卷",
+          "name_en": "Fish Taco"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "生鱼寿司",
+          "name_en": "Maki Roll"
+        },
+        {
+          "name": "鲑鱼晚餐",
+          "name_en": "Salmon Dinner"
+        },
+        {
+          "name": "生鱼片",
+          "name_en": "Sashimi"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Fish Taco, Fried Eel, Ice Cream, Maki Roll, Rice Pudding, Salmon Dinner, Spicy Eel, & Sashimi)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Fish Taco, Fried Eel, Ice Cream, Maki Roll, Rice Pudding, Salmon Dinner, Spicy Eel, & Sashimi)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Parrot Egg)"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "贾斯",
+      "name_en": "Jas",
+      "birthday": {
+        "season": "summer",
+        "day": 4
+      },
+      "loves": [
+        {
+          "name": "古代玩偶",
+          "name_en": "Ancient Doll"
+        },
+        {
+          "name": "仙女盒",
+          "name_en": "Fairy Box"
+        },
+        {
+          "name": "玫瑰仙子",
+          "name_en": "Fairy Rose"
+        },
+        {
+          "name": "粉红蛋糕",
+          "name_en": "Pink Cake"
+        },
+        {
+          "name": "葡萄干布丁",
+          "name_en": "Plum Pudding"
+        },
+        {
+          "name": "诡异玩偶（绿）",
+          "name_en": "Strange Doll (green)"
+        },
+        {
+          "name": "诡异玩偶（黄）",
+          "name_en": "Strange Doll (yellow)"
+        }
+      ],
+      "likes": [
+        {
+          "name": "椰子",
+          "name_en": "Coconut"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "粘土",
+          "name_en": "Clay"
+        },
+        {
+          "name": "椰林飘香",
+          "name_en": "Piña Colada"
+        },
+        {
+          "name": "三倍浓缩咖啡",
+          "name_en": "Triple Shot Espresso"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Piña Colada, Triple Shot Espresso, Vegetables and Artisan Goods other than Honey, Jelly, & Oil); All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Piña Colada, Triple Shot Espresso, Vegetables and Artisan Goods other than Honey, Jelly, & Oil)",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Ancient Doll, Clay, Fairy Box, Strange Doll (green), & Strange Doll (yellow))",
+          "All Eggs*",
+          "All Fruit (except Coconut & Fruit Tree Fruit)",
+          "All Vegetables (except Hops & Wheat)"
+        ],
+        "hates": [
+          "All Universal Hates",
+          "All Artisan Goods (except Honey, Jelly & Oil)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "格斯",
+      "name_en": "Gus",
+      "birthday": {
+        "season": "summer",
+        "day": 8
+      },
+      "loves": [
+        {
+          "name": "钻石",
+          "name_en": "Diamond"
+        },
+        {
+          "name": "法式田螺",
+          "name_en": "Escargot"
+        },
+        {
+          "name": "鱼肉卷",
+          "name_en": "Fish Taco"
+        },
+        {
+          "name": "橙子",
+          "name_en": "Orange"
+        },
+        {
+          "name": "热带咖喱",
+          "name_en": "Tropical Curry"
+        }
+      ],
+      "likes": [
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "松露",
+          "name_en": "Truffle"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "卷心菜沙拉",
+          "name_en": "Coleslaw"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Coleslaw)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Coleslaw)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "玛鲁",
+      "name_en": "Maru",
+      "birthday": {
+        "season": "summer",
+        "day": 10
+      },
+      "loves": [
+        {
+          "name": "电池组",
+          "name_en": "Battery Pack"
+        },
+        {
+          "name": "花椰菜",
+          "name_en": "Cauliflower"
+        },
+        {
+          "name": "乳酪花椰菜",
+          "name_en": "Cheese Cauliflower"
+        },
+        {
+          "name": "钻石",
+          "name_en": "Diamond"
+        },
+        {
+          "name": "矮人小工具",
+          "name_en": "Dwarf Gadget"
+        },
+        {
+          "name": "金锭",
+          "name_en": "Gold Bar"
+        },
+        {
+          "name": "铱锭",
+          "name_en": "Iridium Bar"
+        },
+        {
+          "name": "矿工特供",
+          "name_en": "Miner's Treat"
+        },
+        {
+          "name": "爆炒青椒",
+          "name_en": "Pepper Poppers"
+        },
+        {
+          "name": "放射性矿锭",
+          "name_en": "Radioactive Bar"
+        },
+        {
+          "name": "大黄派",
+          "name_en": "Rhubarb Pie"
+        },
+        {
+          "name": "草莓",
+          "name_en": "Strawberry"
+        }
+      ],
+      "likes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "铜锭",
+          "name_en": "Copper Bar"
+        },
+        {
+          "name": "铁锭",
+          "name_en": "Iron Bar"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "橡树树脂",
+          "name_en": "Oak Resin"
+        },
+        {
+          "name": "松焦油",
+          "name_en": "Pine Tar"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "放射性矿石",
+          "name_en": "Radioactive Ore"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "黑莓",
+          "name_en": "Blackberry"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "水晶果",
+          "name_en": "Crystal Fruit"
+        },
+        {
+          "name": "枫糖浆",
+          "name_en": "Maple Syrup"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        }
+      ],
+      "hates": [
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "蜂蜜",
+          "name_en": "Honey"
+        },
+        {
+          "name": "腌菜",
+          "name_en": "Pickles"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "松露",
+          "name_en": "Truffle"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Honey, Maple Syrup, & Pickles)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Honey, Maple Syrup, & Pickles)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Battery Pack, Copper Bar, Dwarf Gadget, Gold Bar, Iridium Bar, Iron Bar, Oak Resin, & Pine Tar)"
+        ],
+        "hates": [
+          "All Universal Hates (except Radioactive Bar & Radioactive Ore)"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "亚历克斯",
+      "name_en": "Alex",
+      "birthday": {
+        "season": "summer",
+        "day": 13
+      },
+      "loves": [
+        {
+          "name": "完美早餐",
+          "name_en": "Complete Breakfast"
+        },
+        {
+          "name": "铜墙铁壁",
+          "name_en": "Jack Be Nimble, Jack Be Thick"
+        },
+        {
+          "name": "鲑鱼晚餐",
+          "name_en": "Salmon Dinner"
+        }
+      ],
+      "likes": [
+        {
+          "name": "恐龙蛋",
+          "name_en": "Dinosaur Egg"
+        },
+        {
+          "name": "工作小食",
+          "name_en": "Field Snack"
+        },
+        {
+          "name": "鹦鹉蛋",
+          "name_en": "Parrot Egg"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes; All Eggs (except Void Egg)*",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes",
+          "All Eggs (except Void Egg)*"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Dinosaur Egg, Field Snack, Frog Egg, & Parrot Egg)",
+          "All Books (except Jack Be Nimble, Jack Be Thick)"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "山姆",
+      "name_en": "Sam",
+      "birthday": {
+        "season": "summer",
+        "day": 17
+      },
+      "loves": [
+        {
+          "name": "仙人掌果子",
+          "name_en": "Cactus Fruit"
+        },
+        {
+          "name": "枫糖棒",
+          "name_en": "Maple Bar"
+        },
+        {
+          "name": "披萨",
+          "name_en": "Pizza"
+        },
+        {
+          "name": "虎眼石",
+          "name_en": "Tigerseye"
+        }
+      ],
+      "likes": [
+        {
+          "name": "Joja可乐",
+          "name_en": "Joja Cola"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "海草",
+          "name_en": "Seaweed"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "骨头碎片",
+          "name_en": "Bone Fragment"
+        },
+        {
+          "name": "火山晶石",
+          "name_en": "Cinder Shard"
+        },
+        {
+          "name": "煤炭",
+          "name_en": "Coal"
+        },
+        {
+          "name": "铜锭",
+          "name_en": "Copper Bar"
+        },
+        {
+          "name": "鸭蛋黄酱",
+          "name_en": "Duck Mayonnaise"
+        },
+        {
+          "name": "金锭",
+          "name_en": "Gold Bar"
+        },
+        {
+          "name": "黄金矿石",
+          "name_en": "Gold Ore"
+        },
+        {
+          "name": "铱锭",
+          "name_en": "Iridium Bar"
+        },
+        {
+          "name": "铱矿石",
+          "name_en": "Iridium Ore"
+        },
+        {
+          "name": "铁锭",
+          "name_en": "Iron Bar"
+        },
+        {
+          "name": "蛋黄酱",
+          "name_en": "Mayonnaise"
+        },
+        {
+          "name": "腌菜",
+          "name_en": "Pickles"
+        },
+        {
+          "name": "精炼石英",
+          "name_en": "Refined Quartz"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Duck Mayonnaise, Mayonnaise, Pickles, & Vegetables); All Eggs (except Void Egg)*",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Duck Mayonnaise, Mayonnaise, Pickles, & Vegetables)",
+          "All Eggs (except Void Egg)*"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Bone Fragment, Cinder Shard, Coal, Copper Bar, Gold Bar, Gold Ore, Iridium Bar, Iridium Ore, Iron Bar, Refined Quartz, & Tigerseye)",
+          "All Vegetables (except Hops, Tea Leaves, & Wheat)"
+        ],
+        "hates": [
+          "All Universal Hates (except Joja Cola & Seaweed)"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "德米特里厄斯",
+      "name_en": "Demetrius",
+      "birthday": {
+        "season": "summer",
+        "day": 19
+      },
+      "loves": [
+        {
+          "name": "豆类火锅",
+          "name_en": "Bean Hotpot"
+        },
+        {
+          "name": "冰淇淋",
+          "name_en": "Ice Cream"
+        },
+        {
+          "name": "大米布丁",
+          "name_en": "Rice Pudding"
+        },
+        {
+          "name": "草莓",
+          "name_en": "Strawberry"
+        }
+      ],
+      "likes": [
+        {
+          "name": "恐龙蛋",
+          "name_en": "Dinosaur Egg"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "hates": [
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes; All Eggs (except Void Egg)*; All Fruit (except Strawberry)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes",
+          "All Eggs (except Void Egg)*",
+          "All Fruit (except Strawberry)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Dinosaur Egg & Fish)"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "矮人",
+      "name_en": "Dwarf",
+      "birthday": {
+        "season": "summer",
+        "day": 22
+      },
+      "loves": [
+        {
+          "name": "紫水晶",
+          "name_en": "Amethyst"
+        },
+        {
+          "name": "海蓝宝石",
+          "name_en": "Aquamarine"
+        },
+        {
+          "name": "绿宝石",
+          "name_en": "Emerald"
+        },
+        {
+          "name": "翡翠",
+          "name_en": "Jade"
+        },
+        {
+          "name": "岩浆鳗鱼",
+          "name_en": "Lava Eel"
+        },
+        {
+          "name": "柠檬石",
+          "name_en": "Lemon Stone"
+        },
+        {
+          "name": "万象晶球",
+          "name_en": "Omni Geode"
+        },
+        {
+          "name": "红宝石",
+          "name_en": "Ruby"
+        },
+        {
+          "name": "黄水晶",
+          "name_en": "Topaz"
+        }
+      ],
+      "likes": [
+        {
+          "name": "山洞萝卜",
+          "name_en": "Cave Carrot"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes; All Artifacts",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes",
+          "All Artifacts"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Artifacts, Cave Carrot, Lava Eel, Lemon Stone, Omni Geode, Solar Essence, & Void Essence)",
+          "All Eggs*"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "威利",
+      "name_en": "Willy",
+      "birthday": {
+        "season": "summer",
+        "day": 24
+      },
+      "loves": [
+        {
+          "name": "鲶鱼",
+          "name_en": "Catfish"
+        },
+        {
+          "name": "钻石",
+          "name_en": "Diamond"
+        },
+        {
+          "name": "金锭",
+          "name_en": "Gold Bar"
+        },
+        {
+          "name": "铱锭",
+          "name_en": "Iridium Bar"
+        },
+        {
+          "name": "海之宝石",
+          "name_en": "Jewels Of The Sea"
+        },
+        {
+          "name": "蜜蜂酒",
+          "name_en": "Mead"
+        },
+        {
+          "name": "章鱼",
+          "name_en": "Octopus"
+        },
+        {
+          "name": "南瓜",
+          "name_en": "Pumpkin"
+        },
+        {
+          "name": "海参",
+          "name_en": "Sea Cucumber"
+        },
+        {
+          "name": "鲟鱼",
+          "name_en": "Sturgeon"
+        },
+        {
+          "name": "捕蟹秘籍",
+          "name_en": "The Art O' Crabbing"
+        }
+      ],
+      "likes": [
+        {
+          "name": "鱼饵和浮漂",
+          "name_en": "Bait And Bobber"
+        },
+        {
+          "name": "烤鱼",
+          "name_en": "Baked Fish"
+        },
+        {
+          "name": "惊喜鲤鱼",
+          "name_en": "Carp Surprise"
+        },
+        {
+          "name": "海鲜杂烩汤",
+          "name_en": "Chowder"
+        },
+        {
+          "name": "蟹黄糕",
+          "name_en": "Crab Cakes"
+        },
+        {
+          "name": "香酥鲈鱼",
+          "name_en": "Crispy Bass"
+        },
+        {
+          "name": "法式田螺",
+          "name_en": "Escargot"
+        },
+        {
+          "name": "烩鱼汤",
+          "name_en": "Fish Stew"
+        },
+        {
+          "name": "鱼肉卷",
+          "name_en": "Fish Taco"
+        },
+        {
+          "name": "炸鱿鱼",
+          "name_en": "Fried Calamari"
+        },
+        {
+          "name": "炒鳗鱼",
+          "name_en": "Fried Eel"
+        },
+        {
+          "name": "蛇齿单线鱼",
+          "name_en": "Lingcod"
+        },
+        {
+          "name": "龙虾浓汤",
+          "name_en": "Lobster Bisque"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "鲑鱼晚餐",
+          "name_en": "Salmon Dinner"
+        },
+        {
+          "name": "海泡布丁",
+          "name_en": "Seafoam Pudding"
+        },
+        {
+          "name": "虎纹鳟鱼",
+          "name_en": "Tiger Trout"
+        },
+        {
+          "name": "鳟鱼汤",
+          "name_en": "Trout Soup"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "生命药水",
+          "name_en": "Life Elixir"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Life Elixir, and All Cooking except for the fish dishes he is neutral towards: Dish O' The Sea, Maki Roll, & Sashimi; and the fish dishes he likes, shown below).",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Life Elixir, and All Cooking except for the fish dishes he is neutral towards: Dish O' The Sea, Maki Roll, & Sashimi; and the fish dishes he likes, shown below)."
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Fish, Gold Bar, & Iridium Bar)",
+          "All Cooking (except Baked Fish, Bread, Carp Surprise, Chowder, Crab Cakes, Crispy Bass, Dish O' The Sea, Escargot, Fish Stew, Fish Taco, Fried Calamari, Fried Eel, Fried Egg, Lobster Bisque, Maki Roll, Salmon Dinner, Sashimi, Seafoam Pudding, Strange Bun, & Trout Soup)"
+        ],
+        "hates": [
+          "All Universal Hates (except Seafoam Pudding)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "雷欧",
+      "name_en": "Leo",
+      "birthday": {
+        "season": "summer",
+        "day": 26
+      },
+      "loves": [
+        {
+          "name": "鸭毛",
+          "name_en": "Duck Feather"
+        },
+        {
+          "name": "芒果",
+          "name_en": "Mango"
+        },
+        {
+          "name": "鸵鸟蛋",
+          "name_en": "Ostrich Egg"
+        },
+        {
+          "name": "鹦鹉蛋",
+          "name_en": "Parrot Egg"
+        },
+        {
+          "name": "夏威夷芋泥",
+          "name_en": "Poi"
+        }
+      ],
+      "likes": [
+        {
+          "name": "龙牙",
+          "name_en": "Dragon Tooth"
+        },
+        {
+          "name": "芒果糯米饭",
+          "name_en": "Mango Sticky Rice"
+        },
+        {
+          "name": "鹦鹉螺",
+          "name_en": "Nautilus Shell"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "海胆",
+          "name_en": "Sea Urchin"
+        },
+        {
+          "name": "香味浆果",
+          "name_en": "Spice Berry"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "生命药水",
+          "name_en": "Life Elixir"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "腌菜",
+          "name_en": "Pickles"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "啤酒",
+          "name_en": "Beer"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "啤酒花",
+          "name_en": "Hops"
+        },
+        {
+          "name": "蜜蜂酒",
+          "name_en": "Mead"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "油",
+          "name_en": "Oil"
+        },
+        {
+          "name": "淡啤酒",
+          "name_en": "Pale Ale"
+        },
+        {
+          "name": "椰林飘香",
+          "name_en": "Piña Colada"
+        },
+        {
+          "name": "三倍浓缩咖啡",
+          "name_en": "Triple Shot Espresso"
+        },
+        {
+          "name": "未碾米",
+          "name_en": "Unmilled Rice"
+        },
+        {
+          "name": "果酒",
+          "name_en": "Wine"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Beer, Coffee, Life Elixir, Mead, Pale Ale, Pickles, Piña Colada, Wine, and Cooking other than Bread, Fried Egg, Poi, Mango Sticky Rice, & Triple Shot Espresso)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Beer, Coffee, Life Elixir, Mead, Pale Ale, Pickles, Piña Colada, Wine, and Cooking other than Bread, Fried Egg, Poi, Mango Sticky Rice, & Triple Shot Espresso)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Oil, Parrot Egg, Unmilled Rice, & Fish)",
+          "All Cooked Dishes (other than Bread, Fried Egg, Mango Sticky Rice, Poi, & Triple Shot Espresso)"
+        ],
+        "hates": [
+          "All Universal Hates (except Dragon Tooth & Sea Urchin)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "潘妮",
+      "name_en": "Penny",
+      "birthday": {
+        "season": "fall",
+        "day": 2
+      },
+      "loves": [
+        {
+          "name": "钻石",
+          "name_en": "Diamond"
+        },
+        {
+          "name": "绿宝石",
+          "name_en": "Emerald"
+        },
+        {
+          "name": "甜瓜",
+          "name_en": "Melon"
+        },
+        {
+          "name": "虞美人花",
+          "name_en": "Poppy",
+          "aliases": [
+            "虞美人"
+          ]
+        },
+        {
+          "name": "虞美人籽松糕",
+          "name_en": "Poppyseed Muffin"
+        },
+        {
+          "name": "红之盛宴",
+          "name_en": "Red Plate"
+        },
+        {
+          "name": "块茎拼盘",
+          "name_en": "Roots Platter"
+        },
+        {
+          "name": "沙鱼",
+          "name_en": "Sandfish"
+        },
+        {
+          "name": "椰汁汤",
+          "name_en": "Tom Kha Soup"
+        }
+      ],
+      "likes": [
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "海藻汤",
+          "name_en": "Algae Soup"
+        },
+        {
+          "name": "鸭毛",
+          "name_en": "Duck Feather"
+        },
+        {
+          "name": "清汤",
+          "name_en": "Pale Broth"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "红蘑菇",
+          "name_en": "Red Mushroom"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "动物毛",
+          "name_en": "Wool"
+        }
+      ],
+      "hates": [
+        {
+          "name": "啤酒",
+          "name_en": "Beer"
+        },
+        {
+          "name": "葡萄",
+          "name_en": "Grape"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "啤酒花",
+          "name_en": "Hops"
+        },
+        {
+          "name": "蜜蜂酒",
+          "name_en": "Mead"
+        },
+        {
+          "name": "淡啤酒",
+          "name_en": "Pale Ale"
+        },
+        {
+          "name": "椰林飘香",
+          "name_en": "Piña Colada"
+        },
+        {
+          "name": "兔子的脚",
+          "name_en": "Rabbit's Foot"
+        },
+        {
+          "name": "果酒",
+          "name_en": "Wine"
+        }
+      ],
+      "universal_love_exceptions": [
+        "Rabbit's Foot"
+      ],
+      "universal_likes_note": "All Universal Likes (except Algae Soup, Beer, Mead, Pale Ale, Pale Broth, Piña Colada, & Wine); All Artifacts; All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves (except Rabbit's Foot)",
+          "All Books"
+        ],
+        "likes": [
+          "All Universal Likes (except Algae Soup, Beer, Mead, Pale Ale, Pale Broth, Piña Colada, & Wine)",
+          "All Artifacts",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Artifacts, Price Catalogue, & Sandfish)"
+        ],
+        "hates": [
+          "All Universal Hates (except Poppy and Red Mushroom)"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "艾利欧特",
+      "name_en": "Elliott",
+      "birthday": {
+        "season": "fall",
+        "day": 5
+      },
+      "loves": [
+        {
+          "name": "蟹黄糕",
+          "name_en": "Crab Cakes"
+        },
+        {
+          "name": "鸭毛",
+          "name_en": "Duck Feather"
+        },
+        {
+          "name": "龙虾",
+          "name_en": "Lobster"
+        },
+        {
+          "name": "石榴",
+          "name_en": "Pomegranate"
+        },
+        {
+          "name": "鱿鱼墨汁",
+          "name_en": "Squid Ink"
+        },
+        {
+          "name": "椰汁汤",
+          "name_en": "Tom Kha Soup"
+        }
+      ],
+      "likes": [
+        {
+          "name": "章鱼",
+          "name_en": "Octopus"
+        },
+        {
+          "name": "鱿鱼",
+          "name_en": "Squid"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "披萨",
+          "name_en": "Pizza"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "苋菜",
+          "name_en": "Amaranth"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "海参",
+          "name_en": "Sea Cucumber"
+        },
+        {
+          "name": "大海参",
+          "name_en": "Super Cucumber"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Amaranth, Pizza, & Rainbow Shell); All Books; All Fruit (except Pomegranate & Salmonberry)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Amaranth, Pizza, & Rainbow Shell)",
+          "All Books",
+          "All Fruit (except Pomegranate & Salmonberry)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Fish)",
+          "All Milk"
+        ],
+        "hates": [
+          "All Universal Hates (except Sea Urchin)"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "乔迪",
+      "name_en": "Jodi",
+      "birthday": {
+        "season": "fall",
+        "day": 11
+      },
+      "loves": [
+        {
+          "name": "巧克力蛋糕",
+          "name_en": "Chocolate Cake"
+        },
+        {
+          "name": "香酥鲈鱼",
+          "name_en": "Crispy Bass"
+        },
+        {
+          "name": "钻石",
+          "name_en": "Diamond"
+        },
+        {
+          "name": "帕尔玛奶酪茄子",
+          "name_en": "Eggplant Parmesan"
+        },
+        {
+          "name": "炒鳗鱼",
+          "name_en": "Fried Eel"
+        },
+        {
+          "name": "薄煎饼",
+          "name_en": "Pancakes"
+        },
+        {
+          "name": "大黄派",
+          "name_en": "Rhubarb Pie"
+        },
+        {
+          "name": "蔬菜杂烩",
+          "name_en": "Vegetable Medley"
+        }
+      ],
+      "likes": [],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "蒜",
+          "name_en": "Garlic",
+          "aliases": [
+            "大蒜"
+          ]
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "香味浆果",
+          "name_en": "Spice Berry"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Garlic); All Eggs (except Void Egg)*; All Fruit (except Spice Berry); All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Garlic)",
+          "All Eggs (except Void Egg)*",
+          "All Fruit (except Spice Berry)",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "阿比盖尔",
+      "name_en": "Abigail",
+      "birthday": {
+        "season": "fall",
+        "day": 13
+      },
+      "loves": [
+        {
+          "name": "紫水晶",
+          "name_en": "Amethyst"
+        },
+        {
+          "name": "香蕉布丁",
+          "name_en": "Banana Pudding"
+        },
+        {
+          "name": "黑莓脆皮饼",
+          "name_en": "Blackberry Cobbler"
+        },
+        {
+          "name": "巧克力蛋糕",
+          "name_en": "Chocolate Cake"
+        },
+        {
+          "name": "怪物图鉴",
+          "name_en": "Monster Compendium"
+        },
+        {
+          "name": "河豚",
+          "name_en": "Pufferfish"
+        },
+        {
+          "name": "南瓜",
+          "name_en": "Pumpkin"
+        },
+        {
+          "name": "香辣鳗鱼",
+          "name_en": "Spicy Eel"
+        }
+      ],
+      "likes": [
+        {
+          "name": "古劍",
+          "name_en": "Ancient Sword"
+        },
+        {
+          "name": "蜥怪的爪子",
+          "name_en": "Basilisk Paw"
+        },
+        {
+          "name": "骨笛",
+          "name_en": "Bone Flute"
+        },
+        {
+          "name": "战斗季刊",
+          "name_en": "Combat Quarterly"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "糖",
+          "name_en": "Sugar"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "粘土",
+          "name_en": "Clay"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Vegetables)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Vegetables)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Ancient Sword, Basilisk Paw, Bone Flute, Clay & Pufferfish)",
+          "All Eggs*",
+          "All Fruit (except Fruit Tree Fruit)",
+          "All Vegetables (except Hops, Pumpkin, Tea Leaves, & Wheat)"
+        ],
+        "hates": [
+          "All Universal Hates (except Sugar)"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "桑迪",
+      "name_en": "Sandy",
+      "birthday": {
+        "season": "fall",
+        "day": 15
+      },
+      "loves": [
+        {
+          "name": "番红花",
+          "name_en": "Crocus"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "芒果糯米饭",
+          "name_en": "Mango Sticky Rice"
+        },
+        {
+          "name": "甜豌豆",
+          "name_en": "Sweet Pea"
+        }
+      ],
+      "likes": [
+        {
+          "name": "羊奶",
+          "name_en": "Goat Milk"
+        },
+        {
+          "name": "大瓶羊奶",
+          "name_en": "Large Goat Milk"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "动物毛",
+          "name_en": "Wool"
+        }
+      ],
+      "dislikes": [],
+      "hates": [
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes; All Fruit",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes",
+          "All Fruit"
+        ],
+        "dislikes": [
+          "All Universal Dislikes"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "玛妮",
+      "name_en": "Marnie",
+      "birthday": {
+        "season": "fall",
+        "day": 18
+      },
+      "loves": [
+        {
+          "name": "钻石",
+          "name_en": "Diamond"
+        },
+        {
+          "name": "农夫午餐",
+          "name_en": "Farmer's Lunch"
+        },
+        {
+          "name": "粉红蛋糕",
+          "name_en": "Pink Cake"
+        },
+        {
+          "name": "南瓜派",
+          "name_en": "Pumpkin Pie"
+        }
+      ],
+      "likes": [
+        {
+          "name": "星露谷年历",
+          "name_en": "Stardew Valley Almanac"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "海草",
+          "name_en": "Seaweed"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "粘土",
+          "name_en": "Clay"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes; All Eggs (except Void Egg)*; All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes",
+          "All Eggs (except Void Egg)*",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Clay)"
+        ],
+        "hates": [
+          "All Universal Hates (except Seaweed)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "罗宾",
+      "name_en": "Robin",
+      "birthday": {
+        "season": "fall",
+        "day": 21
+      },
+      "loves": [
+        {
+          "name": "山羊奶酪",
+          "name_en": "Goat Cheese"
+        },
+        {
+          "name": "桃子",
+          "name_en": "Peach"
+        },
+        {
+          "name": "意大利面",
+          "name_en": "Spaghetti"
+        },
+        {
+          "name": "伐木秘事",
+          "name_en": "Woody's Secret"
+        }
+      ],
+      "likes": [
+        {
+          "name": "硬木",
+          "name_en": "Hardwood"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "樵夫周刊",
+          "name_en": "Woodcutter's Weekly"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes; All Fruit (except Peach); All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes",
+          "All Fruit (except Peach)",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Hardwood)"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "乔治",
+      "name_en": "George",
+      "birthday": {
+        "season": "fall",
+        "day": 24
+      },
+      "loves": [
+        {
+          "name": "炒蘑菇",
+          "name_en": "Fried Mushroom"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        }
+      ],
+      "likes": [
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "粘土",
+          "name_en": "Clay"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Flowers)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Flowers)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Clay)",
+          "All Flowers (except Poppy)"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "科罗布斯",
+      "name_en": "Krobus",
+      "birthday": {
+        "season": "winter",
+        "day": 1
+      },
+      "loves": [
+        {
+          "name": "钻石",
+          "name_en": "Diamond"
+        },
+        {
+          "name": "铱锭",
+          "name_en": "Iridium Bar"
+        },
+        {
+          "name": "怪物图鉴",
+          "name_en": "Monster Compendium"
+        },
+        {
+          "name": "怪兽香水",
+          "name_en": "Monster Musk"
+        },
+        {
+          "name": "南瓜",
+          "name_en": "Pumpkin"
+        },
+        {
+          "name": "虚空蛋",
+          "name_en": "Void Egg"
+        },
+        {
+          "name": "虚空蛋黄酱",
+          "name_en": "Void Mayonnaise"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "likes": [
+        {
+          "name": "金锭",
+          "name_en": "Gold Bar"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "海泡布丁",
+          "name_en": "Seafoam Pudding"
+        },
+        {
+          "name": "奇怪的小面包",
+          "name_en": "Strange Bun"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "生命药水",
+          "name_en": "Life Elixir"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Life Elixir and All Cooking excluding Seafoam Pudding & Strange Bun)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Life Elixir and All Cooking excluding Seafoam Pudding & Strange Bun)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Gold Bar, Iridium Bar, & Void Egg)",
+          "All Cooking (except Bread, Fried Egg, Seafoam Pudding, & Strange Bun)"
+        ],
+        "hates": [
+          "All Universal Hates (except Monster Musk, Seafoam Pudding, Strange Bun, & Void Mayonnaise)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "莱纳斯",
+      "name_en": "Linus",
+      "birthday": {
+        "season": "winter",
+        "day": 3
+      },
+      "loves": [
+        {
+          "name": "蓝莓千层酥",
+          "name_en": "Blueberry Tart"
+        },
+        {
+          "name": "仙人掌果子",
+          "name_en": "Cactus Fruit"
+        },
+        {
+          "name": "椰子",
+          "name_en": "Coconut"
+        },
+        {
+          "name": "海之菜肴",
+          "name_en": "Dish O' The Sea"
+        },
+        {
+          "name": "小巷自助餐",
+          "name_en": "The Alleyway Buffet"
+        },
+        {
+          "name": "山药",
+          "name_en": "Yam"
+        }
+      ],
+      "likes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "大葱",
+          "name_en": "Spring Onion"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "财宝箱",
+          "name_en": "Treasure Chest"
+        }
+      ],
+      "hates": [],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Treasure Chest, Foraged Minerals, & Gems other than Diamond & Prismatic Shard); All Eggs (except Void Egg)*; All Fruit (except Cactus Fruit & Coconut); All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Treasure Chest, Foraged Minerals, & Gems other than Diamond & Prismatic Shard)",
+          "All Eggs (except Void Egg)*",
+          "All Fruit (except Cactus Fruit & Coconut)",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Fish & Spring Onion)",
+          "All Foraged Minerals",
+          "All Gems (except Diamond & Prismatic Shard)"
+        ],
+        "hates": [
+          "All Universal Hates (except Carp and Wild Bait)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "卡洛琳",
+      "name_en": "Caroline",
+      "birthday": {
+        "season": "winter",
+        "day": 7
+      },
+      "loves": [
+        {
+          "name": "鱼肉卷",
+          "name_en": "Fish Taco"
+        },
+        {
+          "name": "绿茶",
+          "name_en": "Green Tea"
+        },
+        {
+          "name": "夏季亮片",
+          "name_en": "Summer Spangle"
+        },
+        {
+          "name": "热带咖喱",
+          "name_en": "Tropical Curry"
+        }
+      ],
+      "likes": [
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "茶叶",
+          "name_en": "Tea Leaves"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "苋菜",
+          "name_en": "Amaranth"
+        },
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "鸭蛋黄酱",
+          "name_en": "Duck Mayonnaise"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "蛋黄酱",
+          "name_en": "Mayonnaise"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Amaranth, Duck Mayonnaise, & Mayonnaise)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Amaranth, Duck Mayonnaise, & Mayonnaise)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "塞巴斯蒂安",
+      "name_en": "Sebastian",
+      "birthday": {
+        "season": "winter",
+        "day": 10
+      },
+      "loves": [
+        {
+          "name": "青蛙蛋",
+          "name_en": "Frog Egg"
+        },
+        {
+          "name": "泪晶",
+          "name_en": "Frozen Tear"
+        },
+        {
+          "name": "黑曜石",
+          "name_en": "Obsidian"
+        },
+        {
+          "name": "南瓜汤",
+          "name_en": "Pumpkin Soup"
+        },
+        {
+          "name": "生鱼片",
+          "name_en": "Sashimi"
+        },
+        {
+          "name": "虚空蛋",
+          "name_en": "Void Egg"
+        }
+      ],
+      "likes": [
+        {
+          "name": "战斗季刊",
+          "name_en": "Combat Quarterly"
+        },
+        {
+          "name": "比目鱼",
+          "name_en": "Flounder"
+        },
+        {
+          "name": "怪物图鉴",
+          "name_en": "Monster Compendium"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [
+        {
+          "name": "粘土",
+          "name_en": "Clay"
+        },
+        {
+          "name": "完美早餐",
+          "name_en": "Complete Breakfast"
+        },
+        {
+          "name": "农夫午餐",
+          "name_en": "Farmer's Lunch"
+        },
+        {
+          "name": "煎蛋卷",
+          "name_en": "Omelet"
+        },
+        {
+          "name": "椰林飘香",
+          "name_en": "Piña Colada"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Flowers, Complete Breakfast, Farmer's Lunch, Omelet, Piña Colada, & Artisan Goods other than Coffee, Green Tea, & Oil)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Flowers, Complete Breakfast, Farmer's Lunch, Omelet, Piña Colada, & Artisan Goods other than Coffee, Green Tea, & Oil)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Clay, Fish, Frog Egg, Obsidian, & Void Egg)",
+          "All Flowers (except Poppy)"
+        ],
+        "hates": [
+          "All Universal Hates",
+          "All Artisan Goods (except Coffee, Green Tea, & Oil)",
+          "All Eggs (except Void Egg)*"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "哈维",
+      "name_en": "Harvey",
+      "birthday": {
+        "season": "winter",
+        "day": 14
+      },
+      "loves": [
+        {
+          "name": "咖啡",
+          "name_en": "Coffee"
+        },
+        {
+          "name": "腌菜",
+          "name_en": "Pickles"
+        },
+        {
+          "name": "巨无霸餐",
+          "name_en": "Super Meal"
+        },
+        {
+          "name": "松露油",
+          "name_en": "Truffle Oil"
+        },
+        {
+          "name": "果酒",
+          "name_en": "Wine"
+        }
+      ],
+      "likes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "鸭蛋",
+          "name_en": "Duck Egg"
+        },
+        {
+          "name": "鸭毛",
+          "name_en": "Duck Feather"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "羊奶",
+          "name_en": "Goat Milk"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "大瓶羊奶",
+          "name_en": "Large Goat Milk"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "大葱",
+          "name_en": "Spring Onion"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "蓝莓千层酥",
+          "name_en": "Blueberry Tart"
+        },
+        {
+          "name": "面包",
+          "name_en": "Bread"
+        },
+        {
+          "name": "奶酪",
+          "name_en": "Cheese"
+        },
+        {
+          "name": "巧克力蛋糕",
+          "name_en": "Chocolate Cake"
+        },
+        {
+          "name": "饼干",
+          "name_en": "Cookie"
+        },
+        {
+          "name": "红莓酱",
+          "name_en": "Cranberry Sauce"
+        },
+        {
+          "name": "炒蘑菇",
+          "name_en": "Fried Mushroom"
+        },
+        {
+          "name": "琉璃山药",
+          "name_en": "Glazed Yams"
+        },
+        {
+          "name": "山羊奶酪",
+          "name_en": "Goat Cheese"
+        },
+        {
+          "name": "薯饼",
+          "name_en": "Hashbrowns"
+        },
+        {
+          "name": "冰淇淋",
+          "name_en": "Ice Cream"
+        },
+        {
+          "name": "薄煎饼",
+          "name_en": "Pancakes"
+        },
+        {
+          "name": "粉红蛋糕",
+          "name_en": "Pink Cake"
+        },
+        {
+          "name": "披萨",
+          "name_en": "Pizza"
+        },
+        {
+          "name": "大黄派",
+          "name_en": "Rhubarb Pie"
+        },
+        {
+          "name": "大米布丁",
+          "name_en": "Rice Pudding"
+        }
+      ],
+      "hates": [
+        {
+          "name": "珊瑚",
+          "name_en": "Coral"
+        },
+        {
+          "name": "鹦鹉螺",
+          "name_en": "Nautilus Shell"
+        },
+        {
+          "name": "彩虹贝壳",
+          "name_en": "Rainbow Shell"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "香味浆果",
+          "name_en": "Spice Berry"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Cheese, Goat Cheese, Rainbow Shell, and the following cooked dishes: Blueberry Tart, Chocolate Cake, Cookie, Cranberry Sauce, Fried Mushroom, Glazed Yams, Hashbrowns, Ice Cream, Pancakes, Pink Cake, Pizza, Rhubarb Pie, & Rice Pudding); All Fruit (except Salmonberry & Spice Berry)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Cheese, Goat Cheese, Rainbow Shell, and the following cooked dishes: Blueberry Tart, Chocolate Cake, Cookie, Cranberry Sauce, Fried Mushroom, Glazed Yams, Hashbrowns, Ice Cream, Pancakes, Pink Cake, Pizza, Rhubarb Pie, & Rice Pudding)",
+          "All Fruit (except Salmonberry & Spice Berry)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Spring Onion)"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "法师",
+      "name_en": "Wizard",
+      "birthday": {
+        "season": "winter",
+        "day": 17
+      },
+      "loves": [
+        {
+          "name": "谜之书",
+          "name_en": "Book of Mysteries"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "太阳精华",
+          "name_en": "Solar Essence"
+        },
+        {
+          "name": "大海参",
+          "name_en": "Super Cucumber"
+        },
+        {
+          "name": "虚空精华",
+          "name_en": "Void Essence"
+        }
+      ],
+      "likes": [
+        {
+          "name": "铱锭",
+          "name_en": "Iridium Bar"
+        },
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "史莱姆泥",
+          "name_en": "Slime"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "hates": [],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes; All Geode Minerals; All Trinkets",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes",
+          "All Geode Minerals",
+          "All Trinkets"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Geode Minerals, Iridium Bar, Solar Essence, Super Cucumber, Trinkets, & Void Essence)",
+          "All Eggs*",
+          "All Milk"
+        ],
+        "hates": [
+          "All Universal Hates (except Slime)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "艾芙琳",
+      "name_en": "Evelyn",
+      "birthday": {
+        "season": "winter",
+        "day": 20
+      },
+      "loves": [
+        {
+          "name": "甜菜",
+          "name_en": "Beet"
+        },
+        {
+          "name": "巧克力蛋糕",
+          "name_en": "Chocolate Cake"
+        },
+        {
+          "name": "钻石",
+          "name_en": "Diamond"
+        },
+        {
+          "name": "玫瑰仙子",
+          "name_en": "Fairy Rose"
+        },
+        {
+          "name": "葡萄干",
+          "name_en": "Raisins"
+        },
+        {
+          "name": "塞料面包",
+          "name_en": "Stuffing"
+        },
+        {
+          "name": "郁金香",
+          "name_en": "Tulip"
+        }
+      ],
+      "likes": [
+        {
+          "name": "破损的眼镜",
+          "name_en": "Broken Glasses"
+        },
+        {
+          "name": "蛤",
+          "name_en": "Clam"
+        },
+        {
+          "name": "鸟蛤",
+          "name_en": "Cockle"
+        },
+        {
+          "name": "珊瑚",
+          "name_en": "Coral"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蚌",
+          "name_en": "Mussel"
+        },
+        {
+          "name": "鹦鹉螺",
+          "name_en": "Nautilus Shell"
+        },
+        {
+          "name": "牡蛎",
+          "name_en": "Oyster"
+        },
+        {
+          "name": "海胆",
+          "name_en": "Sea Urchin"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "粘土",
+          "name_en": "Clay"
+        },
+        {
+          "name": "炒鳗鱼",
+          "name_en": "Fried Eel"
+        },
+        {
+          "name": "蒜",
+          "name_en": "Garlic",
+          "aliases": [
+            "大蒜"
+          ]
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "生鱼寿司",
+          "name_en": "Maki Roll"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "生鱼片",
+          "name_en": "Sashimi"
+        },
+        {
+          "name": "香味浆果",
+          "name_en": "Spice Berry"
+        },
+        {
+          "name": "香辣鳗鱼",
+          "name_en": "Spicy Eel"
+        },
+        {
+          "name": "鳟鱼汤",
+          "name_en": "Trout Soup"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Fried Eel, Garlic, Maki Roll, Sashimi, Spicy Eel, & Trout Soup); All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Fried Eel, Garlic, Maki Roll, Sashimi, Spicy Eel, & Trout Soup)",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Clay & Fish)"
+        ],
+        "hates": [
+          "All Universal Hates (except Broken Glasses & Sea Urchin)",
+          "All Fish (except Clam, Cockle, Mussel, & Oyster)"
+        ]
+      },
+      "marriage": false
+    },
+    {
+      "name": "莉亚",
+      "name_en": "Leah",
+      "birthday": {
+        "season": "winter",
+        "day": 23
+      },
+      "loves": [
+        {
+          "name": "山羊奶酪",
+          "name_en": "Goat Cheese"
+        },
+        {
+          "name": "虞美人籽松糕",
+          "name_en": "Poppyseed Muffin"
+        },
+        {
+          "name": "沙拉",
+          "name_en": "Salad"
+        },
+        {
+          "name": "蔬菜什锦盖饭",
+          "name_en": "Stir Fry"
+        },
+        {
+          "name": "松露",
+          "name_en": "Truffle"
+        },
+        {
+          "name": "蔬菜杂烩",
+          "name_en": "Vegetable Medley"
+        },
+        {
+          "name": "果酒",
+          "name_en": "Wine"
+        }
+      ],
+      "likes": [
+        {
+          "name": "鸡油菌",
+          "name_en": "Chanterelle"
+        },
+        {
+          "name": "普通蘑菇",
+          "name_en": "Common Mushroom"
+        },
+        {
+          "name": "黄水仙",
+          "name_en": "Daffodil"
+        },
+        {
+          "name": "蒲公英",
+          "name_en": "Dandelion"
+        },
+        {
+          "name": "浮木",
+          "name_en": "Driftwood"
+        },
+        {
+          "name": "姜",
+          "name_en": "Ginger"
+        },
+        {
+          "name": "榛子",
+          "name_en": "Hazelnut"
+        },
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        },
+        {
+          "name": "韭葱",
+          "name_en": "Leek"
+        },
+        {
+          "name": "熔岩菇",
+          "name_en": "Magma Cap"
+        },
+        {
+          "name": "羊肚菌",
+          "name_en": "Morel"
+        },
+        {
+          "name": "紫蘑菇",
+          "name_en": "Purple Mushroom"
+        },
+        {
+          "name": "雪山药",
+          "name_en": "Snow Yam"
+        },
+        {
+          "name": "大葱",
+          "name_en": "Spring Onion"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        },
+        {
+          "name": "冬根",
+          "name_en": "Winter Root"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "惊喜鲤鱼",
+          "name_en": "Carp Surprise"
+        },
+        {
+          "name": "饼干",
+          "name_en": "Cookie"
+        },
+        {
+          "name": "煎鸡蛋",
+          "name_en": "Fried Egg"
+        },
+        {
+          "name": "冰淇淋",
+          "name_en": "Ice Cream"
+        },
+        {
+          "name": "粉红蛋糕",
+          "name_en": "Pink Cake"
+        },
+        {
+          "name": "大米布丁",
+          "name_en": "Rice Pudding"
+        },
+        {
+          "name": "海草",
+          "name_en": "Seaweed"
+        },
+        {
+          "name": "救生汉堡",
+          "name_en": "Survival Burger"
+        },
+        {
+          "name": "墨西哥薄饼",
+          "name_en": "Tortilla"
+        }
+      ],
+      "hates": [
+        {
+          "name": "面包",
+          "name_en": "Bread"
+        },
+        {
+          "name": "薯饼",
+          "name_en": "Hashbrowns"
+        },
+        {
+          "name": "薄煎饼",
+          "name_en": "Pancakes"
+        },
+        {
+          "name": "披萨",
+          "name_en": "Pizza"
+        },
+        {
+          "name": "虚空蛋",
+          "name_en": "Void Egg"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except:Foraged Minerals other than Earth Crystal; Gems other than Diamond & Prismatic Shard; Carp Surprise, Cookie, Hashbrowns, Ice Cream, Pancakes, Pink Cake, Pizza, Rice Pudding, Survival Burger, & Tortilla); All Eggs (except Void Egg)*; All Fruit; All Milk",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except:Foraged Minerals other than Earth Crystal",
+          "Gems other than Diamond & Prismatic Shard",
+          "Carp Surprise, Cookie, Hashbrowns, Ice Cream, Pancakes, Pink Cake, Pizza, Rice Pudding, Survival Burger, & Tortilla)",
+          "All Eggs (except Void Egg)*",
+          "All Fruit",
+          "All Milk"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Driftwood, Spring Onion, & Void Egg)",
+          "All Foraged Minerals (except Earth Crystal)",
+          "All Gems (except Diamond & Prismatic Shard)"
+        ],
+        "hates": [
+          "All Universal Hates (except Seaweed)"
+        ]
+      },
+      "marriage": true
+    },
+    {
+      "name": "克林特",
+      "name_en": "Clint",
+      "birthday": {
+        "season": "winter",
+        "day": 26
+      },
+      "loves": [
+        {
+          "name": "紫水晶",
+          "name_en": "Amethyst"
+        },
+        {
+          "name": "海蓝宝石",
+          "name_en": "Aquamarine"
+        },
+        {
+          "name": "水煮洋蓟",
+          "name_en": "Artichoke Dip"
+        },
+        {
+          "name": "绿宝石",
+          "name_en": "Emerald"
+        },
+        {
+          "name": "意式蕨菜炖饭",
+          "name_en": "Fiddlehead Risotto"
+        },
+        {
+          "name": "金锭",
+          "name_en": "Gold Bar"
+        },
+        {
+          "name": "铱锭",
+          "name_en": "Iridium Bar"
+        },
+        {
+          "name": "翡翠",
+          "name_en": "Jade"
+        },
+        {
+          "name": "万象晶球",
+          "name_en": "Omni Geode"
+        },
+        {
+          "name": "红宝石",
+          "name_en": "Ruby"
+        },
+        {
+          "name": "黄水晶",
+          "name_en": "Topaz"
+        }
+      ],
+      "likes": [
+        {
+          "name": "铜锭",
+          "name_en": "Copper Bar"
+        },
+        {
+          "name": "铁锭",
+          "name_en": "Iron Bar"
+        },
+        {
+          "name": "采矿月刊",
+          "name_en": "Mining Monthly"
+        }
+      ],
+      "dislikes": [
+        {
+          "name": "石英",
+          "name_en": "Quartz"
+        },
+        {
+          "name": "美洲大树莓",
+          "name_en": "Salmonberry"
+        },
+        {
+          "name": "野山葵",
+          "name_en": "Wild Horseradish"
+        }
+      ],
+      "hates": [
+        {
+          "name": "冬青树",
+          "name_en": "Holly"
+        }
+      ],
+      "universal_love_exceptions": [],
+      "universal_likes_note": "All Universal Likes (except Flowers)",
+      "gift_notes": {
+        "loves": [
+          "All Universal Loves"
+        ],
+        "likes": [
+          "All Universal Likes (except Flowers)"
+        ],
+        "dislikes": [
+          "All Universal Dislikes (except Coal, Copper Bar, Gold Bar, Gold Ore, Iridium Bar, Iridium Ore, Iron Bar, Omni Geode, & Refined Quartz)",
+          "All Flowers (except Poppy)"
+        ],
+        "hates": [
+          "All Universal Hates"
+        ]
+      },
+      "marriage": false
     }
-  ]
+  ],
+  "_marriage": "marriage：可以结婚的村民（各 NPC 页面信息栏的 Marriage = Yes，12 位）。送礼校验只对他们要求“生日当天要有送礼任务”；其他村民的生日和喜好照样写进 Prompt，送了礼也照样校验。"
 }

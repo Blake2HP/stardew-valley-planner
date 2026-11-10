@@ -39,10 +39,11 @@ def test_goal_and_list_match_across_names(data):
 
 
 def test_gift_vocabulary_includes_aliases(data):
-    # 潘妮最爱虞美人花；送“西红柿”能被识别出来（不在她的喜好里，所以报警）
-    assert check_gifts({2: "送潘妮虞美人花", 13: "送阿比盖尔紫水晶"}, data, "fall") == []
-    (w,) = check_gifts({2: "送潘妮西红柿", 13: "送阿比盖尔紫水晶"}, data, "fall")
-    assert "西红柿不在" in w.message
+    # 潘妮最爱虞美人花；送“西红柿”能被识别出来（海莉不喜欢蔬菜，所以报警）
+    ok = {2: "送潘妮虞美人花", 5: "送艾利欧特龙虾", 13: "送阿比盖尔紫水晶"}
+    assert check_gifts(ok, data, "fall") == []
+    (w,) = check_gifts({**ok, 20: "送海莉西红柿"}, data, "fall")
+    assert "海莉不喜欢西红柿" in w.message
 
 
 def test_sv_finds_crop_by_alias():

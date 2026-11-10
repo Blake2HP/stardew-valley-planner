@@ -254,8 +254,10 @@ GIFT_VERBS = ("送", "赠")
 def _gift_vocabulary(data: GameData) -> list[str]:
     """能识别为礼物的物品名：npcs.json 里的所有物品 + 作物 + 加工品。按长度倒序，先匹配长的（“南瓜汤”优先于“南瓜”）。"""
     nd = data.npc_data
-    names = {name for n in nd.npcs for i in (*n.loves, *n.likes) for name in i.names}
+    names = {name for n in nd.npcs for i in (*n.loves, *n.likes, *n.dislikes, *n.hates) for name in i.names}
     names |= {name for i in nd.universal_loves for name in i.names}
+    names |= {name for g in (nd.universal_likes, nd.universal_neutrals, nd.universal_dislikes, nd.universal_hates)
+              for i in g.items for name in i.names}
     names |= {n for c in data.crops for n in c.names} | {r.product for r in data.artisan_rules}
     return sorted(names, key=len, reverse=True)
 
@@ -292,8 +294,72 @@ def gift_tasks(goal: str, data: GameData) -> list[tuple[NPC, list[str]]]:
     return tasks
 
 
+# 作物 / 加工品在 wiki 类别说明里的叫法
+_CATEGORY_WORDS = {"vegetable": "Vegetables", "fruit": "Fruit", "flower": "Flowers", "artisan": "Artisan Goods"}
+LOVE, LIKE, NEUTRAL, DISLIKE, HATE = "love", "like", "neutral", "dislike", "hate"
+
+
+def _category_of(item: str, data: GameData) -> tuple[str, str] | None:
+    """作物或加工品的 (英文名, 类别)；其他物品返回 None。"""
+    for c in data.crops:
+        if item in c.names:
+            return c.name_en, c.category
+    for r in data.artisan_rules:
+        if item == r.product:
+            return r.product_en, "artisan"
+    return None
+
+
+def _bullet_covers(bullet: str, word: str, name_en: str) -> bool:
+    """“All Vegetables (except Hops, Tea Leaves, & Wheat)”这类说明是否包括这件物品。"""
+    if not bullet.startswith(f"All {word}"):
+        return False
+    rest = bullet[len(f"All {word}"):]
+    return not (rest.lstrip().startswith("(except") and name_en in rest) and not rest[:1].isalpha()
+
+
+def gift_taste(npc: NPC, item: str, data: GameData) -> str | None:
+    """NPC 对一件礼物的态度：love / like / neutral / dislike / hate；数据里查不到返回 None。
+
+    先看 NPC 页面逐项列出的物品，再看页面上的类别说明（作物和加工品），最后看通用列表（wiki Friendship）。
+    """
+    nd = data.npc_data
+    has = lambda items: any(item in i.names for i in items)  # noqa: E731
+    if has(npc.hates):
+        return HATE
+    if has(npc.dislikes):
+        return DISLIKE
+    if has(nd.loved_items(npc)):
+        return LOVE
+    if has(npc.likes):
+        return LIKE
+    found = _category_of(item, data)
+    if found:
+        name_en, category = found
+        word = _CATEGORY_WORDS.get(category)
+        if word:
+            for key, taste in (("hates", HATE), ("dislikes", DISLIKE), ("loves", LOVE), ("likes", LIKE)):
+                if any(_bullet_covers(b, word, name_en) for b in npc.gift_notes.get(key, ())):
+                    return taste
+    for group, taste in ((nd.universal_hates, HATE), (nd.universal_dislikes, DISLIKE),
+                         (nd.universal_neutrals, NEUTRAL), (nd.universal_likes, LIKE)):
+        if has(group.items):
+            return taste
+    if found and _CATEGORY_WORDS.get(found[1]) in ("Vegetables", "Flowers", "Artisan Goods"):
+        word = _CATEGORY_WORDS[found[1]]
+        likes_note = " ".join(npc.gift_notes.get("likes", ()))
+        excluded = "All Universal Likes (except" in likes_note and word in likes_note.split("All Universal Likes", 1)[1]
+        return NEUTRAL if excluded else LIKE   # 通用喜欢：所有蔬菜、花、工匠物品
+    if found:
+        return NEUTRAL  # 普通水果不在通用喜欢里
+    return None
+
+
+_TASTE_TEXT = {DISLIKE: ("不喜欢", "−20"), HATE: ("讨厌", "−40")}
+
+
 def check_gifts(daily_goals: dict[int, str], data: GameData, season: str) -> list[GiftWarning]:
-    """核对送礼任务：礼物须在该 NPC 的最爱 / 喜欢中；当季生日当天须有送礼任务。"""
+    """核对送礼任务：礼物最好是该 NPC 最爱 / 喜欢的，不能是不喜欢 / 讨厌的；可以结婚的村民生日当天须有送礼任务。"""
     season = normalize_season(season)
     nd = data.npc_data
     warnings: list[GiftWarning] = []
@@ -302,25 +368,26 @@ def check_gifts(daily_goals: dict[int, str], data: GameData, season: str) -> lis
     for day in sorted(daily_goals):
         for npc, items in gift_tasks(daily_goals[day], data):
             gifted_on.setdefault(npc.name, set()).add(day)
-            loved = {name for i in nd.loved_items(npc) for name in i.names}
-            liked = {name for i in npc.likes for name in i.names}
-            hated = {name for i in nd.hated_universal(npc) for name in i.names}
             prefs = (f"最爱：{'、'.join(i.name for i in nd.loved_items(npc))}；"
                      f"喜欢：{'、'.join(i.name for i in npc.likes) or '无专属物品'}")
             if not items:
                 warnings.append(GiftWarning(day, npc.name, f"给{npc.name}的送礼任务没有写明礼物，或礼物不在数据库中",
                                             prefs))
             for item in items:
-                if item in hated:
-                    warnings.append(GiftWarning(day, npc.name, f"{npc.name}讨厌{item}（通用最爱的例外），不要送",
-                                                prefs))
-                elif item not in loved and item not in liked:
-                    note = f"；通用喜欢未逐项收录：{npc.universal_likes_note}" if npc.universal_likes_note else ""
-                    warnings.append(GiftWarning(day, npc.name, f"{item}不在 npcs.json 记录的{npc.name}最爱 / 喜欢中",
+                taste = gift_taste(npc, item, data)
+                if taste in _TASTE_TEXT:
+                    word, points = _TASTE_TEXT[taste]
+                    warnings.append(GiftWarning(day, npc.name, f"{npc.name}{word}{item}（{points} 好感度），不要送", prefs))
+                elif taste == NEUTRAL:
+                    warnings.append(GiftWarning(day, npc.name, f"{item}对{npc.name}只是中立礼物（+20 好感度），"
+                                                "换成最爱或喜欢的更划算", prefs))
+                elif taste is None:
+                    note = f"；通用喜欢：{npc.universal_likes_note}" if npc.universal_likes_note else ""
+                    warnings.append(GiftWarning(day, npc.name, f"{item}不在 npcs.json 记录的{npc.name}喜好中",
                                                 prefs + note))
 
     for npc in nd.birthdays_in_season(season):
-        if npc.birthday_day not in gifted_on.get(npc.name, set()):
+        if npc.marriage and npc.birthday_day not in gifted_on.get(npc.name, set()):
             warnings.append(GiftWarning(
                 npc.birthday_day, npc.name,
                 f"{npc.name}生日当天没有送礼任务",
