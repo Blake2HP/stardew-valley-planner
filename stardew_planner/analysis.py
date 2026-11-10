@@ -337,8 +337,12 @@ def _machine_lines(machines: dict[str, int] | None) -> list[str]:
     if not machines:
         return []
     have = "、".join(f"{m} {n} 个" for m, n in machines.items())
-    return [f"- 玩家现有加工设备：{have}。程序会按“每台机器每天多赚多少”安排加工、计入资金，"
-            "第 28 天还没做完的带到下一季；你只需在日程里安排装填和取货的时间，不用自己算加工收入。"]
+    lines = [f"- 玩家现有加工设备：{have}。程序会按“每台机器每天多赚多少”安排加工、计入资金，"
+             "第 28 天还没做完的带到下一季；你只需在日程里安排装填和取货的时间，不用自己算加工收入。"]
+    if machines.get("蜂房"):
+        lines.append("- 蜂房：每 4 天一罐（冬季不产），程序按取蜜当天室外开着的最值钱的花算花蜜、计入资金；"
+                     "想要花蜜就在室外种花，并在日程里写明每种花留 1 株在蜂房旁、先取蜜再收花（否则是野蜂蜜 100g）。")
+    return lines
 
 
 def crop_note(crop: Crop, honey: HoneyRule | None = None) -> str:
@@ -354,7 +358,7 @@ def crop_note(crop: Crop, honey: HoneyRule | None = None) -> str:
     if honey and (price := honey.price_for(crop)) is not None:
         parts.append(f"蜂房 {honey.range_tiles} 格内有成熟的{crop.name}时产{crop.name}蜂蜜，售价 = {honey.base_price} + "
                      f"{crop.sell_price} × {honey.flower_multiplier:g} = {price}g（花不会被消耗，但要先取蜂蜜再收花，否则变成野蜂蜜 {honey.base_price}g；"
-                     f"每罐约 {honey.production_days:g} 天，冬季和温室里不产；程序不计入资金）")
+                     f"每罐约 {honey.production_days:g} 天，冬季和温室里不产；给出蜂房数量时程序计入资金）")
     return f"{crop.name}：" + "；".join(parts) if parts else ""
 
 

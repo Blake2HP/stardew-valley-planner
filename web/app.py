@@ -76,6 +76,7 @@ class GenerateRequest(BaseModel):
     farm_type: str | None = Field(default=None, max_length=30)
     kegs: int = Field(default=0, ge=0, le=1000)
     jars: int = Field(default=0, ge=0, le=1000)
+    bee_houses: int = Field(default=0, ge=0, le=1000)
     greenhouse: bool = False
 
 
@@ -266,6 +267,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                 guide_store=guide_store, professions=req.professions, fertilizer=req.fertilizer,
                 farming_level=req.farming_level, processing_share=req.processing_share, start_gold=req.start_gold,
                 farm_type=req.farm_type, kegs=req.kegs, jars=req.jars, greenhouse=req.greenhouse,
+                bee_houses=req.bee_houses,
             )
             if len(plan) == 1:
                 results = [generate_strategy(req.playstyle, req.pacing, plan[0][0], plan[0][1], **kwargs)]

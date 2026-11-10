@@ -17,7 +17,10 @@ from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, Bonuses
 from .processing import GoodsInProcess, simulate_processing
-from .data_loader import SEASON_ZH, Crop, GameData, normalize_season
+from .data_loader import SEASON_ZH, Crop, GameData, HoneyRule, normalize_season
+from .honey import simulate_honey
+
+BEE_HOUSE = "蜂房"  # machines 里的蜂房数量：不参与小桶 / 罐头瓶的加工模拟，单独按开着的花算蜂蜜
 
 SEASON_DAYS = 28
 SEASON_ORDER = ["spring", "summer", "fall", "winter"]
@@ -127,10 +130,12 @@ class SeasonFinance:
     warnings: list[str] = field(default_factory=list)    # 现金不足等
     processing_net: int = 0   # 加工净增：完成的加工品 − 留作加工的作物原本的直接卖价（没有机器时为 0）
     goods_out: list[GoodsInProcess] = field(default_factory=list)  # 季末还在机器里的货品，带到下一季
+    honey_income: int = 0     # 蜂房产的蜂蜜收入（没有蜂房时为 0）
 
     @property
     def crop_net(self) -> int:
-        return self.crop_revenue - self.seed_cost - self.fertilizer_cost + self.processing_net
+        return (self.crop_revenue - self.seed_cost - self.fertilizer_cost + self.processing_net
+                + self.honey_income)
 
     @property
     def other_total(self) -> int:
@@ -291,6 +296,8 @@ def compute_finance(
     machines: dict[str, int] | None = None,
     rules_for=None,
     goods_in: tuple[GoodsInProcess, ...] = (),
+    season: str | None = None,
+    honey: HoneyRule | None = None,
 ) -> SeasonFinance:
     """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。
 
@@ -298,6 +305,7 @@ def compute_finance(
     播种时最先使用，明细里标为 stock_label。季末剩下的种子记在 seeds_left，带到下一季。
     machines（机器名 → 台数）和 rules_for（作物 → 加工规则）给出时模拟加工，见 processing.py；
     goods_in 是上季还在机器里的货品。
+    machines 里的“蜂房”按室外开着的花算蜂蜜（见 honey.py），需要同时给出 season 和 honey。
     """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
@@ -370,11 +378,24 @@ def compute_finance(
         for day, tiles in _new_fertilized_tiles(plantings).items():
             spent_by_day[day] = spent_by_day.get(day, 0) + tiles * (fert.price or 0)
 
+    machines = dict(machines or {})
+    bee_houses = machines.pop(BEE_HOUSE, 0)
     processing = None
-    if (machines and any(machines.values()) and rules_for is not None) or goods_in:
-        processing = simulate_processing(harvest_events, rules_for or (lambda crop: []), dict(machines or {}),
+    if (any(machines.values()) and rules_for is not None) or goods_in:
+        processing = simulate_processing(harvest_events, rules_for or (lambda crop: []), machines,
                                          bonuses, tuple(goods_in))
         lines += processing.lines
+
+    honey_result = None
+    if bee_houses and honey is not None and season is not None:
+        # 室外的花：从第一次可收获那天起算开着（温室里的花够不着室外的蜂房）
+        blooms = [(c.crop, c.harvest_days[0]) for c in carry_in
+                  if c.crop.category == "flower" and c.place != GREENHOUSE and c.harvest_days
+                  and c.harvest_days[0] <= SEASON_DAYS]
+        blooms += [(p.crop, p.harvests[0]) for p in plantings
+                   if p.crop.category == "flower" and not p.in_greenhouse and p.harvests and p.harvests[0] <= SEASON_DAYS]
+        honey_result = simulate_honey(blooms, normalize_season(season), bee_houses, honey, bonuses)
+        lines += honey_result.lines
 
     finance = SeasonFinance(
         start_gold=start_gold,
@@ -387,6 +408,7 @@ def compute_finance(
         seeds_left=seeds_left,
         processing_net=int(round(processing.net)) if processing else 0,
         goods_out=list(processing.goods_out) if processing else [],
+        honey_income=honey_result.income if honey_result else 0,
     )
 
     # 逐日现金流（只算种植收支）：找出第一次买不起种子或肥料的日子
@@ -396,6 +418,8 @@ def compute_finance(
             cash += revenue_by_day.get(day, 0) - spent_by_day.get(day, 0)
             if processing:
                 cash += processing.cash_by_day.get(day, 0)
+            if honey_result:
+                cash += honey_result.cash_by_day.get(day, 0)
             if cash < 0:
                 finance.warnings.append(
                     f"⚠️ 第 {day} 天买种子和肥料后现金为 {int(cash)}g：只算种植收支时资金不足"
@@ -410,6 +434,7 @@ def describe_finance(f: SeasonFinance) -> list[str]:
     out = [f"期初资金：{start}"]
     out += [f"- {line}" for line in f.lines]
     processing = f" + 加工净增 {f.processing_net}" if f.processing_net else ""
+    processing += f" + 蜂蜜 {f.honey_income}" if f.honey_income else ""
     net = (f"种植净收支 = 收入 {f.crop_revenue} − 种子 {f.seed_cost} − 肥料 {f.fertilizer_cost}{processing}"
            f" = {f.crop_net}g（程序计算）")
     out.append(net)

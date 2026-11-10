@@ -97,6 +97,7 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `--model` | Override the default model name | env var `ANTHROPIC_MODEL` |
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
 | `--kegs` / `--jars` | Number of kegs and preserves jars. When given, processing is simulated with machine counts and processing times: low-quality, high-gain crops go first, overflow moves to the other machine type, and the gain counts toward gold; goods still in a machine on day 28 carry into the next season | `0` (not simulated) |
+| `--bee-houses` | Number of outdoor bee houses. One jar every 4 days, priced by the most valuable flower blooming outdoors on the collection day (wild honey, 100g, with no flower), counted toward gold; none in winter, and greenhouse flowers don't count | `0` (not simulated) |
 | `--greenhouse` | The greenhouse is repaired. Plantings may set `"place": "greenhouse"`: no season limits, regrowing crops survive the season change, at most 120 tiles (exceeding it or using a locked greenhouse is reported as a problem) | off |
 | `--farm-type` | Farm map: `standard` / `riverland` / `forest` / `hilltop` / `wilderness` / `four_corners` / `beach` / `meadowlands` (Chinese names also work). The Meadowlands farm starts without the 15 free Parsnip Seeds | `standard` |
 | `--revise-rounds` | Self-correction rounds: when the checks find problems (late plantings, wrong gifts, cash shortfalls, goals that don't match the plantings list, etc.), the list goes back to the model for a rewrite, kept only if it has fewer problems; costs extra model calls | `1` (`0` = off) |
@@ -281,7 +282,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add Blue Jazz, Wheat and Poppy (Wheat → Beer via a crop-specific artisan rule)
 - [x] Add Bok Choy, Artichoke, Fairy Rose, Summer Spangle and Unmilled Rice
 - [x] Artisan rules with several inputs per product (5 Coffee Beans → 1 Coffee), and Coffee Bean itself (seeds only from the Traveling Cart, counted at 2,500g)
-- [x] Honey rules for flowers (price = 100 + flower base price × 2, shown in crop notes and `sv.py artisan`; bee houses are not counted toward gold)
+- [x] Honey rules for flowers (price = 100 + flower base price × 2, shown in crop notes and `sv.py artisan`)
+- [x] Bee house simulation (`--bee-houses`: one jar every 4 days, priced by the flowers in bloom, counted toward gold)
 - [x] Multi-season planning (carry gold and multi-season crops forward)
 - [x] Artisan goods across seasons (goods still in a machine are credited when they finish next season)
 - [x] Upgrade guide-text search from keyword matching to vector search (ChromaDB)

@@ -42,6 +42,8 @@ def main() -> None:
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
     parser.add_argument("--kegs", type=int, default=0, help="小桶数量；给出时按机器数量和加工时间模拟加工，计入资金")
     parser.add_argument("--jars", type=int, default=0, help="罐头瓶数量")
+    parser.add_argument("--bee-houses", type=int, default=0,
+                        help="室外蜂房数量；每 4 天一罐，按室外开着的最值钱的花算花蜜，计入资金（冬季不产）")
     parser.add_argument("--greenhouse", action="store_true",
                         help="温室已修好：可以把作物种在温室（不受季节限制，可再生作物不会枯死，最多 120 格）")
     parser.add_argument("--farm-type", default=None,
@@ -65,7 +67,7 @@ def main() -> None:
         parser.error("年份必须 ≥ 1")
     if not 0 <= args.processing_share <= 1:
         parser.error("加工比例必须在 0-1 之间")
-    if args.kegs < 0 or args.jars < 0:
+    if args.kegs < 0 or args.jars < 0 or args.bee_houses < 0:
         parser.error("机器数量不能为负数")
     if args.revise_rounds < 0:
         parser.error("自动修正轮数必须 ≥ 0")
@@ -87,7 +89,7 @@ def main() -> None:
         fertilizer=bonuses.fertilizer.key if bonuses.fertilizer else None,
         farming_level=args.farming_level, processing_share=args.processing_share,
         revise_rounds=args.revise_rounds, farm_type=args.farm_type, kegs=args.kegs, jars=args.jars,
-        greenhouse=args.greenhouse,
+        greenhouse=args.greenhouse, bee_houses=args.bee_houses,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

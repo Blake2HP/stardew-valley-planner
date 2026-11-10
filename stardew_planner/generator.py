@@ -285,7 +285,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         plantings, carry_in, start_gold=s.gold, start_gold_estimated=s.gold_estimated,
         other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock, stock_label=s.stock_label,
         machines=s.machines, rules_for=data.artisan_rules_for,
-        goods_in=s.prior_state.goods if s.prior_state else (),
+        goods_in=s.prior_state.goods if s.prior_state else (), season=season_key, honey=data.honey,
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -359,6 +359,7 @@ def generate_strategy(
     kegs: int = 0,
     jars: int = 0,
     greenhouse: bool = False,
+    bee_houses: int = 0,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -378,6 +379,7 @@ def generate_strategy(
         farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
         kegs / jars: 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工（见 processing.py），
             加工净增计入资金；第 28 天还没做完的带到下一季。
+        bee_houses: 室外蜂房的数量。每 4 天一罐，按室外开着的最值钱的花算花蜜（见 honey.py），计入资金；冬季不产。
         greenhouse: 温室已修好。模型可以把种植安排在温室（不受季节限制、可再生作物不会枯死，最多 120 格）。
         revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
             重新生成；只有问题变少才采用新版本。会多调用模型。
@@ -395,9 +397,9 @@ def generate_strategy(
         raise ValueError(f"加工比例必须在 0-1 之间，收到 {processing_share}")
     if revise_rounds < 0:
         raise ValueError(f"自动修正轮数必须 ≥ 0，收到 {revise_rounds}")
-    if kegs < 0 or jars < 0:
-        raise ValueError(f"机器数量不能为负数，收到小桶 {kegs}、罐头瓶 {jars}")
-    machines = {name: n for name, n in (("小桶", kegs), ("罐头瓶", jars)) if n}
+    if kegs < 0 or jars < 0 or bee_houses < 0:
+        raise ValueError(f"机器数量不能为负数，收到小桶 {kegs}、罐头瓶 {jars}、蜂房 {bee_houses}")
+    machines = {name: n for name, n in (("小桶", kegs), ("罐头瓶", jars), ("蜂房", bee_houses)) if n}
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
     if data.farm_types:
