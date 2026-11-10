@@ -71,7 +71,13 @@ class Crop:
     speed_grow_days: dict = field(default_factory=dict, compare=False, hash=False)
     seed_drop: float = 0.0  # 每次收获平均掉落的种子数（向日葵 = 1），补种时先用掉落的种子
     requires_bus: bool = False  # 种子只在沙漠绿洲出售，要先修好巴士
+    aliases: tuple[str, ...] = field(default=(), compare=False, hash=False)  # 其他叫法，如官方名“西红柿”
     byproducts: tuple[Byproduct, ...] = field(default=(), compare=False, hash=False)
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        """本项目的名字 + 别名，长的在前（匹配时“虞美人花”优先于“虞美人”）。"""
+        return tuple(sorted((self.name, *self.aliases), key=len, reverse=True))
 
 
 @dataclass(frozen=True)
@@ -217,7 +223,7 @@ def _read_json(path: Path) -> dict:
 
 def load_crops(path: Path) -> list[Crop]:
     raw = _read_json(path)["crops"]
-    return [Crop(**{**item, "seasons": tuple(item["seasons"]),
+    return [Crop(**{**item, "seasons": tuple(item["seasons"]), "aliases": tuple(item.get("aliases", ())),
                     "byproducts": tuple(Byproduct(**b) for b in item.get("byproducts", ()))}) for item in raw]
 
 

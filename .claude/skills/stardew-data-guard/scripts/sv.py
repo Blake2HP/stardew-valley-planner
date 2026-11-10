@@ -45,7 +45,7 @@ def missing(what: str) -> None:
 def find_crop(data: GameData, name: str) -> Crop:
     key = name.strip().lower()
     for c in data.crops:
-        if key in (c.name.lower(), c.name_en.lower()):
+        if key in (c.name_en.lower(), *(n.lower() for n in c.names)):
             return c
     missing(f"作物：{name}")
 

@@ -97,10 +97,11 @@ def _planted_crops(goal: str, crops: list[Crop]) -> list[Crop]:
     found = []
     for seg in _SEGMENT_SPLIT.split(text):
         for crop in crops:
-            pos = seg.find(crop.name)
-            if pos == -1 or crop in found:
+            hit = next(((seg.find(n), n) for n in crop.names if n in seg), None)
+            if hit is None or crop in found:
                 continue
-            verb = _governing_verb(seg, pos, pos + len(crop.name))
+            pos, name = hit
+            verb = _governing_verb(seg, pos, pos + len(name))
             if verb is not None and not _is_negated(seg, verb):
                 found.append(crop)
     return found
@@ -196,7 +197,7 @@ def check_plantings_match(
                                           f"目标：{goal}"))
     for p in plantings:
         goal = daily_goals.get(p.day, "")
-        if p.crop.name not in goal:
+        if not any(n in goal for n in p.crop.names):
             warnings.append(SeasonWarning(p.day, p.crop.name, f"种植清单里的{p.crop.name}在当天日程没有提到",
                                           f"目标：{goal or '无'}"))
     return sorted(warnings, key=lambda w: w.day)
@@ -252,7 +253,7 @@ def _gift_vocabulary(data: GameData) -> list[str]:
     nd = data.npc_data
     names = {name for n in nd.npcs for i in (*n.loves, *n.likes) for name in i.names}
     names |= {name for i in nd.universal_loves for name in i.names}
-    names |= {c.name for c in data.crops} | {r.product for r in data.artisan_rules}
+    names |= {n for c in data.crops for n in c.names} | {r.product for r in data.artisan_rules}
     return sorted(names, key=len, reverse=True)
 
 

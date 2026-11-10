@@ -157,7 +157,7 @@ def resolve_plantings(
 ) -> tuple[list[Planting], list[str]]:
     """把模型输出的 plantings 转成 Planting；不合法的条目剔除并给出警告（不计入资金）。"""
     season = normalize_season(season)
-    by_name = {c.name: c for c in data.crops} | {c.name_en.lower(): c for c in data.crops}
+    by_name = {n: c for c in data.crops for n in c.names} | {c.name_en.lower(): c for c in data.crops}
     plantings, warnings = [], []
     for item in raw:
         name, day, tiles = item["crop"], item["day"], item["tiles"]
