@@ -58,3 +58,63 @@ def test_other_seasons_and_years_get_none(data, indexed_store):
                                    guide_store=indexed_store, start_gold=5000)
         assert "开局赠送" not in client.prompt
         assert not any("开局赠送" in line for line in result.finance.lines)
+
+
+# ---------------------------------------------------------------------------
+# 农场地图：草原农场没有开局种子
+# ---------------------------------------------------------------------------
+
+import pytest  # noqa: E402
+
+
+def test_farm_types_from_wiki(data):
+    assert list(data.farm_types) == ["standard", "riverland", "forest", "hilltop", "wilderness", "four_corners",
+                                     "beach", "meadowlands"]
+    assert data.farm_types["meadowlands"]["name_zh"] == "草原农场"
+
+
+@pytest.mark.parametrize("name", ["meadowlands", "草原农场", "Meadowlands Farm", "MEADOWLANDS"])
+def test_meadowlands_has_no_free_seeds(data, name):
+    assert data.resolve_farm_type(name) == "meadowlands"
+    assert data.starting_seed_stock(name) == {}
+
+
+@pytest.mark.parametrize("name", [None, "standard", "标准农场", "Hill-top Farm", "four_corners", "海滩农场"])
+def test_other_farms_get_parsnip_seeds(data, name):
+    assert data.starting_seed_stock(name) == {"防风草": 15}
+
+
+def test_unknown_farm_type(data):
+    with pytest.raises(ValueError, match="未知农场类型"):
+        data.resolve_farm_type("火星农场")
+
+
+def test_generator_uses_farm_type(data, indexed_store):
+    client = Recorder()
+    result = generate_strategy("种田", "稳健", "spring", client=client, data=data, guide_store=indexed_store,
+                               farm_type="草原农场")
+    assert "开局赠送" not in client.prompt
+    assert result.finance.end_gold == 2424                     # 防风草种子要自己买
+
+
+def test_generator_rejects_unknown_farm_type(data, indexed_store):
+    with pytest.raises(ValueError, match="未知农场类型"):
+        generate_strategy("种田", "稳健", "spring", client=Recorder(), data=data, guide_store=indexed_store,
+                          farm_type="火星农场")
+
+
+def test_web_farm_type(indexed_store):
+    from fastapi.testclient import TestClient
+
+    from web.app import Settings, create_app
+
+    settings = Settings()
+    settings.provider, settings.rate_limit = "mock", 0
+    app = create_app(settings, client=MockClient(), guide_store=indexed_store, warm_up=False)
+    body = {"playstyle": "种田", "pacing": "稳健", "seasons": ["spring"]}
+    with TestClient(app) as c:
+        assert {"key": "meadowlands", "name": "草原农场"} in c.get("/api/options").json()["farm_types"]
+        assert c.post("/api/generate", json={**body, "farm_type": "meadowlands"}).json()["seasons"][0]["end_gold"] == 2424
+        assert c.post("/api/generate", json=body).json()["seasons"][0]["end_gold"] == 2724
+        r = c.post("/api/generate", json={**body, "farm_type": "火星农场"})
+    assert r.status_code == 400 and "未知农场类型" in r.json()["detail"]

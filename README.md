@@ -92,6 +92,7 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | `--provider` | `anthropic` / `mock` | 环境变量 `LLM_PROVIDER`，未设置时为 `anthropic` |
 | `--model` | 覆盖默认模型名 | 环境变量 `ANTHROPIC_MODEL` |
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
+| `--farm-type` | 农场地图：`standard` / `riverland` / `forest` / `hilltop` / `wilderness` / `four_corners` / `beach` / `meadowlands`（也可以写中文名）。草原农场开局没有赠送的 15 颗防风草种子 | `standard` |
 | `--revise-rounds` | 自动修正轮数：程序校验发现问题（来不及成熟、送错礼物、现金不足、日程和种植清单对不上等）时，把问题清单反馈给模型重写，问题变少才采用新版本；会多调用模型 | `1`（`0` = 关闭） |
 | `--start-gold` | 期初资金 | 第 1 年春季为开局金币 500g（`data/farm.json`），其他季节为未知 |
 | `--professions` | 职业，逗号分隔：`tiller`（农耕人，作物 +10%）、`artisan`（工匠，加工品 +40%）、`agriculturist`（农业学家，生长 +10%）。也可以写中文名；选工匠或农业学家会自动加入农耕人，两者只能二选一 | 无 |

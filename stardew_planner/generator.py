@@ -343,6 +343,7 @@ def generate_strategy(
     farming_level: int | None = None,
     processing_share: float = 1.0,
     revise_rounds: int = 1,
+    farm_type: str | None = None,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -359,6 +360,7 @@ def generate_strategy(
         prior_state: 上一季结束时的农场状态（跨季连续规划时由 generate_plan 传入）。
         farming_level: 耕种等级（0-14）；给出或用了品质肥料时计入作物品质。
         processing_share: 机器能加工的收获比例（0-1），决定“高星直接卖、低星加工”的分界。
+        farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
         revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
             重新生成；只有问题变少才采用新版本。会多调用模型。
     """
@@ -377,6 +379,8 @@ def generate_strategy(
         raise ValueError(f"自动修正轮数必须 ≥ 0，收到 {revise_rounds}")
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
+    if data.farm_types:
+        data.resolve_farm_type(farm_type)  # 写错时尽早报错
     client = client or get_client(provider, model)
 
     # 0) 资金起点：上季状态 > 显式传入 > 第 1 年春季的开局金币
@@ -387,7 +391,8 @@ def generate_strategy(
             start_gold = data.starting_gold
         gold = gold_estimated = start_gold
     # 新存档（第 1 年春季、没有上季状态）有开局赠送的种子
-    seed_stock = data.starting_seed_stock() if prior_state is None and (season_key, year) == ("spring", 1) else {}
+    seed_stock = (data.starting_seed_stock(farm_type)
+                  if prior_state is None and (season_key, year) == ("spring", 1) else {})
 
     # 1) 检索攻略片段（RAG）+ 数据 → Prompt
     guide_query = f"{season_zh}，{playstyle}，{pacing}"

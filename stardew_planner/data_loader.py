@@ -186,11 +186,26 @@ class GameData:
     guide_chunks: list[GuideChunk] = field(default_factory=list)
     starting_gold: int | None = None  # 开局金币（data/farm.json），用于第 1 年春季的资金起点
     starting_seeds: dict[str, int] = field(default_factory=dict)  # 开局赠送的种子（作物英文名 → 数量）
+    farm_types: dict[str, dict] = field(default_factory=dict)      # 农场地图；可覆盖 starting_seeds
 
-    def starting_seed_stock(self) -> dict[str, int]:
-        """开局赠送的种子，按本项目的作物中文名（data/crops.json 里没有的作物忽略）。"""
+    def resolve_farm_type(self, name: str | None) -> str:
+        """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
+        if not name:
+            return "standard"
+        key = name.strip().lower().replace("-", "").replace(" ", "_")
+        for k, info in self.farm_types.items():
+            if key in (k, k.replace("_", ""), info["name_zh"], info["name_en"].lower().replace("-", "").replace(" ", "_")):
+                return k
+        options = "、".join(f"{k}（{v['name_zh']}）" for k, v in self.farm_types.items())
+        raise ValueError(f"未知农场类型：{name!r}，可选：{options}")
+
+    def starting_seed_stock(self, farm_type: str | None = None) -> dict[str, int]:
+        """开局赠送的种子，按本项目的作物中文名（data/crops.json 里没有的作物忽略）。草原农场没有。"""
+        seeds = self.starting_seeds
+        if self.farm_types:
+            seeds = self.farm_types[self.resolve_farm_type(farm_type)].get("starting_seeds", seeds)
         by_en = {c.name_en: c.name for c in self.crops}
-        return {by_en[en]: n for en, n in self.starting_seeds.items() if en in by_en}
+        return {by_en[en]: n for en, n in seeds.items() if en in by_en}
     npc_data: NPCData = field(default_factory=NPCData)  # NPC 生日与送礼喜好（data/npcs.json）
 
     # ---- 结构化查询 ----
@@ -286,6 +301,7 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         guide_chunks=load_guides(data_dir / "guides"),
         starting_gold=load_starting_gold(data_dir / "farm.json"),
         starting_seeds=load_starting_seeds(data_dir / "farm.json"),
+        farm_types=load_farm_types(data_dir / "farm.json"),
         npc_data=load_npcs(data_dir / "npcs.json"),
     )
 
@@ -310,6 +326,10 @@ def load_npcs(path: Path) -> NPCData:
         for n in raw["npcs"]
     )
     return NPCData(npcs, _gift_items(raw.get("universal_loves")))
+
+
+def load_farm_types(path: Path) -> dict[str, dict]:
+    return _read_json(path).get("farm_types", {}) if path.exists() else {}
 
 
 def load_starting_seeds(path: Path) -> dict[str, int]:

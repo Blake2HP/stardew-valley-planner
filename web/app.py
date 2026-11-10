@@ -73,6 +73,7 @@ class GenerateRequest(BaseModel):
     farming_level: int | None = Field(default=None, ge=0, le=14)
     processing_share: float = Field(default=1.0, ge=0, le=1)
     start_gold: int | None = Field(default=None, ge=0, le=100_000_000)
+    farm_type: str | None = Field(default=None, max_length=30)
 
 
 class RateLimiter:
@@ -228,6 +229,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             "seasons": [{"key": k, "name": v} for k, v in SEASON_ZH.items()],
             "professions": [{"key": k, "name": p.name_zh, "level": p.level, "requires": p.requires,
                              "excludes": list(p.excludes), "note": p.note} for k, p in rules.professions.items()],
+            "farm_types": [{"key": k, "name": v["name_zh"]} for k, v in data().farm_types.items()],
             "fertilizers": [{"key": k, "name": f.name_zh,
                              "kind": "quality" if f.quality_level else "speed", "source": f.source}
                             for k, f in rules.fertilizers.items()],
@@ -238,6 +240,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
         try:
             plan = parse_seasons(req.seasons, req.year)
             resolve_bonuses(req.professions, req.fertilizer, farming_level=req.farming_level)
+            data().resolve_farm_type(req.farm_type)
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
         if len(plan) > settings.max_seasons:
@@ -259,6 +262,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                 data=data(), client=model_client, provider=settings.provider, model=settings.model,
                 guide_store=guide_store, professions=req.professions, fertilizer=req.fertilizer,
                 farming_level=req.farming_level, processing_share=req.processing_share, start_gold=req.start_gold,
+                farm_type=req.farm_type,
             )
             if len(plan) == 1:
                 results = [generate_strategy(req.playstyle, req.pacing, plan[0][0], plan[0][1], **kwargs)]

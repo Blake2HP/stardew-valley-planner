@@ -40,6 +40,9 @@ def main() -> None:
     parser.add_argument("--provider", default=None, help="anthropic / mock（默认读 LLM_PROVIDER）")
     parser.add_argument("--model", default=None, help="覆盖默认模型名")
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
+    parser.add_argument("--farm-type", default=None,
+                        help="农场地图：standard / riverland / forest / hilltop / wilderness / four_corners / beach / "
+                             "meadowlands（或中文名）。草原农场开局没有赠送的防风草种子")
     parser.add_argument("--revise-rounds", type=int, default=1,
                         help="自动修正轮数：程序校验发现问题时反馈给模型修改（默认 1，0 = 关闭；会多调用模型）")
     parser.add_argument("--start-gold", type=int, default=None,
@@ -77,7 +80,7 @@ def main() -> None:
         professions=[p.key for p in bonuses.professions],
         fertilizer=bonuses.fertilizer.key if bonuses.fertilizer else None,
         farming_level=args.farming_level, processing_share=args.processing_share,
-        revise_rounds=args.revise_rounds,
+        revise_rounds=args.revise_rounds, farm_type=args.farm_type,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

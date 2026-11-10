@@ -110,6 +110,8 @@
           <select id="seasonCount"></select>
         </div>
       </div>
+      <label for="farmType">农场地图 <span class="hint">草原农场开局没有赠送的防风草种子</span></label>
+      <select id="farmType"></select>
       <div class="row">
         <div>
           <label for="year">第几年</label>
@@ -192,6 +194,7 @@ async function loadOptions() {
   badge.textContent = options.is_mock ? "演示数据（mock）" : `模型：${options.provider}`;
 
   for (const [key, name] of SEASONS) $("startSeason").add(new Option(name, key));
+  for (const f of options.farm_types) $("farmType").add(new Option(f.name, f.key));
   for (let n = 1; n <= options.max_seasons; n++) $("seasonCount").add(new Option(n === 1 ? "1 季" : `${n} 季`, n));
 
   const box = $("professions");
@@ -284,6 +287,7 @@ $("form").addEventListener("submit", async (e) => {
     farming_level: numberOrNull("farmingLevel"),
     processing_share: Number($("share").value) / 100,
     start_gold: numberOrNull("startGold"),
+    farm_type: $("farmType").value || null,
   };
   setLoading(true);
   try {

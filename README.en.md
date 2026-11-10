@@ -96,6 +96,7 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `--provider` | `anthropic` / `mock` | env var `LLM_PROVIDER`, else `anthropic` |
 | `--model` | Override the default model name | env var `ANTHROPIC_MODEL` |
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
+| `--farm-type` | Farm map: `standard` / `riverland` / `forest` / `hilltop` / `wilderness` / `four_corners` / `beach` / `meadowlands` (Chinese names also work). The Meadowlands farm starts without the 15 free Parsnip Seeds | `standard` |
 | `--revise-rounds` | Self-correction rounds: when the checks find problems (late plantings, wrong gifts, cash shortfalls, goals that don't match the plantings list, etc.), the list goes back to the model for a rewrite, kept only if it has fewer problems; costs extra model calls | `1` (`0` = off) |
 | `--start-gold` | Starting gold | 500g starting gold (`data/farm.json`) in year-1 spring, unknown otherwise |
 | `--professions` | Comma-separated professions: `tiller` (crops +10%), `artisan` (artisan goods +40%), `agriculturist` (growth +10%). Chinese names also work; choosing Artisan or Agriculturist adds Tiller automatically, and the two exclude each other | none |

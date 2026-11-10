@@ -2,8 +2,44 @@
   "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Gold（“All players start with 500g.”）、/Getting_Started 与 /The_Farm（开局刘易斯镇长赠送 15 颗防风草种子；草原农场例外，改送 15 份干草），核对日期 2026-11-09。",
   "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_starting_seeds": "开局赠送的种子（按作物英文名）。只在第 1 年春季、没有上季状态（新存档）时计入；选择草原农场（Meadowlands）时没有这些种子。",
+  "_farm_types": "开局可选的 8 种农场地图（https://stardewvalleywiki.com/Farm_Maps，中文名取自 zh.stardewvalleywiki.com/农场地图，核对日期 2026-11-09）。目前只用来决定开局赠送的种子：草原农场改送 15 份干草，没有防风草种子。",
   "starting_gold": 500,
   "starting_seeds": {
     "Parsnip": 15
+  },
+  "farm_types": {
+    "standard": {
+      "name_zh": "标准农场",
+      "name_en": "Standard Farm"
+    },
+    "riverland": {
+      "name_zh": "河边农场",
+      "name_en": "Riverland Farm"
+    },
+    "forest": {
+      "name_zh": "森林农场",
+      "name_en": "Forest Farm"
+    },
+    "hilltop": {
+      "name_zh": "山顶农场",
+      "name_en": "Hill-top Farm"
+    },
+    "wilderness": {
+      "name_zh": "荒野农场",
+      "name_en": "Wilderness Farm"
+    },
+    "four_corners": {
+      "name_zh": "四角农场",
+      "name_en": "Four Corners Farm"
+    },
+    "beach": {
+      "name_zh": "海滩农场",
+      "name_en": "Beach Farm"
+    },
+    "meadowlands": {
+      "name_zh": "草原农场",
+      "name_en": "Meadowlands Farm",
+      "starting_seeds": {}
+    }
   }
 }
