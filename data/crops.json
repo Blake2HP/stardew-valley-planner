@@ -275,6 +275,32 @@
       }
     },
     {
+      "name": "咖啡豆",
+      "name_en": "Coffee Bean",
+      "seasons": [
+        "spring",
+        "summer"
+      ],
+      "seed_price": 2500,
+      "sell_price": 15,
+      "grow_days": 10,
+      "regrow_days": 2,
+      "category": "seed",
+      "harvest_yield": 4.0204,
+      "earliest_available_day": 1,
+      "available_year": 1,
+      "seed_source": "旅行货车（秋冬季特别货品 25% 几率出现，2500g；普通货品偶尔有，价格随机）",
+      "note": "咖啡豆本身就是种子，任何商店都不卖，只能从旅行货车碰运气或打灰尘精灵（1% 掉落）获得；收获的豆子可以留下来扩种。每次收获 4 颗，另有 2% 几率多出（期望 4 + 0.02 / 0.98 ≈ 4.02 颗）；属于种子类，不吃农耕人加成、不能放进罐头瓶",
+      "speed_grow_days": {
+        "10": 8,
+        "20": 7,
+        "25": 7,
+        "33": 6,
+        "35": 6,
+        "43": 5
+      }
+    },
+    {
       "name": "蓝莓",
       "name_en": "Blueberry",
       "seasons": [
@@ -831,5 +857,6 @@
       }
     }
   ],
-  "_new_crops_2026_11_10": "小白菜、洋蓟、玫瑰仙子、夏季亮片、未碾米：数值来自各作物与种子的 wiki 页面，加速天数来自 https://stardewvalleywiki.com/Crop_Growth_Calendars ，中文名取自跨语言链接（核对日期 2026-11-10）。没有收录：咖啡豆（任何商店都不卖种子，只能从灰尘精灵 1% 掉落或旅行货车随机购得；5 颗豆子才做 1 杯咖啡）、1.6 新增的胡萝卜、西葫芦、西兰花、粉瓜（种子不在商店出售），以及姜岛作物。"
+  "_new_crops_2026_11_10": "小白菜、洋蓟、玫瑰仙子、夏季亮片、未碾米：数值来自各作物与种子的 wiki 页面，加速天数来自 https://stardewvalleywiki.com/Crop_Growth_Calendars ，中文名取自跨语言链接（核对日期 2026-11-10）。咖啡豆（https://stardewvalleywiki.com/Coffee_Bean ，2026-11-10 补充；种子价按旅行货车特别货品 2500g 计）。没有收录：1.6 新增的胡萝卜、西葫芦、西兰花、粉瓜（种子不在商店出售），以及姜岛作物。",
+  "_category": "category：vegetable / fruit / flower / special（啤酒花）/ seed（咖啡豆：属于种子类，wiki 说明不吃农耕人加成）。"
 }

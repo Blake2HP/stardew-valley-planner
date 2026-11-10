@@ -14,7 +14,8 @@
       "fixed_price": null,
       "processing_minutes": 10000,
       "processing_days": 6.25,
-      "product_en": "Wine"
+      "product_en": "Wine",
+      "input_count": 1
     },
     {
       "machine": "小桶",
@@ -25,7 +26,8 @@
       "fixed_price": null,
       "processing_minutes": 6000,
       "processing_days": 3.75,
-      "product_en": "Juice"
+      "product_en": "Juice",
+      "input_count": 1
     },
     {
       "machine": "小桶",
@@ -36,7 +38,8 @@
       "fixed_price": 300,
       "processing_minutes": 2250,
       "processing_days": 1.41,
-      "product_en": "Pale Ale"
+      "product_en": "Pale Ale",
+      "input_count": 1
     },
     {
       "machine": "小桶",
@@ -50,7 +53,8 @@
       "fixed_price": 200,
       "processing_minutes": 1750,
       "processing_days": 1.09,
-      "product_en": "Beer"
+      "product_en": "Beer",
+      "input_count": 1
     },
     {
       "machine": "罐头瓶",
@@ -61,7 +65,8 @@
       "fixed_price": null,
       "processing_minutes": 4000,
       "processing_days": 2.5,
-      "product_en": "Jelly"
+      "product_en": "Jelly",
+      "input_count": 1
     },
     {
       "machine": "罐头瓶",
@@ -72,7 +77,23 @@
       "fixed_price": null,
       "processing_minutes": 4000,
       "processing_days": 2.5,
-      "product_en": "Pickles"
+      "product_en": "Pickles",
+      "input_count": 1
+    },
+    {
+      "machine": "小桶",
+      "product": "咖啡",
+      "input_category": "seed",
+      "input_crops": [
+        "Coffee Bean"
+      ],
+      "multiplier": 0,
+      "bonus": 0,
+      "fixed_price": 150,
+      "processing_minutes": 120,
+      "processing_days": 0.08,
+      "product_en": "Coffee",
+      "input_count": 5
     }
   ],
   "_honey": "蜂蜜（https://stardewvalleywiki.com/Honey ，核对日期 2026-11-10）：蜂房每 4 天产一罐（6100 分钟，跨过夜晚，wiki 写作每 4 天），冬季不产；蜂房 5 格范围内有成熟的花时产花蜜，售价 = 基础蜂蜜售价 100 + 花的基础售价 × 2，花不会被消耗；没有花时是野蜂蜜 100g。番红花、香豌豆不影响蜂蜜；黄水仙、蒲公英属于采集品，也不影响。蜂蜜不分品质，工匠职业 +40%。温室里的蜂房不产蜂蜜（https://stardewvalleywiki.com/Greenhouse）。",
@@ -82,5 +103,6 @@
     "production_minutes": 6100,
     "production_days": 4,
     "range_tiles": 5
-  }
+  },
+  "_input_count": "input_count：做 1 件加工品要几个原料（默认 1）。咖啡：5 颗咖啡豆放进小桶，2 小时出 1 杯咖啡（150g），https://stardewvalleywiki.com/Coffee 。比较“加工划不划算”时按每个原料算：150 ÷ 5 = 30g/颗。加工模拟按每台机器每天最多做 1 批计（实际 2 小时就能再装，这里偏保守）。"
 }

@@ -94,6 +94,7 @@ class ArtisanRule:
     processing_days: float
     input_crops: tuple[str, ...] = ()  # 非空时只适用于这些作物（name_en），如小麦 → 啤酒
     product_en: str = ""               # 加工品英文名，送礼校验用（如 Wine）
+    input_count: int = 1               # 做 1 件加工品要几个原料（咖啡 = 5 颗咖啡豆）
 
     def applies_to(self, crop: Crop) -> bool:
         return crop.name_en in self.input_crops if self.input_crops else crop.category == self.input_category

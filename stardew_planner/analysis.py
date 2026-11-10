@@ -24,7 +24,7 @@ class CropProfit:
     harvests: int
     profit_per_tile: int        # 整季单格净利润（直接出售，已计入职业、肥料）
     best_artisan: str | None    # 最佳加工方式
-    artisan_unit_price: int | None
+    artisan_unit_price: int | float | None  # 折算到每个原料
     plant_day: int = 1          # 实际种植日（不早于种子开售日）
     grow_days: int = 0          # 实际生长天数（已计入加速）
     sell_price: int = 0         # 实际售价（普通品质，已计入农耕人）
@@ -123,7 +123,7 @@ class QualityOption:
     name: str
     units: float              # 每次收获中这一品质的期望个数（额外产出计入普通）
     direct_price: int         # 直接卖的单价（已计入品质与农耕人）
-    artisan_price: int | None  # 加工后的单价（加工品不继承品质，已计入工匠）
+    artisan_price: int | float | None  # 加工后折算到每个原料的价格（加工品不继承品质，已计入工匠）
     processed_share: float = 0.0  # 这一品质中被加工的比例（0-1）
 
     @property
@@ -168,7 +168,7 @@ class SalePlan:
         if self.artisan_label is None:
             return "直接卖（无加工规则）"
         product = self.artisan_label.split("→")[-1]
-        gains = "、".join(f"{o.name} {o.gain:+d}g" for o in self.options if o.units > 0)
+        gains = "、".join(f"{o.name} {o.gain:+g}g" for o in self.options if o.units > 0)
         if not self.processed:
             return f"全部直接卖（加工每个多赚：{gains}）"
 
@@ -197,8 +197,8 @@ def sale_plan(
     """
     if not 0 <= processing_share <= 1:
         raise ValueError(f"加工比例必须在 0-1 之间，收到 {processing_share}")
-    best = max(rules, key=lambda r: bonuses.artisan_price(r, crop), default=None)
-    artisan = bonuses.artisan_price(best, crop) if best else None
+    best = max(rules, key=lambda r: bonuses.artisan_unit_price(r, crop), default=None)
+    artisan = bonuses.artisan_unit_price(best, crop) if best else None
     odds = bonuses.quality_odds()
     extra = crop.harvest_yield - 1  # 额外产出一律普通品质
     options = [QualityOption(q, bonuses.quality_name(q), odds[q] + (extra if q == "normal" else 0),
@@ -234,7 +234,7 @@ def rank_crops(
     for crop in data.crops_in_season(season, year):
         harvests, profit = season_profit(crop, bonuses=bonuses, season=season)
         rules = data.artisan_rules_for(crop)
-        best = max(rules, key=lambda r: bonuses.artisan_price(r, crop), default=None)
+        best = max(rules, key=lambda r: bonuses.artisan_unit_price(r, crop), default=None)
         plan = sale_plan(crop, rules, bonuses, processing_share)
         _, planned = season_profit(crop, bonuses=bonuses, value_per_harvest=plan.expected_best, season=season)
         results.append(CropProfit(
@@ -242,7 +242,7 @@ def rank_crops(
             harvests=harvests,
             profit_per_tile=profit,
             best_artisan=f"{best.machine}→{best.product}" if best else None,
-            artisan_unit_price=bonuses.artisan_price(best, crop) if best else None,
+            artisan_unit_price=bonuses.artisan_unit_price(best, crop) if best else None,
             plant_day=effective_plant_day(crop),
             grow_days=bonuses.grow_days(crop),
             sell_price=bonuses.crop_price(crop),
@@ -285,6 +285,8 @@ def build_data_context(
         + ("、".join(zh.get(n, n) for n in r.input_crops) if r.input_crops else r.input_category)
         + f" → {r.product}，"
         + (f"固定 {r.fixed_price}g" if r.fixed_price is not None else f"售价 ×{r.multiplier} + {r.bonus}")
+        + (f"（{r.input_count} 个原料做 1 件，折合每个原料 {r.fixed_price / r.input_count:g}g）"
+           if r.input_count > 1 and r.fixed_price is not None else "")
         + f"，耗时约 {r.processing_days} 天"
         + ("（该作物不再适用同一机器的类别规则）" if r.input_crops else "")
         for r in data.artisan_rules

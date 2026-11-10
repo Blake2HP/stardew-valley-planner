@@ -183,6 +183,11 @@ class Bonuses:
         first = sum(p * self.crop_price(crop, q) for q, p in self.quality_odds().items() if p)
         return first + (crop.harvest_yield - 1) * normal
 
+    def artisan_unit_price(self, rule: ArtisanRule, crop: Crop) -> int | float:
+        """折算到每个原料的加工品价格（咖啡：150 ÷ 5 = 30g/颗）；整除时返回整数。"""
+        price, n = self.artisan_price(rule, crop), max(1, rule.input_count)
+        return price // n if price % n == 0 else round(price / n, 2)
+
     def artisan_price(self, rule: ArtisanRule, crop: Crop) -> int:
         price = rule.price_for(crop)  # 加工品价格只看原料基础售价，不受农耕人影响
         for p in self.professions:

@@ -279,7 +279,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
 - [x] Add Garlic, Red Cabbage and Sunflower, and track seeds sold only from year 2 with `available_year`
 - [x] Add Blue Jazz, Wheat and Poppy (Wheat → Beer via a crop-specific artisan rule)
-- [x] Add Bok Choy, Artichoke, Fairy Rose, Summer Spangle and Unmilled Rice (Coffee Bean left out: no shop sells its seeds)
+- [x] Add Bok Choy, Artichoke, Fairy Rose, Summer Spangle and Unmilled Rice
+- [x] Artisan rules with several inputs per product (5 Coffee Beans → 1 Coffee), and Coffee Bean itself (seeds only from the Traveling Cart, counted at 2,500g)
 - [x] Honey rules for flowers (price = 100 + flower base price × 2, shown in crop notes and `sv.py artisan`; bee houses are not counted toward gold)
 - [x] Multi-season planning (carry gold and multi-season crops forward)
 - [x] Artisan goods across seasons (goods still in a machine are credited when they finish next season)

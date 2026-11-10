@@ -148,6 +148,11 @@ def cmd_artisan(data: GameData, a) -> None:
                 line += f"；⌊{price} × {p.name_zh} {p.artisan_price_multiplier}⌋ = {new}g"
                 price = new
         assert price == b.artisan_price(r, c)
+        if r.input_count > 1:
+            unit = b.artisan_unit_price(r, c)
+            print(line + f"；{r.input_count} 个原料做 1 件 → 每个原料 {price} ÷ {r.input_count} = {unit:g}g"
+                  f"（比直接卖 {raw_price}g 多 {unit - raw_price:g}g，耗时 {r.processing_days} 天）")
+            continue
         print(line + f"（比直接卖 {raw_price}g 多 {price - raw_price}g，耗时 {r.processing_days} 天）")
     if not b.is_empty:
         print("  注：加工品价格只看原料的基础售价，不受农耕人加成影响。")
@@ -256,7 +261,7 @@ def cmd_quality(data: GameData, a) -> None:
     for o in plan.options:
         if o.units <= 0:
             continue
-        print(f"    {o.name}：直接卖 {o.direct_price}g，加工 {artisan}g，加工多赚 {o.gain:+d}g，"
+        print(f"    {o.name}：直接卖 {o.direct_price}g，加工 {artisan}g，加工多赚 {o.gain:+g}g，"
               f"每次收获 {o.units:.4f} 个，其中加工 {o.processed_share:.0%}")
     share = f"机器能加工每次收获的 {a.processing_share:.0%}"
     print(f"  出售策略（{share}，按“加工多赚”从大到小分配）：{plan.summary()}")

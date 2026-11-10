@@ -1,8 +1,8 @@
 """加工模拟：按机器数量和加工时间安排小桶、罐头瓶，算出加工带来的收入变化。
 
 - 每次收获按品质拆成若干份（第一个作物按品质分布，额外产出为普通品质），数量是期望值；
-- 每份作物交给“每台机器每天多赚最多”的机器类型：多赚 = 加工品单价 − 直接卖单价（加工品不继承品质），
-  除以加工天数（向上取整）。所以低星作物优先加工，和 analysis.sale_plan 的结论一致；
+- 每份作物交给“每台机器每天多赚最多”的机器类型：多赚 = 加工品单价 − 原料个数 × 直接卖单价
+  （加工品不继承品质；咖啡要 5 颗豆子），除以加工天数（向上取整，所以每台机器每天最多做 1 批）。所以低星作物优先加工，和 analysis.sale_plan 的结论一致；
 - 机器数量有限：只有在第 28 天前还来得及开工的部分才留着等加工，其余收获当天直接卖；
 - 留着加工的作物当天不卖（现金减少它的直接卖价），加工完成当天按加工品价格入账；
 - 第 28 天还在机器里的货品带到下一季，在完成那天入账（跨季的加工品）。
@@ -56,10 +56,12 @@ class _Batch:
     direct: float     # 每件直接卖的价格
     artisan: float    # 每件加工品的价格
     days: int         # 加工天数（向上取整）
+    per: int = 1      # 每件加工品要几个原料（咖啡 = 5）
 
     @property
     def rate(self) -> float:
-        return (self.artisan - self.direct) / self.days
+        """每台机器每天多赚多少：(加工品价 − 原料个数 × 直接卖价) / 加工天数。"""
+        return (self.artisan - self.per * self.direct) / self.days
 
 
 def _units_by_quality(crop: Crop, bonuses: Bonuses) -> dict[str, float]:
@@ -80,8 +82,8 @@ def _candidates(crop: Crop, quality: str, rules: list[ArtisanRule], machines: di
         if machines.get(rule.machine, 0) <= 0:
             continue
         batch = _Batch(crop.name, rule.product, rule.machine, 0.0, direct,
-                       bonuses.artisan_price(rule, crop), max(1, ceil(rule.processing_days)))
-        if batch.artisan > direct and (rule.machine not in best or batch.rate > best[rule.machine].rate):
+                       bonuses.artisan_price(rule, crop), max(1, ceil(rule.processing_days)), max(1, rule.input_count))
+        if batch.artisan > batch.per * direct and (rule.machine not in best or batch.rate > best[rule.machine].rate):
             best[rule.machine] = batch
     return sorted(best.values(), key=lambda b: b.rate, reverse=True)
 
@@ -140,13 +142,13 @@ def simulate_processing(
                 count = machines.get(batch.machine, 0)
                 busy_days = sum(max(0, min(finish, SEASON_DAYS + 1) - day) * u
                                 for u, finish, _, _, _ in running.get(batch.machine, []))
-                queued_days = sum(b.units * b.days for b in queues[batch.machine])
+                queued_days = sum(b.units / b.per * b.days for b in queues[batch.machine])
                 free_slot_days = count * (SEASON_DAYS - day + 1) - busy_days - queued_days
-                take = min(remaining, max(0.0, free_slot_days) / batch.days)
+                take = min(remaining, max(0.0, free_slot_days) / batch.days * batch.per)
                 if take <= 1e-9:
                     continue
-                queues[batch.machine].append(
-                    _Batch(batch.crop, batch.product, batch.machine, take, batch.direct, batch.artisan, batch.days))
+                queues[batch.machine].append(_Batch(batch.crop, batch.product, batch.machine, take, batch.direct,
+                                                    batch.artisan, batch.days, batch.per))
                 add_cash(day, -take * batch.direct)
                 result.held_value += take * batch.direct
                 remaining -= take
@@ -157,10 +159,10 @@ def simulate_processing(
             queue.sort(key=lambda b: b.rate, reverse=True)
             while queue and free > 1e-9:
                 batch = queue[0]
-                start = min(batch.units, free)
+                start = min(batch.units / batch.per, free)  # 开工的件数（每件占一台机器）
                 running.setdefault(machine, []).append((start, day + batch.days, batch.product, batch.artisan, False))
                 free -= start
-                batch.units -= start
+                batch.units -= start * batch.per
                 if batch.units <= 1e-9:
                     queue.pop(0)
 

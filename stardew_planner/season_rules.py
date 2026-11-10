@@ -345,6 +345,8 @@ def gift_taste(npc: NPC, item: str, data: GameData) -> str | None:
                          (nd.universal_neutrals, NEUTRAL), (nd.universal_likes, LIKE)):
         if has(group.items):
             return taste
+    if found and found[1] == "seed":
+        return DISLIKE  # wiki Friendship：All Seeds 是通用不喜欢（咖啡豆）
     if found and _CATEGORY_WORDS.get(found[1]) in ("Vegetables", "Flowers", "Artisan Goods"):
         word = _CATEGORY_WORDS[found[1]]
         likes_note = " ".join(npc.gift_notes.get("likes", ()))
