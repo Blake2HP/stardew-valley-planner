@@ -40,6 +40,8 @@ def main() -> None:
     parser.add_argument("--provider", default=None, help="anthropic / mock（默认读 LLM_PROVIDER）")
     parser.add_argument("--model", default=None, help="覆盖默认模型名")
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
+    parser.add_argument("--kegs", type=int, default=0, help="小桶数量；给出时按机器数量和加工时间模拟加工，计入资金")
+    parser.add_argument("--jars", type=int, default=0, help="罐头瓶数量")
     parser.add_argument("--farm-type", default=None,
                         help="农场地图：standard / riverland / forest / hilltop / wilderness / four_corners / beach / "
                              "meadowlands（或中文名）。草原农场开局没有赠送的防风草种子")
@@ -61,6 +63,8 @@ def main() -> None:
         parser.error("年份必须 ≥ 1")
     if not 0 <= args.processing_share <= 1:
         parser.error("加工比例必须在 0-1 之间")
+    if args.kegs < 0 or args.jars < 0:
+        parser.error("机器数量不能为负数")
     if args.revise_rounds < 0:
         parser.error("自动修正轮数必须 ≥ 0")
     if args.start_gold is not None and args.start_gold < 0:
@@ -80,7 +84,7 @@ def main() -> None:
         professions=[p.key for p in bonuses.professions],
         fertilizer=bonuses.fertilizer.key if bonuses.fertilizer else None,
         farming_level=args.farming_level, processing_share=args.processing_share,
-        revise_rounds=args.revise_rounds, farm_type=args.farm_type,
+        revise_rounds=args.revise_rounds, farm_type=args.farm_type, kegs=args.kegs, jars=args.jars,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

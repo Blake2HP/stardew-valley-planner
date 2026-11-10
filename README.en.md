@@ -96,6 +96,7 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `--provider` | `anthropic` / `mock` | env var `LLM_PROVIDER`, else `anthropic` |
 | `--model` | Override the default model name | env var `ANTHROPIC_MODEL` |
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
+| `--kegs` / `--jars` | Number of kegs and preserves jars. When given, processing is simulated with machine counts and processing times: low-quality, high-gain crops go first, overflow moves to the other machine type, and the gain counts toward gold; goods still in a machine on day 28 carry into the next season | `0` (not simulated) |
 | `--farm-type` | Farm map: `standard` / `riverland` / `forest` / `hilltop` / `wilderness` / `four_corners` / `beach` / `meadowlands` (Chinese names also work). The Meadowlands farm starts without the 15 free Parsnip Seeds | `standard` |
 | `--revise-rounds` | Self-correction rounds: when the checks find problems (late plantings, wrong gifts, cash shortfalls, goals that don't match the plantings list, etc.), the list goes back to the model for a rewrite, kept only if it has fewer problems; costs extra model calls | `1` (`0` = off) |
 | `--start-gold` | Starting gold | 500g starting gold (`data/farm.json`) in year-1 spring, unknown otherwise |
@@ -176,6 +177,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── schedule.py             schedule merging
 │   ├── renderer.py             Markdown rendering
 │   ├── bonuses.py              profession and speed-fertilizer bonuses
+│   ├── processing.py           processing simulation (machine counts, processing time, goods across seasons)
 │   ├── farm_state.py           cross-season harvest simulation, gold, end-of-season farm state
 │   └── generator.py            generate_strategy() / generate_plan() pipeline
 ├── data/
@@ -271,13 +273,13 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Crop quality (silver / gold / iridium) and quality fertilizers (Basic / Quality / Deluxe), with a sell-high-stars, process-low-stars plan
 - [x] Birthday gifts (birthdays and loved / liked gifts for 6 villagers, prompt injection and gift checks)
 - [ ] Add the remaining villagers and full universal like / dislike item lists
-- [ ] Model machine counts and processing time in the sale plan (currently approximated by a processing share)
+- [x] Simulate processing with machine counts and processing time (`--kegs` / `--jars`)
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
 - [x] Add Garlic, Red Cabbage and Sunflower, and track seeds sold only from year 2 with `available_year`
 - [x] Add Blue Jazz, Wheat and Poppy (Wheat → Beer via a crop-specific artisan rule)
 - [ ] Add more crops (Bok Choy, Coffee Bean, etc.) and honey rules for flowers
 - [x] Multi-season planning (carry gold and multi-season crops forward)
-- [ ] Artisan goods across seasons (started at the end of one season, ready the next)
+- [x] Artisan goods across seasons (goods still in a machine are credited when they finish next season)
 - [x] Upgrade guide-text search from keyword matching to vector search (ChromaDB)
 - [x] Switch to a multilingual embedding model (paraphrase-multilingual-MiniLM-L12-v2) for better Chinese retrieval
 - [ ] Test model output stability against real APIs

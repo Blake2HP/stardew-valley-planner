@@ -141,6 +141,16 @@
             <input id="share" type="range" min="0" max="100" step="10" value="100">
           </div>
         </div>
+        <div class="row">
+          <div>
+            <label for="kegs">小桶 <span class="hint">个</span></label>
+            <input id="kegs" type="number" min="0" max="1000" value="0">
+          </div>
+          <div>
+            <label for="jars">罐头瓶 <span class="hint">个</span></label>
+            <input id="jars" type="number" min="0" max="1000" value="0">
+          </div>
+        </div>
       </details>
 
       <button class="primary" id="submit" type="submit">生成攻略</button>
@@ -288,6 +298,8 @@ $("form").addEventListener("submit", async (e) => {
     processing_share: Number($("share").value) / 100,
     start_gold: numberOrNull("startGold"),
     farm_type: $("farmType").value || null,
+    kegs: Number($("kegs").value) || 0,
+    jars: Number($("jars").value) || 0,
   };
   setLoading(true);
   try {

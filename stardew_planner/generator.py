@@ -253,6 +253,7 @@ class _Season:
     gold_estimated: int | None
     seed_stock: dict
     stock_label: str
+    machines: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -276,6 +277,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     finance = compute_finance(
         plantings, carry_in, start_gold=s.gold, start_gold_estimated=s.gold_estimated,
         other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock, stock_label=s.stock_label,
+        machines=s.machines, rules_for=data.artisan_rules_for,
+        goods_in=s.prior_state.goods if s.prior_state else (),
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -345,6 +348,8 @@ def generate_strategy(
     processing_share: float = 1.0,
     revise_rounds: int = 1,
     farm_type: str | None = None,
+    kegs: int = 0,
+    jars: int = 0,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -362,6 +367,8 @@ def generate_strategy(
         farming_level: 耕种等级（0-14）；给出或用了品质肥料时计入作物品质。
         processing_share: 机器能加工的收获比例（0-1），决定“高星直接卖、低星加工”的分界。
         farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
+        kegs / jars: 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工（见 processing.py），
+            加工净增计入资金；第 28 天还没做完的带到下一季。
         revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
             重新生成；只有问题变少才采用新版本。会多调用模型。
     """
@@ -378,6 +385,9 @@ def generate_strategy(
         raise ValueError(f"加工比例必须在 0-1 之间，收到 {processing_share}")
     if revise_rounds < 0:
         raise ValueError(f"自动修正轮数必须 ≥ 0，收到 {revise_rounds}")
+    if kegs < 0 or jars < 0:
+        raise ValueError(f"机器数量不能为负数，收到小桶 {kegs}、罐头瓶 {jars}")
+    machines = {name: n for name, n in (("小桶", kegs), ("罐头瓶", jars)) if n}
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
     if data.farm_types:
@@ -405,14 +415,16 @@ def generate_strategy(
         guide_query, n_results=n_guides, store=guide_store, fallback_chunks=data.guide_chunks
     )
     carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
-    context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share)
+    context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
+                                 machines)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
     messages = [{"role": "user", "content": user_prompt}]
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
-    season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label)
+    season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
+                          machines)
     draft = _draft(client, messages, max_retries)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)

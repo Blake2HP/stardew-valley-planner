@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, Bonuses
+from .processing import GoodsInProcess, simulate_processing
 from .data_loader import SEASON_ZH, Crop, GameData, normalize_season
 
 SEASON_DAYS = 28
@@ -112,10 +113,12 @@ class SeasonFinance:
     lines: list[str] = field(default_factory=list)       # 带公式的明细
     seeds_left: dict[str, float] = field(default_factory=dict)  # 季末手上剩余的种子（期望值）
     warnings: list[str] = field(default_factory=list)    # 现金不足等
+    processing_net: int = 0   # 加工净增：完成的加工品 − 留作加工的作物原本的直接卖价（没有机器时为 0）
+    goods_out: list[GoodsInProcess] = field(default_factory=list)  # 季末还在机器里的货品，带到下一季
 
     @property
     def crop_net(self) -> int:
-        return self.crop_revenue - self.seed_cost - self.fertilizer_cost
+        return self.crop_revenue - self.seed_cost - self.fertilizer_cost + self.processing_net
 
     @property
     def other_total(self) -> int:
@@ -144,6 +147,7 @@ class FarmState:
     cleared: tuple[str, ...] = ()       # 本季种过、换季时清空的作物
     planned_goals: tuple[str, ...] = ()  # 上季的计划目标（模型输出，不代表已完成）
     seeds: tuple[tuple[str, float], ...] = ()  # 季末手上剩余的种子（作物名, 数量），下一季先用
+    goods: tuple[GoodsInProcess, ...] = ()     # 季末还在机器里的加工品，下一季完成时入账
 
     @property
     def carried_names(self) -> tuple[str, ...]:
@@ -245,14 +249,20 @@ def compute_finance(
     bonuses: Bonuses = NO_BONUSES,
     seed_stock: dict[str, float] | None = None,
     stock_label: str = "开局赠送",
+    machines: dict[str, int] | None = None,
+    rules_for=None,
+    goods_in: tuple[GoodsInProcess, ...] = (),
 ) -> SeasonFinance:
     """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。
 
     seed_stock 是季初已有的种子（作物名 → 数量），例如开局赠送的 15 颗防风草种子、上季剩下的种子；
     播种时最先使用，明细里标为 stock_label。季末剩下的种子记在 seeds_left，带到下一季。
+    machines（机器名 → 台数）和 rules_for（作物 → 加工规则）给出时模拟加工，见 processing.py；
+    goods_in 是上季还在机器里的货品。
     """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
+    harvest_events: list[tuple[int, Crop, float]] = []  # (日, 作物, 格数)，给加工模拟用
     lines = []
 
     def add_harvests(crop: Crop, tiles: int, days, label: str):
@@ -267,6 +277,7 @@ def compute_finance(
         each = tiles * value
         for d in days:
             revenue_by_day[d] = revenue_by_day.get(d, 0) + each
+            harvest_events.append((d, crop, tiles))
         if bonuses.quality_active:
             unit = f" × 品质期望收入 {value:.2f}g"
         else:
@@ -320,6 +331,12 @@ def compute_finance(
         for day, tiles in _new_fertilized_tiles(plantings).items():
             spent_by_day[day] = spent_by_day.get(day, 0) + tiles * (fert.price or 0)
 
+    processing = None
+    if (machines and any(machines.values()) and rules_for is not None) or goods_in:
+        processing = simulate_processing(harvest_events, rules_for or (lambda crop: []), dict(machines or {}),
+                                         bonuses, tuple(goods_in))
+        lines += processing.lines
+
     finance = SeasonFinance(
         start_gold=start_gold,
         start_gold_estimated=start_gold_estimated,
@@ -329,6 +346,8 @@ def compute_finance(
         other_income=list(other_income or []),
         lines=lines,
         seeds_left=seeds_left,
+        processing_net=int(round(processing.net)) if processing else 0,
+        goods_out=list(processing.goods_out) if processing else [],
     )
 
     # 逐日现金流（只算种植收支）：找出第一次买不起种子或肥料的日子
@@ -336,6 +355,8 @@ def compute_finance(
         cash = float(start_gold)
         for day in range(1, SEASON_DAYS + 1):
             cash += revenue_by_day.get(day, 0) - spent_by_day.get(day, 0)
+            if processing:
+                cash += processing.cash_by_day.get(day, 0)
             if cash < 0:
                 finance.warnings.append(
                     f"⚠️ 第 {day} 天买种子和肥料后现金为 {int(cash)}g：只算种植收支时资金不足"
@@ -349,7 +370,8 @@ def describe_finance(f: SeasonFinance) -> list[str]:
     start = f"{f.start_gold}g" if f.start_gold is not None else "未知"
     out = [f"期初资金：{start}"]
     out += [f"- {line}" for line in f.lines]
-    net = (f"种植净收支 = 收入 {f.crop_revenue} − 种子 {f.seed_cost} − 肥料 {f.fertilizer_cost}"
+    processing = f" + 加工净增 {f.processing_net}" if f.processing_net else ""
+    net = (f"种植净收支 = 收入 {f.crop_revenue} − 种子 {f.seed_cost} − 肥料 {f.fertilizer_cost}{processing}"
            f" = {f.crop_net}g（程序计算）")
     out.append(net)
     if f.end_gold is not None:
@@ -397,6 +419,7 @@ def extract_farm_state(
         carry=tuple(carry), cleared=tuple(cleared),
         planned_goals=tuple(str(g) for g in planned_goals or () if isinstance(g, (str, int, float))),
         seeds=tuple(finance.seeds_left.items()),
+        goods=tuple(finance.goods_out),
     )
 
 
@@ -428,6 +451,9 @@ def render_state_for_prompt(
         lines.append("- 地里仍在生长：无（上季作物已在换季时收获或枯死）")
     if state.cleared:
         lines.append(f"- 换季时清空：{'、'.join(state.cleared)}")
+    if state.goods:
+        goods = "、".join(f"{g.product}约 {g.units:.1f} 件（第 {g.finish_day} 天完成）" for g in state.goods)
+        lines.append(f"- 机器里还在加工（完成当天程序自动入账，完成前占着机器）：{goods}")
     if state.seeds:
         seeds = "、".join(f"{name}种子约 {n:.0f} 颗" for name, n in state.seeds if round(n) >= 1)
         if seeds:

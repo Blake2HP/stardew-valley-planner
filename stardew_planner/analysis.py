@@ -260,6 +260,7 @@ def build_data_context(
     year: int | None = None,
     carryover: str = NO_PRIOR_STATE_TEXT,
     processing_share: float = 1.0,
+    machines: dict[str, int] | None = None,
 ) -> dict[str, str]:
     """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 "
@@ -302,7 +303,7 @@ def build_data_context(
 
     return {
         "crop_table": "\n".join(crop_lines),
-        "artisan_rules": "\n".join(artisan_lines),
+        "artisan_rules": "\n".join(artisan_lines + _machine_lines(machines)),
         "calendar_events": "\n".join(event_lines) or "（无）",
         "guide_excerpts": guide_excerpts or NO_GUIDES_TEXT,
         "bonuses": describe_bonuses(bonuses),
@@ -316,6 +317,14 @@ def _compact_crop(r: CropProfit) -> str:
     regrow = f"，再生 {c.regrow_days} 天" if c.regrow_days else ""
     bus = "，需先修好巴士" if c.requires_bus else ""
     return f"{c.name}（种子 {c.seed_price}g，售价 {r.sell_price}g，生长 {r.grow_days} 天{regrow}，净利 {r.profit_text}{bus}）"
+
+
+def _machine_lines(machines: dict[str, int] | None) -> list[str]:
+    if not machines:
+        return []
+    have = "、".join(f"{m} {n} 个" for m, n in machines.items())
+    return [f"- 玩家现有加工设备：{have}。程序会按“每台机器每天多赚多少”安排加工、计入资金，"
+            "第 28 天还没做完的带到下一季；你只需在日程里安排装填和取货的时间，不用自己算加工收入。"]
 
 
 def crop_note(crop: Crop) -> str:

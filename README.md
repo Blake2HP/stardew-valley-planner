@@ -92,6 +92,7 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | `--provider` | `anthropic` / `mock` | 环境变量 `LLM_PROVIDER`，未设置时为 `anthropic` |
 | `--model` | 覆盖默认模型名 | 环境变量 `ANTHROPIC_MODEL` |
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
+| `--kegs` / `--jars` | 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工：低星、多赚多的先加工，机器排满后换另一种机器，加工净增计入资金；第 28 天还没做完的带到下一季 | `0`（不模拟） |
 | `--farm-type` | 农场地图：`standard` / `riverland` / `forest` / `hilltop` / `wilderness` / `four_corners` / `beach` / `meadowlands`（也可以写中文名）。草原农场开局没有赠送的 15 颗防风草种子 | `standard` |
 | `--revise-rounds` | 自动修正轮数：程序校验发现问题（来不及成熟、送错礼物、现金不足、日程和种植清单对不上等）时，把问题清单反馈给模型重写，问题变少才采用新版本；会多调用模型 | `1`（`0` = 关闭） |
 | `--start-gold` | 期初资金 | 第 1 年春季为开局金币 500g（`data/farm.json`），其他季节为未知 |
@@ -172,6 +173,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── schedule.py             日程合并
 │   ├── renderer.py             Markdown 渲染
 │   ├── bonuses.py              职业与加速肥料加成
+│   ├── processing.py           加工模拟（机器数量、加工时间、跨季加工品）
 │   ├── farm_state.py           跨季收获模拟、资金计算、季末农场状态
 │   └── generator.py            generate_strategy() / generate_plan() 主流程
 ├── data/
@@ -267,13 +269,13 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 作物品质（银星 / 金星 / 铱星）与品质肥料（普通 / 高级 / 顶级），以及“高星直接卖、低星加工”的出售策略
 - [x] NPC 生日送礼（6 位 NPC 的生日与最爱 / 喜欢，Prompt 注入与送礼校验）
 - [ ] 补充其余 NPC，以及通用喜欢 / 讨厌的完整物品表
-- [ ] 出售策略计入机器数量与加工耗时（目前用加工比例近似）
+- [x] 加工模拟计入机器数量与加工时间（`--kegs` / `--jars`）
 - [x] 给作物加“最早可种植日”字段（例如草莓种子要到第 13 天复活节才能买到），修正收益排行
 - [x] 补充大蒜、红叶卷心菜、向日葵，并用 `available_year` 记录只在第二年起出售的种子
 - [x] 补充蓝爵、小麦、虞美人（小麦酿啤酒用作物专属加工规则）
 - [ ] 补充更多作物（小白菜、咖啡豆等）与花的蜂蜜规则
 - [x] 支持跨季连续规划（资金与跨季作物衔接）
-- [ ] 跨季的加工品（季末开始酿造、下季出货）
+- [x] 跨季的加工品（季末还在机器里的货品下季完成时入账）
 - [x] 攻略文本检索从关键词匹配升级为向量检索（ChromaDB）
 - [x] 换用多语言 Embedding 模型（paraphrase-multilingual-MiniLM-L12-v2），提升中文检索效果
 - [ ] 用真实 API 测试模型输出的稳定性
