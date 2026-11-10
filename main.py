@@ -15,6 +15,7 @@ from pathlib import Path
 
 from stardew_planner import generate_plan, generate_strategy
 from stardew_planner.bonuses import resolve_bonuses
+from stardew_planner.data_loader import SEASON_ZH
 from stardew_planner.generator import parse_seasons
 
 try:
@@ -75,10 +76,12 @@ def main() -> None:
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)
+        failed = result.failed_season
         attempts = "、".join(str(r.attempts) for r in result.results)
         methods = "、".join(r.json_parse_method for r in result.results)
     else:
         result = generate_strategy(args.playstyle, args.pacing, seasons[0][0], args.year, **common)
+        failed = None
         attempts, methods = result.attempts, result.json_parse_method
 
     for note in bonuses.notes:
@@ -89,6 +92,9 @@ def main() -> None:
     if args.output:
         Path(args.output).write_text(result.markdown, encoding="utf-8")
         print(f"\n已保存到 {args.output}", file=sys.stderr)
+    if failed is not None:
+        print(f"\n[规划中断] 第 {failed[1]} 年{SEASON_ZH[failed[0]]} 生成失败：{result.error}；已输出完成的部分。", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

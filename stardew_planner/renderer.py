@@ -147,6 +147,13 @@ def render_plan(plan: "PlanResult", data: GameData | None = None) -> str:
         f"> **玩法风格**：{first.playstyle}　|　**节奏偏好**：{first.pacing}"
         + ("" if first.bonuses.is_empty else f"　|　**{first.bonuses.describe()}**"),
         "",
+    ]
+    if plan.failed_season is not None:
+        season, year = plan.failed_season
+        missing = [f"第 {y} 年{SEASON_ZH[s]}" for s, y in plan.planned[len(plan.results):]]
+        out += [f"> ⚠️ 第 {year} 年{SEASON_ZH[season]}生成失败，规划在这里中断：{plan.error}  ",
+                f"> 下面只有已完成的 {len(plan.results)} 季；缺少：{'、'.join(missing)}。可以从失败的季节重新生成。", ""]
+    out += [
         "## 📈 各季衔接总览",
         "",
         "| 季节 | 期初资金 | 种植净收支 | 期末（只算种植） | 期末（含模型估算） | 跨入下一季的作物 |",

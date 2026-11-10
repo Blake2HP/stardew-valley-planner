@@ -249,6 +249,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             raise HTTPException(503, "服务器正忙，请稍后再试")
 
         started = time.perf_counter()
+        failed = None
         try:
             try:
                 model_client = llm()
@@ -265,6 +266,9 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             else:
                 out = generate_plan(req.playstyle, req.pacing, [s for s, _ in plan], req.year, **kwargs)
                 results, markdown_text = out.results, out.markdown
+                if out.failed_season is not None:
+                    season, year = out.failed_season
+                    failed = {"season": season, "season_zh": SEASON_ZH[season], "year": year, "error": out.error}
         except HTTPException:
             raise
         except ModelRefusal as e:
@@ -282,6 +286,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             "seasons": [season_summary(r) for r in results],
             "provider": settings.provider,
             "elapsed_seconds": round(time.perf_counter() - started, 2),
+            "failed": failed,  # 跨季规划中途失败时：哪一季、原因；已完成的季节照常返回
         }
 
     @app.get("/api/health")

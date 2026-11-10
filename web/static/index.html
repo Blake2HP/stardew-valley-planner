@@ -296,6 +296,9 @@ $("form").addEventListener("submit", async (e) => {
       throw new Error(detail || `请求失败（${res.status}）`);
     }
     lastMarkdown = data.markdown;
+    if (data.failed) {
+      showError(`第 ${data.failed.year} 年${data.failed.season_zh}生成失败，下面只有已完成的季节：${data.failed.error}`);
+    }
     $("guide").innerHTML = data.html;  // 服务端已转义模型输出中的 HTML
     renderSummary(data);
     $("result").style.display = "";

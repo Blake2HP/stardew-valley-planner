@@ -376,6 +376,13 @@ def generate_strategy(
 class PlanResult:
     results: list[StrategyResult]
     markdown: str = ""
+    failed_season: tuple[str, int] | None = None  # 中途失败的季节（季节, 年份）；之后的季节没有生成
+    error: str | None = None
+    planned: list[tuple[str, int]] = field(default_factory=list)  # 计划生成的全部季节
+
+    @property
+    def complete(self) -> bool:
+        return self.failed_season is None
 
     @property
     def states(self) -> list[FarmState]:
@@ -420,13 +427,20 @@ def generate_plan(
     client = client or get_client(provider, model)
     results: list[StrategyResult] = []
     state: FarmState | None = None
+    out = PlanResult(results, planned=plan)
     for season_key, season_year in plan:
-        result = generate_strategy(
-            playstyle, pacing, season_key, season_year, client=client, data=data,
-            start_gold=start_gold if state is None else None, prior_state=state, **kwargs,
-        )
+        try:
+            result = generate_strategy(
+                playstyle, pacing, season_key, season_year, client=client, data=data,
+                start_gold=start_gold if state is None else None, prior_state=state, **kwargs,
+            )
+        except Exception as e:
+            if not results:  # 第一季就失败：没有可保留的结果，照常抛出
+                raise
+            # 之后的季节失败：保留已经生成（已付费）的季节，并说明从哪一季开始缺失
+            out.failed_season, out.error = (season_key, season_year), f"{type(e).__name__}: {e}"[:300]
+            break
         results.append(result)
         state = result.end_state
-    out = PlanResult(results)
     out.markdown = render_plan(out, data)
     return out
