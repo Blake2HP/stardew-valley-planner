@@ -134,3 +134,56 @@ def test_attributes_cannot_be_injected():
 def test_table_alignment_survives():
     html = render_html("| a | b |\n|:--|--:|\n| 1 | 2 |")
     assert "text-align: left;" in html and "text-align: right;" in html
+
+
+# ---------------------------------------------------------------------------
+# 模型客户端：超时、拒答、配置错误
+# ---------------------------------------------------------------------------
+
+def test_real_provider_gets_web_timeout(indexed_store, monkeypatch):
+    import web.app as web_app
+
+    seen = []
+
+    def fake_get_client(provider, model, **options):
+        seen.append((provider, options))
+        return MockClient()
+
+    monkeypatch.setattr(web_app, "get_client", fake_get_client)
+    settings = Settings()
+    settings.provider, settings.rate_limit, settings.request_timeout = "anthropic", 0, 42.0
+    app = create_app(settings, guide_store=indexed_store, warm_up=False)
+    with TestClient(app) as c:
+        assert c.post("/api/generate", json=BODY).status_code == 200
+        assert c.post("/api/generate", json=BODY).status_code == 200
+    assert seen == [("anthropic", {"timeout": 42.0, "max_retries": 0})]     # 只创建一次
+
+
+class RefusingClient:
+    def complete(self, system, messages):
+        from stardew_planner.llm_client import ModelRefusal
+
+        raise ModelRefusal("cyber")
+
+
+def test_refusal_returns_422(indexed_store):
+    with make_client(indexed_store, client=RefusingClient()) as c:
+        r = c.post("/api/generate", json=BODY)
+    assert r.status_code == 422 and "模型拒绝生成" in r.json()["detail"]
+
+
+def test_client_config_error_returns_500_and_frees_slot(indexed_store, monkeypatch):
+    import web.app as web_app
+
+    def broken(provider, model, **options):
+        raise ValueError("环境变量 ANTHROPIC_TIMEOUT 必须是数字")
+
+    monkeypatch.setattr(web_app, "get_client", broken)
+    settings = Settings()
+    settings.provider, settings.rate_limit, settings.max_concurrent = "anthropic", 0, 1
+    app = create_app(settings, guide_store=indexed_store, warm_up=False)
+    with TestClient(app) as c:
+        first = c.post("/api/generate", json=BODY)
+        second = c.post("/api/generate", json=BODY)
+    assert first.status_code == 500 and "服务端模型配置有误" in first.json()["detail"]
+    assert second.status_code == 500                                        # 名额已释放，不是 503

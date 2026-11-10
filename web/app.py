@@ -35,6 +35,7 @@ from stardew_planner import generate_plan, generate_strategy
 from stardew_planner.bonuses import load_bonus_rules, resolve_bonuses
 from stardew_planner.data_loader import SEASON_ZH, get_guide_store, load_game_data
 from stardew_planner.generator import parse_seasons
+from stardew_planner.llm_client import ModelRefusal, get_client
 
 try:
     from dotenv import load_dotenv
@@ -54,6 +55,8 @@ class Settings:
         self.rate_limit = int(os.getenv("DEMO_RATE_LIMIT", default_limit))  # 0 = 不限
         self.max_seasons = int(os.getenv("DEMO_MAX_SEASONS", "4"))
         self.max_concurrent = int(os.getenv("DEMO_MAX_CONCURRENT", "2"))
+        # 单次模型调用的超时（秒）；网页里不让 SDK 再自动重试，避免一个卡住的请求长期占用生成名额
+        self.request_timeout = float(os.getenv("DEMO_REQUEST_TIMEOUT", "300"))
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +204,15 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             state["data"] = load_game_data()
         return state["data"]
 
+    def llm():
+        """整个应用共用一个客户端；真实模型带上网页专用的超时，并关闭 SDK 自动重试。"""
+        if client is not None:
+            return client
+        if state.get("client") is None:
+            options = {} if settings.provider == "mock" else {"timeout": settings.request_timeout, "max_retries": 0}
+            state["client"] = get_client(settings.provider, settings.model, **options)
+        return state["client"]
+
     @app.get("/")
     def index():
         return FileResponse(STATIC_DIR / "index.html")
@@ -237,18 +249,26 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             raise HTTPException(503, "服务器正忙，请稍后再试")
 
         started = time.perf_counter()
-        kwargs = dict(
-            data=data(), client=client, provider=settings.provider, model=settings.model,
-            guide_store=guide_store, professions=req.professions, fertilizer=req.fertilizer,
-            farming_level=req.farming_level, processing_share=req.processing_share, start_gold=req.start_gold,
-        )
         try:
+            try:
+                model_client = llm()
+            except Exception as e:  # 服务端配置问题（缺 API key、环境变量写错），不是用户输入的问题
+                raise HTTPException(500, f"服务端模型配置有误：{type(e).__name__}: {e}"[:300]) from e
+            kwargs = dict(
+                data=data(), client=model_client, provider=settings.provider, model=settings.model,
+                guide_store=guide_store, professions=req.professions, fertilizer=req.fertilizer,
+                farming_level=req.farming_level, processing_share=req.processing_share, start_gold=req.start_gold,
+            )
             if len(plan) == 1:
                 results = [generate_strategy(req.playstyle, req.pacing, plan[0][0], plan[0][1], **kwargs)]
                 markdown_text = results[0].markdown
             else:
                 out = generate_plan(req.playstyle, req.pacing, [s for s, _ in plan], req.year, **kwargs)
                 results, markdown_text = out.results, out.markdown
+        except HTTPException:
+            raise
+        except ModelRefusal as e:
+            raise HTTPException(422, str(e)[:300]) from e
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
         except Exception as e:  # 模型调用失败等：给前端一个可读的错误

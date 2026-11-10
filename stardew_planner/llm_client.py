@@ -18,25 +18,92 @@ class TruncatedOutput(Exception):
         self.text = text
 
 
+class ModelRefusal(Exception):
+    """模型出于安全原因拒绝生成（stop_reason == "refusal"）；开启 fallbacks 时表示换过模型后仍被拒绝。"""
+
+    def __init__(self, category: str | None = None, explanation: str | None = None):
+        detail = f"（类别：{category}）" if category else ""
+        super().__init__(f"模型拒绝生成这份攻略{detail}。可以换一种玩法描述后重试。"
+                         + (f"说明：{explanation}" if explanation else ""))
+        self.category, self.explanation = category, explanation
+
+
 class LLMClient(Protocol):
     def complete(self, system: str, messages: list[Message]) -> str: ...
 
 
-class AnthropicClient:
-    def __init__(self, model: str | None = None, max_tokens: int = 8000):
-        import anthropic  # 延迟导入：只装 openai 时也能用
+EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+# 支持服务端拒答换模型（fallbacks: "default"）的模型；其他模型直接请求
+FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-fable-5-2"}
+FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
-        self.client = anthropic.Anthropic()  # 读取 ANTHROPIC_API_KEY
+
+def _env_number(name: str, default: float, cast=float):
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = cast(raw)
+    except ValueError:
+        raise ValueError(f"环境变量 {name} 必须是数字，收到 {raw!r}") from None
+    if value < 0:
+        raise ValueError(f"环境变量 {name} 不能为负数，收到 {raw!r}")
+    return value
+
+
+class AnthropicClient:
+    """Claude（Anthropic SDK）。
+
+    - max_tokens 默认 16000：Claude Opus 5.5 的思考无法关闭，思考 token 也算在 max_tokens 里，
+      8000 时 28 天的 JSON 容易被截断；
+    - effort 显式设置（默认 medium，可用 ANTHROPIC_EFFORT 调整），不依赖模型默认值；
+    - 每次请求的超时默认 300 秒、SDK 自动重试 1 次（SDK 默认是 10 分钟、2 次，最坏要等 30 分钟）；
+    - 支持的模型默认开启服务端拒答换模型（fallbacks: "default"，ANTHROPIC_FALLBACKS=off 关闭）；
+      最终仍被拒绝时抛出 ModelRefusal。
+    """
+
+    def __init__(
+        self,
+        model: str | None = None,
+        max_tokens: int | None = None,
+        *,
+        effort: str | None = None,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        fallbacks: bool | None = None,
+        client=None,
+    ):
         self.model = model or os.getenv("ANTHROPIC_MODEL", "claude-opus-5-5")
-        self.max_tokens = max_tokens
+        self.max_tokens = max_tokens or int(_env_number("ANTHROPIC_MAX_TOKENS", 16000, int))
+        self.effort = (effort or os.getenv("ANTHROPIC_EFFORT") or "medium").lower()
+        if self.effort not in EFFORT_LEVELS:
+            raise ValueError(f"effort 必须是 {' / '.join(EFFORT_LEVELS)}，收到 {self.effort!r}")
+        if fallbacks is None:
+            fallbacks = os.getenv("ANTHROPIC_FALLBACKS", "on").strip().lower() not in ("off", "0", "false", "no")
+        self.fallbacks = fallbacks and self.model in FALLBACK_MODELS
+        self.timeout = timeout if timeout is not None else _env_number("ANTHROPIC_TIMEOUT", 300.0)
+        self.max_retries = max_retries if max_retries is not None else int(_env_number("ANTHROPIC_MAX_RETRIES", 1, int))
+        if client is None:
+            import anthropic  # 延迟导入：只装 openai 时也能用
+
+            client = anthropic.Anthropic(timeout=self.timeout, max_retries=self.max_retries)  # 读取 ANTHROPIC_API_KEY
+        self.client = client
 
     def complete(self, system: str, messages: list[Message]) -> str:
-        resp = self.client.messages.create(
+        params = dict(
             model=self.model,
             max_tokens=self.max_tokens,
             system=system,
             messages=messages,
+            output_config={"effort": self.effort},
         )
+        if self.fallbacks:
+            resp = self.client.beta.messages.create(betas=[FALLBACK_BETA], fallbacks="default", **params)
+        else:
+            resp = self.client.messages.create(**params)
+        if resp.stop_reason == "refusal":
+            details = getattr(resp, "stop_details", None)
+            raise ModelRefusal(getattr(details, "category", None), getattr(details, "explanation", None))
         text = "".join(block.text for block in resp.content if block.type == "text")
         if resp.stop_reason == "max_tokens":
             raise TruncatedOutput(text)
@@ -44,10 +111,12 @@ class AnthropicClient:
 
 
 class OpenAIClient:
-    def __init__(self, model: str | None = None, max_tokens: int = 8000):
+    def __init__(self, model: str | None = None, max_tokens: int = 8000, *,
+                 timeout: float | None = None, max_retries: int | None = None, **_):
         import openai
 
-        self.client = openai.OpenAI()  # 读取 OPENAI_API_KEY
+        options = {k: v for k, v in (("timeout", timeout), ("max_retries", max_retries)) if v is not None}
+        self.client = openai.OpenAI(**options)  # 读取 OPENAI_API_KEY
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-4.1")
         self.max_tokens = max_tokens
 
@@ -83,11 +152,12 @@ class MockClient:
 _PROVIDERS = {"anthropic": AnthropicClient, "openai": OpenAIClient, "mock": MockClient}
 
 
-def get_client(provider: str | None = None, model: str | None = None) -> LLMClient:
+def get_client(provider: str | None = None, model: str | None = None, **options) -> LLMClient:
+    """options 传给客户端构造函数，例如 timeout、max_retries（mock 会忽略）。"""
     provider = (provider or os.getenv("LLM_PROVIDER", "anthropic")).lower()
     if provider not in _PROVIDERS:
         raise ValueError(f"未知 provider: {provider!r}，可选: {', '.join(_PROVIDERS)}")
-    return _PROVIDERS[provider](model=model)
+    return _PROVIDERS[provider](model=model, **options)
 
 
 MOCK_RESPONSE = {

@@ -71,6 +71,16 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4.1
 ```
 
+Claude request settings (all can go in `.env`):
+
+| Env var | Default | Notes |
+|---|---|---|
+| `ANTHROPIC_EFFORT` | `medium` | Thinking effort (`low` / `medium` / `high` / `xhigh` / `max`). Claude Opus 5.5 always thinks; effort is the only control |
+| `ANTHROPIC_MAX_TOKENS` | `16000` | Output cap, thinking tokens included; a truncated reply is retried |
+| `ANTHROPIC_TIMEOUT` | `300` | Per-request timeout in seconds |
+| `ANTHROPIC_MAX_RETRIES` | `1` | SDK retries for network errors, 429 and 5xx |
+| `ANTHROPIC_FALLBACKS` | `on` | When the model declines for safety reasons, the API reruns the request on another model in the same call (`fallbacks: "default"`), billed at that model's rates; `off` disables it. A final refusal is reported clearly instead of being retried as a JSON error |
+
 ```bash
 python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s summer -o guide.md
 ```
@@ -200,7 +210,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 python -m pytest
 ```
 
-There are currently 448 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), calendar dates, seed drops and byproducts, birthday injection and gift checks (gift detection, preferences and exceptions, gifts on the birthday), multi-season planning (cross-season harvests, gold and cash flow, injecting the end-of-season state into the next prompt, season order), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), crop quality and quality fertilizers (odds checked against the wiki tables, quality prices, expected profit with Deluxe Fertilizer, capacity-based sell-or-process plans), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, the web API (validation, rate limiting, HTML escaping), and `sv.py` output and exit codes.
+There are currently 464 tests, covering planting detection (15 phrasings), season-change checks and edge cases, schedule merging, harvest-count and profit math, tolerant JSON parsing (repeated commas, missing brackets, single quotes, etc.), how the seed sale day affects profit, filtering crops by year (seeds sold from year 2), calendar dates, seed drops and byproducts, birthday injection and gift checks (gift detection, preferences and exceptions, gifts on the birthday), multi-season planning (cross-season harvests, gold and cash flow, injecting the end-of-season state into the next prompt, season order), professions and speed fertilizers (price rounding, table-based growth days, profession conflicts, fertilizer cost), crop quality and quality fertilizers (odds checked against the wiki tables, quality prices, expected profit with Deluxe Fertilizer, capacity-based sell-or-process plans), guide chunking and vector indexing (MD5 dedup, incremental updates, rebuild on model change), semantic search and its fallback, data integrity, retries and fallbacks in the generation pipeline, the web API (validation, rate limiting, HTML escaping), and `sv.py` output and exit codes.
 
 ## Web demo
 
@@ -211,7 +221,7 @@ pip install -r requirements.txt
 python -m web                           # open http://127.0.0.1:8000; uses mock by default, no API cost
 ```
 
-Set `DEMO_PROVIDER=anthropic` (plus `ANTHROPIC_API_KEY`) to use the real model. To keep costs down, real providers default to 10 generations per IP per hour (`DEMO_RATE_LIMIT`), at most 2 at a time (`DEMO_MAX_CONCURRENT`), and at most 4 seasons per request (`DEMO_MAX_SEASONS`). HTML in model output is escaped, so it never runs in the page.
+Set `DEMO_PROVIDER=anthropic` (plus `ANTHROPIC_API_KEY`) to use the real model. To keep costs down, real providers default to 10 generations per IP per hour (`DEMO_RATE_LIMIT`), at most 2 at a time (`DEMO_MAX_CONCURRENT`), and at most 4 seasons per request (`DEMO_MAX_SEASONS`); each model call times out after 300 seconds (`DEMO_REQUEST_TIMEOUT`) and the web app turns off SDK retries. HTML in model output is escaped, so it never runs in the page.
 
 ## Model stability evaluation
 

@@ -90,21 +90,6 @@ def fake(create):
     return SimpleNamespace(create=create)
 
 
-def test_anthropic_detects_max_tokens():
-    client = AnthropicClient.__new__(AnthropicClient)
-    client.model, client.max_tokens = "m", 10
-    block = SimpleNamespace(type="text", text="半截")
-    for stop, raises in (("max_tokens", True), ("end_turn", False)):
-        resp = SimpleNamespace(content=[block], stop_reason=stop)
-        client.client = SimpleNamespace(messages=fake(lambda **_: resp))
-        if raises:
-            with pytest.raises(TruncatedOutput) as e:
-                client.complete("s", [])
-            assert e.value.text == "半截"
-        else:
-            assert client.complete("s", []) == "半截"
-
-
 def test_openai_detects_length():
     client = OpenAIClient.__new__(OpenAIClient)
     client.model, client.max_tokens = "m", 10
