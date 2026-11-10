@@ -2,6 +2,8 @@
 
 # 🌱 Stardew Valley Strategy Generator
 
+[![tests](https://github.com/Blake2HP/stardew-valley-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/Blake2HP/stardew-valley-planner/actions/workflows/tests.yml)
+
 Generate a full-season Stardew Valley guide tailored to your **playstyle** and **pacing**: a high-level strategy, key milestones, and a day-by-day plan for days 1–28.
 
 Unlike asking an LLM directly, this project lets **code handle the numbers and the model handle the planning**:

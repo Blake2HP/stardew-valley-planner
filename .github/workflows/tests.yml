@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        # 测试用确定性的假 Embedding，不需要 sentence-transformers（它会连带安装体积很大的 PyTorch）。
+        # 测试也不调用真实模型：Claude 客户端用假的 SDK 对象，其余用 mock，所以不需要 API key。
+        run: |
+          grep -v '^sentence-transformers' requirements.txt > requirements-ci.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-ci.txt
+
+      - name: Run tests
+        run: python -m pytest -q

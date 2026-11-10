@@ -2,6 +2,8 @@
 
 # 🌱 星露谷物语攻略生成器
 
+[![tests](https://github.com/Blake2HP/stardew-valley-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/Blake2HP/stardew-valley-planner/actions/workflows/tests.yml)
+
 根据你的**玩法风格**和**节奏偏好**，调用大模型为《星露谷物语》(Stardew Valley) 生成一整季的攻略：宏观策略、关键时间节点，以及第 1–28 天的每日目标。
 
 和直接问大模型不同，这个项目让**数字由程序负责，规划由模型负责**：
