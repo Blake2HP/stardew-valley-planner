@@ -110,6 +110,7 @@ class SeasonFinance:
     fertilizer_cost: int
     other_income: list[OtherIncome] = field(default_factory=list)
     lines: list[str] = field(default_factory=list)       # 带公式的明细
+    seeds_left: dict[str, float] = field(default_factory=dict)  # 季末手上剩余的种子（期望值）
     warnings: list[str] = field(default_factory=list)    # 现金不足等
 
     @property
@@ -142,6 +143,7 @@ class FarmState:
     carry: tuple[CarryCrop, ...] = ()
     cleared: tuple[str, ...] = ()       # 本季种过、换季时清空的作物
     planned_goals: tuple[str, ...] = ()  # 上季的计划目标（模型输出，不代表已完成）
+    seeds: tuple[tuple[str, float], ...] = ()  # 季末手上剩余的种子（作物名, 数量），下一季先用
 
     @property
     def carried_names(self) -> tuple[str, ...]:
@@ -241,11 +243,13 @@ def compute_finance(
     start_gold_estimated: int | None = None,
     other_income: list[OtherIncome] | None = None,
     bonuses: Bonuses = NO_BONUSES,
-    seed_stock: dict[str, int] | None = None,
+    seed_stock: dict[str, float] | None = None,
+    stock_label: str = "开局赠送",
 ) -> SeasonFinance:
     """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。
 
-    seed_stock 是季初已有的种子（作物名 → 数量），例如开局赠送的 15 颗防风草种子；播种时最先使用。
+    seed_stock 是季初已有的种子（作物名 → 数量），例如开局赠送的 15 颗防风草种子、上季剩下的种子；
+    播种时最先使用，明细里标为 stock_label。季末剩下的种子记在 seeds_left，带到下一季。
     """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
@@ -295,9 +299,14 @@ def compute_finance(
             cost = (p.tiles - from_stock - used) * p.crop.seed_price
             spent_by_day[day] = spent_by_day.get(day, 0) + cost
             seed_total += cost
-            minus = (f" − 开局赠送 {from_stock:g}" if from_stock else "") + (f" − 掉落种子 {used:g}" if used else "")
+            minus = (f" − {stock_label} {from_stock:g}" if from_stock else "") + (f" − 掉落种子 {used:g}" if used else "")
             terms.append(f"({p.tiles}{minus}) × {p.crop.seed_price}" if minus else f"{p.tiles} × {p.crop.seed_price}")
     seed_cost = int(seed_total)
+    seeds_left = {}
+    for name in dict.fromkeys([*stock, *inventory]):
+        left = stock.get(name, 0) + inventory.get(name, 0)
+        if left > 1e-9:
+            seeds_left[name] = left
     if plantings:
         lines.append("种子支出 = " + " + ".join(terms) + f" = {seed_cost}g")
 
@@ -319,6 +328,7 @@ def compute_finance(
         fertilizer_cost=fert_cost,
         other_income=list(other_income or []),
         lines=lines,
+        seeds_left=seeds_left,
     )
 
     # 逐日现金流（只算种植收支）：找出第一次买不起种子或肥料的日子
@@ -386,6 +396,7 @@ def extract_farm_state(
         gold=finance.end_gold, gold_estimated=finance.end_gold_estimated,
         carry=tuple(carry), cleared=tuple(cleared),
         planned_goals=tuple(str(g) for g in planned_goals or () if isinstance(g, (str, int, float))),
+        seeds=tuple(finance.seeds_left.items()),
     )
 
 
@@ -417,6 +428,10 @@ def render_state_for_prompt(
         lines.append("- 地里仍在生长：无（上季作物已在换季时收获或枯死）")
     if state.cleared:
         lines.append(f"- 换季时清空：{'、'.join(state.cleared)}")
+    if state.seeds:
+        seeds = "、".join(f"{name}种子约 {n:.0f} 颗" for name, n in state.seeds if round(n) >= 1)
+        if seeds:
+            lines.append(f"- 手上剩余种子（程序按期望值计算）：{seeds}；在能种的季节先用这些，不花钱")
     if state.planned_goals:
         lines.append(f"- 上季计划目标（模型输出，不代表已完成）：{'；'.join(state.planned_goals)}")
     return "\n".join(lines)

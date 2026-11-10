@@ -252,6 +252,7 @@ class _Season:
     gold: int | None
     gold_estimated: int | None
     seed_stock: dict
+    stock_label: str
 
 
 @dataclass
@@ -274,7 +275,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     plantings, planting_warnings = resolve_plantings(strategy.plantings, data, season_key, s.year, s.bonuses)
     finance = compute_finance(
         plantings, carry_in, start_gold=s.gold, start_gold_estimated=s.gold_estimated,
-        other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock,
+        other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock, stock_label=s.stock_label,
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -391,15 +392,19 @@ def generate_strategy(
             start_gold = data.starting_gold
         gold = gold_estimated = start_gold
     # 新存档（第 1 年春季、没有上季状态）有开局赠送的种子
-    seed_stock = (data.starting_seed_stock(farm_type)
-                  if prior_state is None and (season_key, year) == ("spring", 1) else {})
+    # 已有种子：新存档用开局赠送的，之后的季节用上季剩下的
+    if prior_state is not None:
+        seed_stock, stock_label = dict(prior_state.seeds), "上季剩余"
+    else:
+        seed_stock = data.starting_seed_stock(farm_type) if (season_key, year) == ("spring", 1) else {}
+        stock_label = "开局赠送"
 
     # 1) 检索攻略片段（RAG）+ 数据 → Prompt
     guide_query = f"{season_zh}，{playstyle}，{pacing}"
     guide_excerpts = search_guides(
         guide_query, n_results=n_guides, store=guide_store, fallback_chunks=data.guide_chunks
     )
-    carryover = render_state_for_prompt(prior_state, start_gold, seed_stock)
+    carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
@@ -407,7 +412,7 @@ def generate_strategy(
     messages = [{"role": "user", "content": user_prompt}]
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
-    season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock)
+    season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label)
     draft = _draft(client, messages, max_retries)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)
