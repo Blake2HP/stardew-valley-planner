@@ -40,6 +40,8 @@ def main() -> None:
     parser.add_argument("--provider", default=None, help="anthropic / mock（默认读 LLM_PROVIDER）")
     parser.add_argument("--model", default=None, help="覆盖默认模型名")
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
+    parser.add_argument("--revise-rounds", type=int, default=1,
+                        help="自动修正轮数：程序校验发现问题时反馈给模型修改（默认 1，0 = 关闭；会多调用模型）")
     parser.add_argument("--start-gold", type=int, default=None,
                         help="期初资金；不传时第 1 年春季用开局金币（data/farm.json），其他季节为未知")
     parser.add_argument("--professions", default="",
@@ -56,6 +58,8 @@ def main() -> None:
         parser.error("年份必须 ≥ 1")
     if not 0 <= args.processing_share <= 1:
         parser.error("加工比例必须在 0-1 之间")
+    if args.revise_rounds < 0:
+        parser.error("自动修正轮数必须 ≥ 0")
     if args.start_gold is not None and args.start_gold < 0:
         parser.error("期初资金必须 ≥ 0")
     try:
@@ -73,6 +77,7 @@ def main() -> None:
         professions=[p.key for p in bonuses.professions],
         fertilizer=bonuses.fertilizer.key if bonuses.fertilizer else None,
         farming_level=args.farming_level, processing_share=args.processing_share,
+        revise_rounds=args.revise_rounds,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

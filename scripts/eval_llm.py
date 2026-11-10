@@ -105,6 +105,7 @@ WARNING_CATEGORIES: list[tuple[str, str, bool]] = [
     ("种植清单条目无效", r"种植清单", True),
     ("现金不足", r"现金为", True),
     ("缺少第 28 天清理（已自动补上）", r"已自动在第 28 天加入", True),
+    ("自动修正记录（提示）", r"反馈给模型修正", False),
     ("清理目标没写保留跨季作物（已补上）", r"已注明保留", True),
     ("肥料可自制（提示）", r"才在商店出售.*可以自制", False),
     ("肥料当时买不到", r"才在商店出售", True),
@@ -150,6 +151,17 @@ class RunRecord:
     end_gold: int | None = None
     end_gold_estimated: int | None = None
     plantings: int = 0
+    initial_problems: int = 0                   # 自动修正之前程序发现的问题条数
+    final_problems: int = 0                     # 最终版本的问题条数
+    revisions: list[dict] = field(default_factory=list)
+
+    @property
+    def revised(self) -> bool:
+        return bool(self.revisions)
+
+    @property
+    def revision_accepted(self) -> bool:
+        return any(r.get("accepted") for r in self.revisions)
 
     @property
     def problem_warnings(self) -> list[str]:
@@ -161,7 +173,8 @@ def run_case(case: dict, run: int, args, data) -> RunRecord:
     started = time.perf_counter()
     try:
         result = generate_strategy(
-            provider=args.provider, model=args.model, data=data, max_retries=args.max_retries, **kwargs,
+            provider=args.provider, model=args.model, data=data, max_retries=args.max_retries,
+            revise_rounds=args.revise_rounds, **kwargs,
         )
     except Exception as e:  # 评估要记录所有失败，而不是中断
         return RunRecord(case["id"], case.get("label", case["id"]), run, False,
@@ -176,6 +189,9 @@ def run_case(case: dict, run: int, args, data) -> RunRecord:
         end_gold=finance.end_gold if finance else None,
         end_gold_estimated=finance.end_gold_estimated if finance else None,
         plantings=len(result.plantings),
+        initial_problems=len(result.initial_problems),
+        final_problems=len(result.problems),
+        revisions=list(result.revisions),
     )
 
 
@@ -211,6 +227,8 @@ def build_report(records: list[RunRecord], cases: list[dict], args) -> str:
     fallback = [r for r in ok if r.fallback_days]
     with_problem = [r for r in ok if r.problem_warnings]
     with_gift = [r for r in ok if r.gift_warnings]
+    revised = [r for r in ok if r.revised]
+    accepted = [r for r in ok if r.revision_accepted]
     methods = Counter(r.json_parse_method for r in ok)
     out += [
         "## 总览", "",
@@ -223,14 +241,17 @@ def build_report(records: list[RunRecord], cases: list[dict], args) -> str:
         "| JSON 解析方式 | " + ("、".join(f"{m} {n}" for m, n in methods.most_common()) or "-") + " |",
         f"| 触发问题类 season_warnings 的运行 | {pct(len(with_problem), len(ok))}（{len(with_problem)}/{len(ok)}） |",
         f"| 触发送礼警告的运行 | {pct(len(with_gift), len(ok))}（{len(with_gift)}/{len(ok)}） |",
+        f"| 自动修正（最多 {args.revise_rounds} 轮） | 触发 {len(revised)} 次，采用 {len(accepted)} 次 |",
+        f"| 问题条数：修正前 → 最终 | {sum(r.initial_problems for r in ok)} → {sum(r.final_problems for r in ok)}"
+        f"（有问题的运行：{sum(1 for r in ok if r.initial_problems)} → {sum(1 for r in ok if r.final_problems)}） |",
         f"| 平均耗时 | {statistics.mean(r.seconds for r in records):.1f} 秒 |" if records else "| 平均耗时 | - |",
         "",
     ]
 
     # ---- 每个用例 ----
     out += ["## 各用例", "",
-            "| 用例 | 季节 | 难度 | 成功 | attempts | 问题警告（平均条数） | 送礼警告 | 期末资金 min/avg/max | 种植条目 | 平均耗时 |",
-            "|---|---|:---:|:---:|:---:|:---:|:---:|---:|:---:|---:|"]
+            "| 用例 | 季节 | 难度 | 成功 | attempts | 问题警告（平均条数） | 送礼警告 | 问题条数 修正前→最终 | 期末资金 min/avg/max | 种植条目 | 平均耗时 |",
+            "|---|---|:---:|:---:|:---:|:---:|:---:|:---:|---:|:---:|---:|"]
     for c in cases:
         rs = [r for r in records if r.case_id == c["id"]]
         if not rs:
@@ -242,8 +263,9 @@ def build_report(records: list[RunRecord], cases: list[dict], args) -> str:
         gifts = f"{statistics.mean(len(r.gift_warnings) for r in good):.1f}" if good else "-"
         golds = [r.end_gold for r in good if r.end_gold is not None]
         plant = f"{statistics.mean(r.plantings for r in good):.1f}" if good else "-"
+        fixes = "、".join(f"{r.initial_problems}→{r.final_problems}" for r in good) or "-"
         out.append(f"| {c.get('label', c['id'])} | {season} | {c.get('difficulty', '-')} | {len(good)}/{len(rs)} | "
-                   f"{attempts} | {problems} | {gifts} | {fmt_gold(golds)} | {plant} | "
+                   f"{attempts} | {problems} | {gifts} | {fixes} | {fmt_gold(golds)} | {plant} | "
                    f"{statistics.mean(r.seconds for r in rs):.1f}s |")
     out.append("")
 
@@ -306,6 +328,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--only", nargs="+", default=None, metavar="ID", help="只跑这些用例 id")
     parser.add_argument("--cases", default=None, help="自定义用例 JSON 文件（列表，字段同 DEFAULT_CASES）")
     parser.add_argument("--max-retries", type=int, default=1, help="校验失败后让模型重试的次数（默认 1）")
+    parser.add_argument("--revise-rounds", type=int, default=1,
+                        help="自动修正轮数（默认 1；0 = 关闭，可用来对比开关前后）")
     parser.add_argument("--json", default=None, help="把每次运行的原始结果保存为 JSON")
     parser.add_argument("--list", action="store_true", help="只列出用例，不运行")
     args = parser.parse_args(argv)

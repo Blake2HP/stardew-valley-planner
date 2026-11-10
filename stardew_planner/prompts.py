@@ -105,6 +105,17 @@ REPAIR_PROMPT_TEMPLATE = """\
 """
 
 
+REVISE_PROMPT_TEMPLATE = """\
+程序按【数据参考】校验了你的规划，发现以下问题：
+{problems}
+
+请修正这些问题，重新输出完整的 JSON：
+- 保持原来的玩法风格和整体策略，只改与问题相关的日程、种植清单（plantings）或送礼安排；
+- 日程（daily_goals）和种植清单要一致，数值仍以【数据参考】为准；
+- 仍然只输出 JSON，不要任何额外文字。
+"""
+
+
 def build_user_prompt(*, playstyle: str, pacing: str, season_zh: str, year: int, context: dict[str, str]) -> str:
     return USER_PROMPT_TEMPLATE.format(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, **context

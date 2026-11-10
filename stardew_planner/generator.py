@@ -14,7 +14,7 @@ from .farm_state import (
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .llm_client import LLMClient, TruncatedOutput, get_client
-from .prompts import REPAIR_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
+from .prompts import REPAIR_PROMPT_TEMPLATE, REVISE_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
 from .renderer import render_markdown
 from .schedule import ScheduleBlock, merge_daily_goals
 from .season_rules import (
@@ -53,6 +53,9 @@ class StrategyResult:
     finance: SeasonFinance | None = None   # 本季资金预期（程序计算）
     prior_state: FarmState | None = None   # 上季延续状态（第一季为 None）
     end_state: FarmState | None = None     # 本季结束时的农场状态
+    problems: list[str] = field(default_factory=list)          # 最终版本里需要修正的问题（警告的子集）
+    initial_problems: list[str] = field(default_factory=list)  # 自动修正之前的问题
+    revisions: list[dict] = field(default_factory=list)  # 每轮自动修正：问题数前后、是否采用
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +196,129 @@ def _fallback_warnings(error: str | None, goals: dict[int, str], payload: dict, 
     return [f"⚠️ 模型重试后输出仍不合格，已用兜底结果：{detail}攻略可能不完整，资金预期不可靠（原因：{error[:150]}）"]
 
 
+@dataclass
+class _Draft:
+    """一次生成（含格式重试）的结果。messages 是产生 raw 的对话，不含 raw 本身。"""
+    raw: str
+    payload: dict
+    parse_method: str
+    parsed: ParsedStrategy
+    fallback_error: str | None
+    calls: int
+    messages: list
+
+
+def _draft(client: LLMClient, messages: list, max_retries: int, allow_fallback: bool = True) -> _Draft:
+    """调用模型并校验格式；不合格时把错误回传给模型重试。重试用完：能兜底就兜底，否则抛出 StrategyParseError。"""
+    messages = list(messages)
+    raw, parse_method, calls = "", "", 0
+    payload: dict = {}
+    for attempt in range(max_retries + 1):
+        calls = attempt + 1
+        truncated = False
+        try:
+            raw = client.complete(SYSTEM_PROMPT, messages)
+        except TruncatedOutput as e:  # 截断的 JSON 可能被修复成“看起来完整”的结果，不能直接采信
+            raw, truncated = e.text, True
+        payload = {}
+        try:
+            parsed = extract_json(raw)  # 语法错误在本地修复，不消耗重试次数
+            payload, parse_method = parsed.data, parsed.method
+            strategy = validate_payload(payload)
+            if truncated:
+                raise StrategyParseError(TRUNCATED_ERROR)
+            return _Draft(raw, payload, parse_method, strategy, None, calls, messages)
+        except StrategyParseError as e:
+            reason = TRUNCATED_ERROR if truncated else str(e)
+            if attempt == max_retries:
+                if not payload or not allow_fallback:
+                    raise StrategyParseError(reason) from e
+                return _Draft(raw, payload, parse_method, _lenient_parse(payload), reason, calls, messages)
+            messages += [
+                {"role": "assistant", "content": raw},
+                {"role": "user", "content": REPAIR_PROMPT_TEMPLATE.format(error=reason)},
+            ]
+    raise AssertionError("unreachable")
+
+
+@dataclass
+class _Season:
+    """评估一份草稿需要的本季信息。"""
+    data: GameData
+    season: str
+    year: int
+    bonuses: Bonuses
+    prior_state: FarmState | None
+    gold: int | None
+    gold_estimated: int | None
+    seed_stock: dict
+
+
+@dataclass
+class _Evaluation:
+    goals: dict[int, str]
+    plantings: list[Planting]
+    finance: SeasonFinance
+    end_state: FarmState
+    warnings: list[str]
+    gift_warnings: list[str]
+    problems: list[str]  # 需要模型修正的问题：warnings 和 gift_warnings 中排除固定提醒、说明类的部分
+
+
+def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
+    """程序校验一份草稿：种植清单 → 资金 → 季末状态 → 各项规则。"""
+    strategy, data, season_key = d.parsed, s.data, s.season
+    carry_in = s.prior_state.carry if s.prior_state else ()
+    goals = dict(strategy.goals)
+
+    plantings, planting_warnings = resolve_plantings(strategy.plantings, data, season_key, s.year, s.bonuses)
+    finance = compute_finance(
+        plantings, carry_in, start_gold=s.gold, start_gold_estimated=s.gold_estimated,
+        other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock,
+    )
+    end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
+                                   strategy.macro.get("season_goals"))
+
+    carried = s.prior_state.carried_names if s.prior_state else ()
+    goal_checks = check_plantings(goals, data, season_key, s.bonuses, s.year, carried)
+    reported = {(w.day, w.crop) for w in goal_checks}
+    problems = [f"⚠️ {w}" for w in goal_checks] + planting_warnings
+    problems += late_planting_warnings(plantings, season_key, s.bonuses, reported)
+    problems += bus_warnings(plantings, s.year, reported)
+    if d.fallback_error is None:  # 兜底时清单本来就不可靠，下面的兜底警告已经说明
+        problems += [f"⚠️ {w}" for w in check_plantings_match(goals, plantings, data, reported)]
+    problems += finance.warnings
+    note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
+    if note and note.startswith("⚠️"):
+        problems.append(note)
+
+    warnings = _fallback_warnings(d.fallback_error, goals, d.payload, strategy) + list(problems)
+    if note and not note.startswith("⚠️"):
+        warnings.append(note)
+    last_goal = goals.get(SEASON_DAYS, "")
+    had_cleanup = "清理农场" in last_goal and "停止种植" in last_goal
+    goals, inserted = enforce_season_end(goals, end_state.carried_names)
+    nxt_zh = SEASON_ZH[next_season(season_key)]
+    dying = "、".join(c.name for c in withering_crops(data, season_key, s.year))
+    if dying:
+        warnings.append(f"⚠️ 第 28 天是换季前一天：{dying}将在进入{nxt_zh}时枯死，请在此之前收获完毕。")
+    if end_state.carry:
+        kept = "；".join(c.describe(end_state.next_season) for c in end_state.carry)
+        warnings.append(f"ℹ️ 跨入{nxt_zh}继续生长：{kept}。")
+    if inserted and had_cleanup:
+        warnings.append(f"ℹ️ 第 28 天的清理目标已注明保留{'、'.join(end_state.carried_names)}。")
+    elif inserted:
+        warnings.append(f"ℹ️ 已自动在第 28 天加入“{goals[SEASON_DAYS].split('；')[-1]}”。")
+
+    gift_warnings = [f"⚠️ {w}" for w in check_gifts(goals, data, season_key)]
+    return _Evaluation(goals, plantings, finance, end_state, warnings, gift_warnings, problems + gift_warnings)
+
+
+def _revise_prompt(problems: list[str]) -> str:
+    listed = "\n".join(f"{i}. {p.removeprefix('⚠️ ')}" for i, p in enumerate(problems, 1))
+    return REVISE_PROMPT_TEMPLATE.format(problems=listed)
+
+
 # ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
@@ -216,6 +342,7 @@ def generate_strategy(
     prior_state: FarmState | None = None,
     farming_level: int | None = None,
     processing_share: float = 1.0,
+    revise_rounds: int = 1,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -232,6 +359,8 @@ def generate_strategy(
         prior_state: 上一季结束时的农场状态（跨季连续规划时由 generate_plan 传入）。
         farming_level: 耕种等级（0-14）；给出或用了品质肥料时计入作物品质。
         processing_share: 机器能加工的收获比例（0-1），决定“高星直接卖、低星加工”的分界。
+        revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
+            重新生成；只有问题变少才采用新版本。会多调用模型。
     """
     season_key = normalize_season(season)
     if year < 1:
@@ -244,6 +373,8 @@ def generate_strategy(
     bonuses = resolve_bonuses(professions, fertilizer, farming_level=farming_level)
     if not 0 <= processing_share <= 1:
         raise ValueError(f"加工比例必须在 0-1 之间，收到 {processing_share}")
+    if revise_rounds < 0:
+        raise ValueError(f"自动修正轮数必须 ≥ 0，收到 {revise_rounds}")
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
     client = client or get_client(provider, model)
@@ -257,7 +388,6 @@ def generate_strategy(
         gold = gold_estimated = start_gold
     # 新存档（第 1 年春季、没有上季状态）有开局赠送的种子
     seed_stock = data.starting_seed_stock() if prior_state is None and (season_key, year) == ("spring", 1) else {}
-    carry_in = prior_state.carry if prior_state else ()
 
     # 1) 检索攻略片段（RAG）+ 数据 → Prompt
     guide_query = f"{season_zh}，{playstyle}，{pacing}"
@@ -271,76 +401,51 @@ def generate_strategy(
     )
     messages = [{"role": "user", "content": user_prompt}]
 
-    # 2) 调用模型 + 校验，失败时把错误回传给模型自我修正
-    raw, parse_method, attempts = "", "", 0
-    payload: dict = {}
-    fallback_error: str | None = None  # 重试后仍不合格、改用兜底解析时的原因
-    for attempt in range(max_retries + 1):
-        attempts = attempt + 1
-        truncated = False
-        try:
-            raw = client.complete(SYSTEM_PROMPT, messages)
-        except TruncatedOutput as e:  # 截断的 JSON 可能被修复成“看起来完整”的结果，不能直接采信
-            raw, truncated = e.text, True
-        payload = {}
-        try:
-            parsed = extract_json(raw)  # 语法错误在本地修复，不消耗重试次数
-            payload, parse_method = parsed.data, parsed.method
-            parsed_strategy = validate_payload(payload)
-            if truncated:
-                raise StrategyParseError(TRUNCATED_ERROR)
+    # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
+    season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock)
+    draft = _draft(client, messages, max_retries)
+    attempts = draft.calls
+    evaluation = _evaluate(draft, season_info)
+    initial_problems = list(evaluation.problems)
+
+    # 3) 自动修正：把程序校验发现的问题反馈给模型，问题变少才采用新版本
+    revisions: list[dict] = []
+    for round_no in range(1, revise_rounds + 1):
+        if draft.fallback_error is not None or not evaluation.problems:
             break
+        conversation = draft.messages + [
+            {"role": "assistant", "content": draft.raw},
+            {"role": "user", "content": _revise_prompt(evaluation.problems)},
+        ]
+        record = {"round": round_no, "problems_before": len(evaluation.problems)}
+        try:
+            candidate = _draft(client, conversation, 0, allow_fallback=False)
         except StrategyParseError as e:
-            reason = TRUNCATED_ERROR if truncated else str(e)
-            if attempt == max_retries:
-                if not payload:
-                    raise StrategyParseError(reason) from e
-                parsed_strategy = _lenient_parse(payload)
-                fallback_error = reason
-                break
-            messages += [
-                {"role": "assistant", "content": raw},
-                {"role": "user", "content": REPAIR_PROMPT_TEMPLATE.format(error=reason)},
-            ]
+            attempts += 1
+            revisions.append({**record, "problems_after": None, "accepted": False, "error": str(e)[:150]})
+            break
+        attempts += candidate.calls
+        candidate_eval = _evaluate(candidate, season_info)
+        accepted = len(candidate_eval.problems) < len(evaluation.problems)
+        revisions.append({**record, "problems_after": len(candidate_eval.problems), "accepted": accepted})
+        if not accepted:
+            break
+        draft, evaluation = candidate, candidate_eval
 
-    macro, milestones, goals = parsed_strategy.macro, parsed_strategy.milestones, parsed_strategy.goals
+    warnings = list(evaluation.warnings)
+    if revisions:
+        last = revisions[-1]
+        if any(r["accepted"] for r in revisions):
+            warnings.append(f"ℹ️ 程序把校验发现的问题反馈给模型修正：问题从 {len(initial_problems)} 条减少到 "
+                            f"{len(evaluation.problems)} 条。")
+        elif last["problems_after"] is None:
+            warnings.append("ℹ️ 程序把校验发现的问题反馈给模型修正，但修正版格式不合格，保留原版本。")
+        else:
+            warnings.append(f"ℹ️ 程序把校验发现的问题反馈给模型修正，但问题没有减少（{last['problems_before']} → "
+                            f"{last['problems_after']} 条），保留原版本。")
 
-    # 3) 种植清单 → 资金（程序计算）→ 季末状态
-    plantings, planting_warnings = resolve_plantings(parsed_strategy.plantings, data, season_key, year, bonuses)
-    finance = compute_finance(
-        plantings, carry_in, start_gold=gold, start_gold_estimated=gold_estimated,
-        other_income=parsed_strategy.other_income, bonuses=bonuses, seed_stock=seed_stock,
-    )
-    end_state = extract_farm_state(season_key, year, plantings, finance, carry_in, macro.get("season_goals"))
-
-    # 4) 跨季规则校验：检查来不及成熟的种植，并强制第 28 天写入清理目标（保留跨季作物）
-    carried = prior_state.carried_names if prior_state else ()
-    goal_checks = check_plantings(goals, data, season_key, bonuses, year, carried)
-    warnings = _fallback_warnings(fallback_error, goals, payload, parsed_strategy)
-    warnings += [f"⚠️ {w}" for w in goal_checks]
-    warnings += planting_warnings
-    reported = {(w.day, w.crop) for w in goal_checks}
-    warnings += late_planting_warnings(plantings, season_key, bonuses, reported)
-    warnings += bus_warnings(plantings, year, reported)
-    if fallback_error is None:  # 兜底时清单本来就不可靠，上面已经警告过
-        warnings += [f"⚠️ {w}" for w in check_plantings_match(goals, plantings, data, reported)]
-    warnings += finance.warnings
-    if plantings and (note := fertilizer_availability_note(bonuses, season_key, year, plantings[0].day)):
-        warnings.append(note)
-    last_goal = goals.get(SEASON_DAYS, "")
-    had_cleanup = "清理农场" in last_goal and "停止种植" in last_goal
-    goals, inserted = enforce_season_end(goals, end_state.carried_names)
-    nxt_zh = SEASON_ZH[next_season(season_key)]
-    dying = "、".join(c.name for c in withering_crops(data, season_key, year))
-    if dying:
-        warnings.append(f"⚠️ 第 28 天是换季前一天：{dying}将在进入{nxt_zh}时枯死，请在此之前收获完毕。")
-    if end_state.carry:
-        kept = "；".join(c.describe(end_state.next_season) for c in end_state.carry)
-        warnings.append(f"ℹ️ 跨入{nxt_zh}继续生长：{kept}。")
-    if inserted and had_cleanup:
-        warnings.append(f"ℹ️ 第 28 天的清理目标已注明保留{'、'.join(end_state.carried_names)}。")
-    elif inserted:
-        warnings.append(f"ℹ️ 已自动在第 28 天加入“{goals[SEASON_DAYS].split('；')[-1]}”。")
+    raw, parse_method, strategy = draft.raw, draft.parse_method, draft.parsed
+    macro, milestones, goals = strategy.macro, strategy.milestones, evaluation.goals
 
     # 4) 合并日程 + 渲染
     result = StrategyResult(
@@ -354,17 +459,20 @@ def generate_strategy(
         daily_goals=goals,
         schedule=merge_daily_goals(goals),
         season_warnings=warnings,
-        gift_warnings=[f"⚠️ {w}" for w in check_gifts(goals, data, season_key)],
+        gift_warnings=evaluation.gift_warnings,
         raw_response=raw,
         guide_excerpts=guide_excerpts,
         processing_share=processing_share,
         attempts=attempts,
         json_parse_method=parse_method,
-        plantings=plantings,
-        other_income=parsed_strategy.other_income,
-        finance=finance,
+        plantings=evaluation.plantings,
+        other_income=strategy.other_income,
+        finance=evaluation.finance,
         prior_state=prior_state,
-        end_state=end_state,
+        end_state=evaluation.end_state,
+        problems=evaluation.problems,
+        initial_problems=initial_problems,
+        revisions=revisions,
     )
     result.markdown = render_markdown(result, data)
     return result
