@@ -92,7 +92,7 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `-p, --playstyle` | Playstyle, e.g. "fishing for money", "completionist", "farming first" | `钓鱼赚钱，兼顾种田` |
 | `-c, --pacing` | Pacing, e.g. "relaxed", "speedrun" | `休闲慢节奏` |
 | `-s, --season` | `spring/summer/fall/winter` (Chinese names like `春季` also work); a comma-separated list of **consecutive** seasons plans them in a row, e.g. `spring,summer` (winter is followed by spring of the next year) | `spring` |
-| `-y, --year` | In-game year; in year 1 the profit table and checks leave out crops whose seeds are only sold from year 2 (Garlic, Red Cabbage) | `1` |
+| `-y, --year` | In-game year; in year 1 the profit table and checks leave out crops whose seeds are only sold from year 2 (Garlic, Red Cabbage, Unmilled Rice, Artichoke) | `1` |
 | `--provider` | `anthropic` / `mock` | env var `LLM_PROVIDER`, else `anthropic` |
 | `--model` | Override the default model name | env var `ANTHROPIC_MODEL` |
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
@@ -279,7 +279,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
 - [x] Add Garlic, Red Cabbage and Sunflower, and track seeds sold only from year 2 with `available_year`
 - [x] Add Blue Jazz, Wheat and Poppy (Wheat → Beer via a crop-specific artisan rule)
-- [ ] Add more crops (Bok Choy, Coffee Bean, etc.) and honey rules for flowers
+- [x] Add Bok Choy, Artichoke, Fairy Rose, Summer Spangle and Unmilled Rice (Coffee Bean left out: no shop sells its seeds)
+- [ ] Honey rules for flowers
 - [x] Multi-season planning (carry gold and multi-season crops forward)
 - [x] Artisan goods across seasons (goods still in a machine are credited when they finish next season)
 - [x] Upgrade guide-text search from keyword matching to vector search (ChromaDB)

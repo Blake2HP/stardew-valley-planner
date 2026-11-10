@@ -339,7 +339,7 @@ def _machine_lines(machines: dict[str, int] | None) -> list[str]:
 
 def crop_note(crop: Crop) -> str:
     """种子掉落、副产物等不在表格列里的信息。"""
-    parts = []
+    parts = [crop.note] if crop.note else []
     if crop.requires_bus:
         parts.append(f"种子在{crop.seed_source}出售，要先修好巴士才能买到")
     if crop.seed_drop:

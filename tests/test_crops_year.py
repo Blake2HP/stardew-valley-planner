@@ -15,7 +15,7 @@ from stardew_planner.season_rules import check_plantings, withering_crops
 
 ROOT = Path(__file__).resolve().parent.parent
 SV = str(ROOT / ".claude" / "skills" / "stardew-data-guard" / "scripts" / "sv.py")
-YEAR_2_CROPS = {"大蒜", "红叶卷心菜"}
+YEAR_2_CROPS = {"大蒜", "红叶卷心菜", "未碾米", "洋蓟"}
 
 
 def names(crops):

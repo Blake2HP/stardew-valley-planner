@@ -74,6 +74,7 @@ class Crop:
     requires_bus: bool = False  # 种子只在沙漠绿洲出售，要先修好巴士
     aliases: tuple[str, ...] = field(default=(), compare=False, hash=False)  # 其他叫法，如官方名“西红柿”
     byproducts: tuple[Byproduct, ...] = field(default=(), compare=False, hash=False)
+    note: str = field(default="", compare=False, hash=False)  # 表格列放不下的说明（如未碾米的灌溉与产量）
 
     @property
     def names(self) -> tuple[str, ...]:
