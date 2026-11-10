@@ -261,6 +261,7 @@ def build_data_context(
     carryover: str = NO_PRIOR_STATE_TEXT,
     processing_share: float = 1.0,
     machines: dict[str, int] | None = None,
+    greenhouse: bool = False,
 ) -> dict[str, str]:
     """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 "
@@ -295,6 +296,15 @@ def build_data_context(
     if rest:
         crop_lines += ["", "其余本季可种作物（数值同样可用，也可以安排种植，按单格净利排序）："
                        + "、".join(_compact_crop(r) for r in rest)]
+
+    if greenhouse:
+        others = [c for c in data.crops_for_year(year) if normalize_season(season) not in c.seasons]
+        listed_other = "、".join(
+            f"{c.name}（种子 {c.seed_price}g，售价 {bonuses.crop_price(c)}g，生长 {bonuses.grow_days(c)} 天"
+            + (f"，再生 {c.regrow_days} 天" if c.regrow_days else "") + "）" for c in others)
+        crop_lines += ["", f"温室：已修好，最多 {data.greenhouse_tiles} 格，任何季节都能种任何作物，可再生作物换季不会枯死"
+                       "（在 plantings 里写 \"place\": \"greenhouse\"，日程里写明“温室”）。"
+                       f"上表之外，温室还可以种：{listed_other or '无'}。非当季作物的种子要在对应季节提前买好。"]
 
     notes = [crop_note(r.crop) for r in rank_crops(data, season, bonuses=bonuses, year=year)]
     notes = [n for n in notes if n]

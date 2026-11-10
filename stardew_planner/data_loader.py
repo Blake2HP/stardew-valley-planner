@@ -187,6 +187,7 @@ class GameData:
     starting_gold: int | None = None  # 开局金币（data/farm.json），用于第 1 年春季的资金起点
     starting_seeds: dict[str, int] = field(default_factory=dict)  # 开局赠送的种子（作物英文名 → 数量）
     farm_types: dict[str, dict] = field(default_factory=dict)      # 农场地图；可覆盖 starting_seeds
+    greenhouse_tiles: int = 120  # 温室耕地格数（data/farm.json）
 
     def resolve_farm_type(self, name: str | None) -> str:
         """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
@@ -302,6 +303,8 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         starting_gold=load_starting_gold(data_dir / "farm.json"),
         starting_seeds=load_starting_seeds(data_dir / "farm.json"),
         farm_types=load_farm_types(data_dir / "farm.json"),
+        greenhouse_tiles=int((_read_json(data_dir / "farm.json").get("greenhouse") or {}).get("tiles", 120))
+        if (data_dir / "farm.json").exists() else 120,
         npc_data=load_npcs(data_dir / "npcs.json"),
     )
 

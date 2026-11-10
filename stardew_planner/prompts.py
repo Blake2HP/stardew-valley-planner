@@ -62,7 +62,7 @@ SYSTEM_PROMPT = """\
 约束：
 - pillars 3-5 条；season_goals 2-4 条；key_milestones 按 day 升序，至少覆盖数据参考中的所有节日和换季日。
 - daily_goals 必须恰好包含 "1" 到 "28" 共 28 个键，值为非空字符串。
-- plantings 必须给出（本季不种植时写空数组 []）：day 为 1-28 的整数，crop 用数据参考中的中文作物名，tiles 为正整数格数。
+- plantings 必须给出（本季不种植时写空数组 []）：day 为 1-28 的整数，crop 用数据参考中的中文作物名，tiles 为正整数格数；种在温室里的加 "place": "greenhouse"（只有【数据参考】写明温室已修好时才可以）。
 - other_income 是你对本季非种植收入（钓鱼、挖矿、采集等）的估算，可以为空数组；gold 为非负整数。程序会把它标为“模型估算”，与程序计算的种植收支分开显示。
 """
 

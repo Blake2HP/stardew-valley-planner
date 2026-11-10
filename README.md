@@ -93,6 +93,7 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | `--model` | 覆盖默认模型名 | 环境变量 `ANTHROPIC_MODEL` |
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
 | `--kegs` / `--jars` | 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工：低星、多赚多的先加工，机器排满后换另一种机器，加工净增计入资金；第 28 天还没做完的带到下一季 | `0`（不模拟） |
+| `--greenhouse` | 温室已修好。可以在种植清单里写 `"place": "greenhouse"`：温室不受季节限制，可再生作物换季不会枯死，最多 120 格（超出、没修好时使用都会报问题） | 不开启 |
 | `--farm-type` | 农场地图：`standard` / `riverland` / `forest` / `hilltop` / `wilderness` / `four_corners` / `beach` / `meadowlands`（也可以写中文名）。草原农场开局没有赠送的 15 颗防风草种子 | `standard` |
 | `--revise-rounds` | 自动修正轮数：程序校验发现问题（来不及成熟、送错礼物、现金不足、日程和种植清单对不上等）时，把问题清单反馈给模型重写，问题变少才采用新版本；会多调用模型 | `1`（`0` = 关闭） |
 | `--start-gold` | 期初资金 | 第 1 年春季为开局金币 500g（`data/farm.json`），其他季节为未知 |
@@ -276,6 +277,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [ ] 补充更多作物（小白菜、咖啡豆等）与花的蜂蜜规则
 - [x] 支持跨季连续规划（资金与跨季作物衔接）
 - [x] 跨季的加工品（季末还在机器里的货品下季完成时入账）
+- [x] 温室规划（`--greenhouse`：不受季节限制、120 格上限、作物跨季延续）
 - [x] 攻略文本检索从关键词匹配升级为向量检索（ChromaDB）
 - [x] 换用多语言 Embedding 模型（paraphrase-multilingual-MiniLM-L12-v2），提升中文检索效果
 - [ ] 用真实 API 测试模型输出的稳定性

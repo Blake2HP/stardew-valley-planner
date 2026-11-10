@@ -101,7 +101,7 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
         out += ["## 🌱 种植清单", "", "| 播种日 | 作物 | 格数 | 种子支出 | 收获日 |", "|:---:|---|---:|---:|---|"]
         for p in result.plantings:
             days = "、".join(season_label(result.season, d) for d in p.harvests) or "来不及成熟"
-            out.append(f"| 第 {p.day} 天 | {p.crop.name} | {p.tiles} | {p.tiles * p.crop.seed_price}g | {days} |")
+            out.append(f"| 第 {p.day} 天 | {p.crop.name}{'（温室）' if p.in_greenhouse else ''} | {p.tiles} | {p.tiles * p.crop.seed_price}g | {days} |")
         out.append("")
     if result.finance is not None:
         out += ["## 💰 资金预期", ""]

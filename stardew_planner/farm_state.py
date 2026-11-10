@@ -21,6 +21,8 @@ from .data_loader import SEASON_ZH, Crop, GameData, normalize_season
 
 SEASON_DAYS = 28
 SEASON_ORDER = ["spring", "summer", "fall", "winter"]
+GREENHOUSE = "greenhouse"
+GREENHOUSE_HORIZON_SEASONS = 8  # 温室里的可再生作物不会枯死：模拟往后 8 季（两年）的收获
 
 
 def following_season(season: str, year: int) -> tuple[str, int]:
@@ -40,13 +42,16 @@ def alive_seasons(crop: Crop, season: str) -> int:
     return n
 
 
-def harvest_days(crop: Crop, plant_day: int, season: str, bonuses: Bonuses = NO_BONUSES) -> list[int]:
+def harvest_days(crop: Crop, plant_day: int, season: str, bonuses: Bonuses = NO_BONUSES,
+                 greenhouse: bool = False) -> list[int]:
     """一次播种的全部收获日（从本季第 1 天起算，可跨季）。
 
     首次收获日 = 种植日 + 生长天数；可再生作物之后每隔再生天数收获一次，
     直到作物能存活的最后一天（28 × 可存活季数）。成熟前就枯死则返回空列表。
+    温室里不受季节限制，按往后 GREENHOUSE_HORIZON_SEASONS 季计算。
     """
-    limit = SEASON_DAYS * alive_seasons(crop, season)
+    seasons = GREENHOUSE_HORIZON_SEASONS if greenhouse else alive_seasons(crop, season)
+    limit = SEASON_DAYS * seasons
     first = plant_day + bonuses.grow_days(crop)
     if first > limit:
         return []
@@ -74,6 +79,11 @@ class Planting:
     crop: Crop
     tiles: int
     harvests: tuple[int, ...] = ()  # 收获日（从本季第 1 天起算）
+    place: str = "field"            # field = 室外农田；greenhouse = 温室
+
+    @property
+    def in_greenhouse(self) -> bool:
+        return self.place == GREENHOUSE
 
 
 @dataclass(frozen=True)
@@ -83,12 +93,14 @@ class CarryCrop:
     tiles: int
     origin: str                     # 例如“夏季第 1 天种下”
     harvest_days: tuple[int, ...]   # 从“下一季第 1 天”起算的收获日
+    place: str = "field"
 
     def describe(self, season: str) -> str:
         days = "、".join(str(d) for d in self.harvest_days if d <= SEASON_DAYS)
         later = [d for d in self.harvest_days if d > SEASON_DAYS]
-        text = f"{self.crop.name} ×{self.tiles} 格（{self.origin}）：{SEASON_ZH[season]}第 {days} 天可收获" if days \
-            else f"{self.crop.name} ×{self.tiles} 格（{self.origin}）：本季无收获"
+        where = "，温室" if self.place == GREENHOUSE else ""
+        text = f"{self.crop.name} ×{self.tiles} 格（{self.origin}{where}）：{SEASON_ZH[season]}第 {days} 天可收获" if days \
+            else f"{self.crop.name} ×{self.tiles} 格（{self.origin}{where}）：本季无收获"
         if later:
             text += f"，之后还会在{season_label(season, later[0])}起继续收获"
         return text
@@ -159,27 +171,54 @@ class FarmState:
 # ---------------------------------------------------------------------------
 
 def resolve_plantings(
-    raw: list[dict], data: GameData, season: str, year: int, bonuses: Bonuses = NO_BONUSES
+    raw: list[dict], data: GameData, season: str, year: int, bonuses: Bonuses = NO_BONUSES,
+    greenhouse: bool = False, notes: list[str] | None = None,
 ) -> tuple[list[Planting], list[str]]:
-    """把模型输出的 plantings 转成 Planting；不合法的条目剔除并给出警告（不计入资金）。"""
+    """把模型输出的 plantings 转成 Planting；不合法的条目剔除并给出警告（不计入资金）。
+
+    greenhouse 表示温室已修好；"place": "greenhouse" 的条目不受季节限制。
+    notes 用来收集说明类提示（比如温室里种非当季作物，种子要提前买好），不算问题。
+    """
     season = normalize_season(season)
     by_name = {n: c for c in data.crops for n in c.names} | {c.name_en.lower(): c for c in data.crops}
     plantings, warnings = [], []
     for item in raw:
         name, day, tiles = item["crop"], item["day"], item["tiles"]
+        place = item.get("place", "field")
         crop = by_name.get(name) or by_name.get(name.lower())
-        where = f"种植清单第 {day} 天的{name}"
+        where = f"种植清单第 {day} 天的{name}" + ("（温室）" if place == GREENHOUSE else "")
         if crop is None:
             warnings.append(f"⚠️ {where}不在数据库中，未计入资金")
-        elif season not in crop.seasons:
+        elif place == GREENHOUSE and not greenhouse:
+            warnings.append(f"⚠️ {where}：温室还没修好（需要完成社区中心茶水间收集包，或在 Joja 花 35,000g），未计入资金")
+        elif place != GREENHOUSE and season not in crop.seasons:
             warnings.append(f"⚠️ {where}不是{SEASON_ZH[season]}作物，未计入资金")
         elif year < crop.available_year:
             warnings.append(f"⚠️ {where}：种子第 {crop.available_year} 年起才出售，未计入资金")
-        elif day < crop.earliest_available_day:
+        elif day < crop.earliest_available_day and place != GREENHOUSE:
             warnings.append(f"⚠️ {where}：种子第 {crop.earliest_available_day} 天才开售，未计入资金")
         else:
-            plantings.append(Planting(day, crop, tiles, tuple(harvest_days(crop, day, season, bonuses))))
+            in_gh = place == GREENHOUSE
+            if in_gh and season not in crop.seasons and notes is not None:
+                allowed = "/".join(SEASON_ZH[s] for s in crop.seasons)
+                notes.append(f"ℹ️ {where}：商店只在{allowed}卖这种种子，需要提前买好带进温室")
+            plantings.append(Planting(day, crop, tiles, tuple(harvest_days(crop, day, season, bonuses, in_gh)), place))
     return sorted(plantings, key=lambda p: p.day), warnings
+
+
+def greenhouse_warnings(plantings: list[Planting], carry_in: tuple[CarryCrop, ...], limit: int) -> list[str]:
+    """温室同时占用的格数不能超过上限（可再生作物一直占着，单次收获的作物收获当天空出来）。"""
+    if not any(p.in_greenhouse for p in plantings) and not any(c.place == GREENHOUSE for c in carry_in):
+        return []
+    for day in range(1, SEASON_DAYS + 1):
+        used = sum(c.tiles for c in carry_in if c.place == GREENHOUSE
+                   and (c.crop.regrow_days or (c.harvest_days and day < c.harvest_days[0])))
+        for p in plantings:
+            if p.in_greenhouse and p.day <= day and (p.crop.regrow_days or not p.harvests or day < p.harvests[0]):
+                used += p.tiles
+        if used > limit:
+            return [f"⚠️ 第 {day} 天温室要用 {used} 格，超过温室的 {limit} 格"]
+    return []
 
 
 def bus_warnings(plantings: list[Planting], year: int, already: set[tuple[int, str]] = frozenset()) -> list[str]:
@@ -405,11 +444,11 @@ def extract_farm_state(
     for c in carry_in:  # 上季延续来的作物，如果还能再活一季，继续带下去
         later = tuple(d - SEASON_DAYS for d in c.harvest_days if d > SEASON_DAYS)
         if later:
-            carry.append(CarryCrop(c.crop, c.tiles, c.origin, later))
+            carry.append(CarryCrop(c.crop, c.tiles, c.origin, later, c.place))
     for p in plantings:
         later = tuple(d - SEASON_DAYS for d in p.harvests if d > SEASON_DAYS)
         if later:
-            carry.append(CarryCrop(p.crop, p.tiles, f"{SEASON_ZH[season]}第 {p.day} 天种下", later))
+            carry.append(CarryCrop(p.crop, p.tiles, f"{SEASON_ZH[season]}第 {p.day} 天种下", later, p.place))
         elif p.crop.name not in cleared:
             cleared.append(p.crop.name)
 

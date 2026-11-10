@@ -36,6 +36,7 @@
           cursor: pointer; color: var(--ink); }
   .chip:hover { border-color: var(--green); color: var(--green); }
   .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+  label.inline { display: flex; align-items: center; gap: 6px; font-weight: 600; }
   .checks label { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; margin: 0; }
   details { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 10px; }
   summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--green); }
@@ -110,6 +111,7 @@
           <select id="seasonCount"></select>
         </div>
       </div>
+      <label class="inline"><input id="greenhouse" type="checkbox"> 温室已修好 <span class="hint">任何季节都能种，最多 120 格</span></label>
       <label for="farmType">农场地图 <span class="hint">草原农场开局没有赠送的防风草种子</span></label>
       <select id="farmType"></select>
       <div class="row">
@@ -300,6 +302,7 @@ $("form").addEventListener("submit", async (e) => {
     farm_type: $("farmType").value || null,
     kegs: Number($("kegs").value) || 0,
     jars: Number($("jars").value) || 0,
+    greenhouse: $("greenhouse").checked,
   };
   setLoading(true);
   try {

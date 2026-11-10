@@ -10,7 +10,8 @@ from .bonuses import NO_BONUSES, Bonuses, fertilizer_availability_note, resolve_
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .farm_state import (
     FarmState, OtherIncome, Planting, SeasonFinance, compute_finance, extract_farm_state,
-    bus_warnings, following_season, late_planting_warnings, render_state_for_prompt, resolve_plantings,
+    bus_warnings, following_season, greenhouse_warnings, late_planting_warnings, render_state_for_prompt,
+    resolve_plantings,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .llm_client import LLMClient, TruncatedOutput, get_client
@@ -90,13 +91,16 @@ def _parse_plantings(raw, errors: list[str] | None) -> list[dict]:
         try:
             day, tiles = int(item["day"]), int(item["tiles"])
             crop = str(item["crop"]).strip()
-            if not (1 <= day <= SEASON_DAYS and tiles >= 1 and crop):
+            place = str(item.get("place") or "field").strip().lower()
+            place = {"温室": "greenhouse", "农田": "field", "室外": "field"}.get(place, place)
+            if not (1 <= day <= SEASON_DAYS and tiles >= 1 and crop and place in ("field", "greenhouse")):
                 raise ValueError
         except (TypeError, KeyError, ValueError):
             if errors is not None:
-                errors.append(f"plantings[{i}] 需要 day（1-28）、crop（作物名）、tiles（正整数）: {item!r}")
+                errors.append(f"plantings[{i}] 需要 day（1-28）、crop（作物名）、tiles（正整数），"
+                              f"place 只能是 field 或 greenhouse: {item!r}")
             continue
-        items.append({"day": day, "crop": crop, "tiles": tiles})
+        items.append({"day": day, "crop": crop, "tiles": tiles, "place": place})
     return items
 
 
@@ -254,6 +258,7 @@ class _Season:
     seed_stock: dict
     stock_label: str
     machines: dict = field(default_factory=dict)
+    greenhouse: bool = False
 
 
 @dataclass
@@ -273,7 +278,9 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     carry_in = s.prior_state.carry if s.prior_state else ()
     goals = dict(strategy.goals)
 
-    plantings, planting_warnings = resolve_plantings(strategy.plantings, data, season_key, s.year, s.bonuses)
+    notes: list[str] = []
+    plantings, planting_warnings = resolve_plantings(strategy.plantings, data, season_key, s.year, s.bonuses,
+                                                     s.greenhouse, notes)
     finance = compute_finance(
         plantings, carry_in, start_gold=s.gold, start_gold_estimated=s.gold_estimated,
         other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock, stock_label=s.stock_label,
@@ -284,7 +291,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
                                    strategy.macro.get("season_goals"))
 
     carried = s.prior_state.carried_names if s.prior_state else ()
-    goal_checks = check_plantings(goals, data, season_key, s.bonuses, s.year, carried)
+    goal_checks = check_plantings(goals, data, season_key, s.bonuses, s.year, carried, s.greenhouse)
     reported = {(w.day, w.crop) for w in goal_checks}
     problems = [f"⚠️ {w}" for w in goal_checks] + planting_warnings
     problems += late_planting_warnings(plantings, season_key, s.bonuses, reported)
@@ -292,11 +299,12 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     if d.fallback_error is None:  # 兜底时清单本来就不可靠，下面的兜底警告已经说明
         problems += [f"⚠️ {w}" for w in check_plantings_match(goals, plantings, data, reported)]
     problems += finance.warnings
+    problems += greenhouse_warnings(plantings, carry_in, data.greenhouse_tiles)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
     if note and note.startswith("⚠️"):
         problems.append(note)
 
-    warnings = _fallback_warnings(d.fallback_error, goals, d.payload, strategy) + list(problems)
+    warnings = _fallback_warnings(d.fallback_error, goals, d.payload, strategy) + list(problems) + notes
     if note and not note.startswith("⚠️"):
         warnings.append(note)
     last_goal = goals.get(SEASON_DAYS, "")
@@ -350,6 +358,7 @@ def generate_strategy(
     farm_type: str | None = None,
     kegs: int = 0,
     jars: int = 0,
+    greenhouse: bool = False,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -369,6 +378,7 @@ def generate_strategy(
         farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
         kegs / jars: 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工（见 processing.py），
             加工净增计入资金；第 28 天还没做完的带到下一季。
+        greenhouse: 温室已修好。模型可以把种植安排在温室（不受季节限制、可再生作物不会枯死，最多 120 格）。
         revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
             重新生成；只有问题变少才采用新版本。会多调用模型。
     """
@@ -416,7 +426,7 @@ def generate_strategy(
     )
     carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
-                                 machines)
+                                 machines, greenhouse)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -424,7 +434,7 @@ def generate_strategy(
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
-                          machines)
+                          machines, greenhouse)
     draft = _draft(client, messages, max_retries)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)

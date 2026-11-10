@@ -114,6 +114,7 @@ def check_plantings(
     bonuses: Bonuses = NO_BONUSES,
     year: int | None = None,
     carried: Iterable[str] = (),
+    greenhouse: bool = False,
 ) -> list[SeasonWarning]:
     """检查日程里的种植安排。
 
@@ -125,14 +126,16 @@ def check_plantings(
     nxt = next_season(season)
     warnings = []
     for day in sorted(daily_goals):
+        # 温室已修好且日程写明“温室”：不查季节、开售日和成熟日（种子可以提前买好，作物不会因换季枯死）
+        in_greenhouse = greenhouse and "温室" in daily_goals[day]
         for crop in _planted_crops(daily_goals[day], data.crops):
-            if year == 1 and crop.requires_bus and season in crop.seasons:
+            if year == 1 and crop.requires_bus and (season in crop.seasons or in_greenhouse):
                 warnings.append(SeasonWarning(
                     day, crop.name,
                     f"{crop.name}种子在{crop.seed_source}出售，要先修好巴士才能买到；第 1 年如果还没修好，这次种植无法进行",
                     f"种子来源 = {crop.seed_source}",
                 ))
-            if season not in crop.seasons:
+            if season not in crop.seasons and not in_greenhouse:
                 allowed = "/".join(SEASON_ZH[s] for s in crop.seasons)
                 warnings.append(SeasonWarning(
                     day, crop.name,
@@ -151,13 +154,13 @@ def check_plantings(
                     f"{crop.name}种子第 {crop.available_year} 年起才出售（{crop.seed_source}），第 {year} 年买不到",
                     f"当前年份 {year} < 开售年份 {crop.available_year}",
                 ))
-            elif day < crop.earliest_available_day:
+            elif day < crop.earliest_available_day and not in_greenhouse:
                 warnings.append(SeasonWarning(
                     day, crop.name,
                     f"{crop.name}种子要到第 {crop.earliest_available_day} 天才能买到（{crop.seed_source}）",
                     f"种植日 {day} < 最早开售日 {crop.earliest_available_day}",
                 ))
-            elif survives_season_change(crop, season):
+            elif in_greenhouse or survives_season_change(crop, season):
                 continue
             elif day + bonuses.grow_days(crop) > SEASON_DAYS:
                 grow = bonuses.grow_days(crop)
