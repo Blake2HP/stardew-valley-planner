@@ -13,7 +13,7 @@ Unlike asking an LLM directly, this project lets **code handle the numbers and t
 - When the model returns malformed JSON, it is repaired locally so that no extra model call is needed.
 - Multi-season planning (e.g. `--season spring,summer,fall`): the gold and the crops still in the ground at the end of a season are computed by code and injected into the next season's prompt.
 
-> Crop and artisan values in `data/` come from the [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops) (game version 1.6), checked on 2026-11-05; the 500g starting gold comes from the [Gold](https://stardewvalleywiki.com/Gold) page.
+> Crop and artisan values in `data/` come from the [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops) (game version 1.6), checked on 2026-11-05; the 500g starting gold comes from the [Gold](https://stardewvalleywiki.com/Gold) page, and the 15 free Parsnip Seeds from the [Getting Started](https://stardewvalleywiki.com/Getting_Started) page (counted in a new game's first spring, except on the Meadowlands farm).
 >
 > The game data, prompts and generated guides are in **Chinese**. Playstyle and pacing can be written in any language, but the output guide is in Chinese.
 

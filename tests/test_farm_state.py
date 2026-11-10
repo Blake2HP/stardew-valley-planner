@@ -268,7 +268,8 @@ def test_single_season_finance(data, indexed_store):
     client = RecordingMock()
     result = generate_strategy("种田", "速通", "spring", client=client, data=data, guide_store=indexed_store)
     assert "期初资金：500g（开局金币" in client.prompts[0]
-    assert result.finance.end_gold == 2424 and result.end_state.gold == 2424
+    # 15 颗防风草用开局赠送的种子：2424 + 15 × 20 = 2724
+    assert result.finance.end_gold == 2724 and result.end_state.gold == 2724
     assert "## 🌱 种植清单" in result.markdown and "## 💰 资金预期" in result.markdown
     assert "其他收入（模型估算，仅供参考）" in result.markdown
 
@@ -300,7 +301,7 @@ def test_generate_plan_injects_previous_state(data, indexed_store):
     # 夏季 Prompt：春季的期末资金
     assert "### 上季延续状态（程序计算）" in client.prompts[1]
     assert f"期初资金（只算种植收支，程序计算）：{spring.end_state.gold}g" in client.prompts[1]
-    assert summer.finance.start_gold == spring.finance.end_gold == 2424
+    assert summer.finance.start_gold == spring.finance.end_gold == 2724
     assert summer.finance.start_gold_estimated == spring.finance.end_gold_estimated
 
     # 秋季 Prompt：夏季留下的玉米
@@ -311,7 +312,7 @@ def test_generate_plan_injects_previous_state(data, indexed_store):
     # 夏季第 28 天保留玉米；Markdown 有总览表
     assert "保留玉米" in summer.daily_goals[28]
     assert "## 📈 各季衔接总览" in plan.markdown
-    assert "| 第 1 年夏季 | 2424g |" in plan.markdown
+    assert "| 第 1 年夏季 | 2724g |" in plan.markdown
     assert plan.markdown.count("## 🌸 星露谷物语") == 1   # 各季标题降了一级
     assert len(plan.states) == 3
 

@@ -185,6 +185,12 @@ class GameData:
     calendar: dict[str, list[CalendarEvent]]
     guide_chunks: list[GuideChunk] = field(default_factory=list)
     starting_gold: int | None = None  # 开局金币（data/farm.json），用于第 1 年春季的资金起点
+    starting_seeds: dict[str, int] = field(default_factory=dict)  # 开局赠送的种子（作物英文名 → 数量）
+
+    def starting_seed_stock(self) -> dict[str, int]:
+        """开局赠送的种子，按本项目的作物中文名（data/crops.json 里没有的作物忽略）。"""
+        by_en = {c.name_en: c.name for c in self.crops}
+        return {by_en[en]: n for en, n in self.starting_seeds.items() if en in by_en}
     npc_data: NPCData = field(default_factory=NPCData)  # NPC 生日与送礼喜好（data/npcs.json）
 
     # ---- 结构化查询 ----
@@ -279,6 +285,7 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         calendar=load_calendar(data_dir / "calendar.json"),
         guide_chunks=load_guides(data_dir / "guides"),
         starting_gold=load_starting_gold(data_dir / "farm.json"),
+        starting_seeds=load_starting_seeds(data_dir / "farm.json"),
         npc_data=load_npcs(data_dir / "npcs.json"),
     )
 
@@ -303,6 +310,10 @@ def load_npcs(path: Path) -> NPCData:
         for n in raw["npcs"]
     )
     return NPCData(npcs, _gift_items(raw.get("universal_loves")))
+
+
+def load_starting_seeds(path: Path) -> dict[str, int]:
+    return {k: int(v) for k, v in _read_json(path).get("starting_seeds", {}).items()} if path.exists() else {}
 
 
 def load_starting_gold(path: Path) -> int | None:

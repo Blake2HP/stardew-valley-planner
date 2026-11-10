@@ -13,7 +13,7 @@
 - 模型输出的 JSON 格式有误时，先在本地修复，尽量不额外调用模型。
 - 支持跨季连续规划（如 `--season spring,summer,fall`）：上一季结束时的资金和仍在地里的作物由程序算好，注入下一季的 Prompt。
 
-> `data/` 中的作物和加工数值来自 [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops)（游戏 1.6 版本），核对日期 2026-11-05；开局金币 500g 来自 [Gold](https://stardewvalleywiki.com/Gold) 页面。
+> `data/` 中的作物和加工数值来自 [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops)（游戏 1.6 版本），核对日期 2026-11-05；开局金币 500g 来自 [Gold](https://stardewvalleywiki.com/Gold) 页面，开局赠送的 15 颗防风草种子来自 [Getting Started](https://stardewvalleywiki.com/Getting_Started) 页面（新存档的第 1 年春季计入资金，草原农场除外）。
 
 ## 示例输出
 

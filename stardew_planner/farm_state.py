@@ -241,8 +241,12 @@ def compute_finance(
     start_gold_estimated: int | None = None,
     other_income: list[OtherIncome] | None = None,
     bonuses: Bonuses = NO_BONUSES,
+    seed_stock: dict[str, int] | None = None,
 ) -> SeasonFinance:
-    """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。"""
+    """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。
+
+    seed_stock 是季初已有的种子（作物名 → 数量），例如开局赠送的 15 颗防风草种子；播种时最先使用。
+    """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
     lines = []
@@ -271,7 +275,8 @@ def compute_finance(
     for p in plantings:
         add_harvests(p.crop, p.tiles, p.harvests, f"{p.crop.name}（第 {p.day} 天种）")
 
-    # 种子：逐日先收进掉落的种子，补种时先用掉落的，不够再买（同一天先收获、再播种）
+    # 种子：先用季初已有的种子，再用收获掉落的种子，不够再买（同一天先收获、再播种）
+    stock: dict[str, float] = dict(seed_stock or {})
     inventory: dict[str, float] = {}
     spent_by_day: dict[int, float] = {}
     terms, seed_total = [], 0.0
@@ -283,12 +288,15 @@ def compute_finance(
             if d == day:
                 inventory[name] = inventory.get(name, 0) + n
         for p in by_day.get(day, []):
-            used = min(inventory.get(p.crop.name, 0), p.tiles)
+            from_stock = min(stock.get(p.crop.name, 0), p.tiles)
+            stock[p.crop.name] = stock.get(p.crop.name, 0) - from_stock
+            used = min(inventory.get(p.crop.name, 0), p.tiles - from_stock)
             inventory[p.crop.name] = inventory.get(p.crop.name, 0) - used
-            cost = (p.tiles - used) * p.crop.seed_price
+            cost = (p.tiles - from_stock - used) * p.crop.seed_price
             spent_by_day[day] = spent_by_day.get(day, 0) + cost
             seed_total += cost
-            terms.append(f"({p.tiles} − 掉落种子 {used:g}) × {p.crop.seed_price}" if used else f"{p.tiles} × {p.crop.seed_price}")
+            minus = (f" − 开局赠送 {from_stock:g}" if from_stock else "") + (f" − 掉落种子 {used:g}" if used else "")
+            terms.append(f"({p.tiles}{minus}) × {p.crop.seed_price}" if minus else f"{p.tiles} × {p.crop.seed_price}")
     seed_cost = int(seed_total)
     if plantings:
         lines.append("种子支出 = " + " + ".join(terms) + f" = {seed_cost}g")
@@ -384,12 +392,18 @@ def extract_farm_state(
 NO_PRIOR_STATE_TEXT = "（这是规划的第一季，没有上季状态）"
 
 
-def render_state_for_prompt(state: FarmState | None, start_gold: int | None = None) -> str:
+def render_state_for_prompt(
+    state: FarmState | None, start_gold: int | None = None, seed_stock: dict[str, int] | None = None
+) -> str:
     """注入下一季 Prompt【数据参考】的文本。"""
     if state is None:
         gold = f"期初资金：{start_gold}g（开局金币，来源 data/farm.json）" if start_gold is not None \
             else "期初资金：未知"
-        return f"{NO_PRIOR_STATE_TEXT}\n- {gold}"
+        text = f"{NO_PRIOR_STATE_TEXT}\n- {gold}"
+        if seed_stock:
+            seeds = "、".join(f"{name}种子 {n} 颗" for name, n in seed_stock.items())
+            text += f"\n- 开局赠送：{seeds}（种植时先用这些，不花钱；请写进 plantings）"
+        return text
     prev = f"第 {state.year} 年{SEASON_ZH[state.season]}"
     lines = [f"上一季：{prev}"]
     if state.gold is not None:

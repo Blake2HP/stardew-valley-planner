@@ -45,7 +45,7 @@ def test_generate_single_season(indexed_store):
     data = r.json()
     assert "第 1 年春季攻略" in data["markdown"] and "<table>" in data["html"]
     (s,) = data["seasons"]
-    assert (s["season"], s["start_gold"], s["end_gold"], s["attempts"]) == ("spring", 500, 2424, 1)
+    assert (s["season"], s["start_gold"], s["end_gold"], s["attempts"]) == ("spring", 500, 2724, 1)
 
 
 def test_generate_multi_season_with_bonuses(indexed_store):

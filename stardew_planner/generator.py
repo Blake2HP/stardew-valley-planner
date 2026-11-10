@@ -255,6 +255,8 @@ def generate_strategy(
         if start_gold is None and (season_key, year) == ("spring", 1):
             start_gold = data.starting_gold
         gold = gold_estimated = start_gold
+    # 新存档（第 1 年春季、没有上季状态）有开局赠送的种子
+    seed_stock = data.starting_seed_stock() if prior_state is None and (season_key, year) == ("spring", 1) else {}
     carry_in = prior_state.carry if prior_state else ()
 
     # 1) 检索攻略片段（RAG）+ 数据 → Prompt
@@ -262,7 +264,7 @@ def generate_strategy(
     guide_excerpts = search_guides(
         guide_query, n_results=n_guides, store=guide_store, fallback_chunks=data.guide_chunks
     )
-    carryover = render_state_for_prompt(prior_state, start_gold)
+    carryover = render_state_for_prompt(prior_state, start_gold, seed_stock)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
@@ -307,7 +309,7 @@ def generate_strategy(
     plantings, planting_warnings = resolve_plantings(parsed_strategy.plantings, data, season_key, year, bonuses)
     finance = compute_finance(
         plantings, carry_in, start_gold=gold, start_gold_estimated=gold_estimated,
-        other_income=parsed_strategy.other_income, bonuses=bonuses,
+        other_income=parsed_strategy.other_income, bonuses=bonuses, seed_stock=seed_stock,
     )
     end_state = extract_farm_state(season_key, year, plantings, finance, carry_in, macro.get("season_goals"))
 
