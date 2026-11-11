@@ -3,6 +3,11 @@
 # 🌱 Stardew Valley Strategy Generator
 
 [![tests](https://github.com/Blake2HP/stardew-valley-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/Blake2HP/stardew-valley-planner/actions/workflows/tests.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Code License: MIT](https://img.shields.io/badge/code%20license-MIT-green)](LICENSE)
+[![Data License: CC BY-NC-SA 3.0](https://img.shields.io/badge/data%20license-CC%20BY--NC--SA%203.0-lightgrey)](data/NOTICE.md)
+[![Stardew Valley 1.6](https://img.shields.io/badge/Stardew%20Valley-1.6-6BA539)](https://stardewvalleywiki.com/Version_History)
+[![LLM: Claude](https://img.shields.io/badge/LLM-Claude%20Opus%205.5-D97757)](https://www.anthropic.com/claude)
 
 Generate a full-season Stardew Valley guide tailored to your **playstyle** and **pacing**: a high-level strategy, key milestones, and a day-by-day plan for days 1–28.
 
@@ -18,6 +23,10 @@ Unlike asking an LLM directly, this project lets **code handle the numbers and t
 > The game data, prompts and generated guides are in **Chinese**. Playstyle and pacing can be written in any language, but the output guide is in Chinese.
 
 ## Example output
+
+<!-- Add a CLI screenshot or a web demo GIF here -->
+
+> 🖼️ **Screenshot slot**: a terminal screenshot of `python main.py --provider mock` fits here, ideally showing both the "⚠️ 换季校验" (season-change check) block and the "📅 每日核心目标" (daily goals), so readers see at a glance that code does the math and the model does the planning.
 
 ```bash
 python main.py -p "钓鱼赚钱，兼顾种田" -c "休闲慢节奏" -s spring --provider mock
@@ -46,6 +55,23 @@ python main.py -p "钓鱼赚钱，兼顾种田" -c "休闲慢节奏" -s spring -
 ```
 
 The guide has a high-level strategy, a milestone table, a season-change check, and the daily goals with consecutive identical days merged (e.g. "Days 3-4: fish at the beach"). See [sample_output.md](sample_output.md) for the full example.
+
+## Contents
+
+- [Example output](#example-output)
+- [Quick start](#quick-start)
+  - [Command-line options](#command-line-options)
+  - [Use from Python](#use-from-python)
+- [How it works](#how-it-works)
+- [Project structure](#project-structure)
+- [Extending the game data](#extending-the-game-data)
+- [Tests](#tests)
+- [Web demo](#web-demo)
+- [Model stability evaluation](#model-stability-evaluation)
+- [Claude Code skill: `stardew-data-guard`](#claude-code-skill-stardew-data-guard)
+- [Limitations and roadmap](#limitations-and-roadmap)
+- [Data sources and licensing](#data-sources-and-licensing)
+- [Disclaimer](#disclaimer)
 
 ## Quick start
 
@@ -223,6 +249,10 @@ The tests cover planting detection (15 phrasings), season-change checks and edge
 
 `web/` is a minimal web version: pick a playstyle, pacing, seasons (several in a row are fine), professions, fertilizer and farming level on the left; the right side shows end-of-season gold cards and the full guide, which you can copy or download as Markdown. The backend is FastAPI calling `generate_strategy` / `generate_plan` directly, with no changes to the core code.
 
+<!-- Add a CLI screenshot or a web demo GIF here -->
+
+> 🎬 **GIF slot**: a ~10-second GIF of the web page fits here: pick a playstyle, pacing and season on the left (maybe tick "温室已修好" (greenhouse repaired) and enter a few kegs and bee houses), click "生成攻略" (generate), and the gold cards and full guide appear on the right. Recording in mock mode costs no API credit.
+
 ```bash
 pip install -r requirements.txt
 python -m web                           # open http://127.0.0.1:8000; uses mock by default, no API cost
@@ -247,7 +277,7 @@ Real providers call the model at least once per run, which costs API credit. `--
 
 When you use [Claude Code](https://claude.com/claude-code) in this project, requests involving Stardew Valley numbers automatically use this skill (you can also invoke it with `/stardew-data-guard`). It requires Claude to:
 
-- **Never give numbers from memory**: values must come from `data/` or from the user. For anything the database doesn't cover (such as villagers not yet recorded, or drop chances), Claude asks the user for exact data.
+- **Never give numbers from memory**: values must come from `data/` or from the user. For anything the database doesn't cover (such as item-by-item gift tastes for fish and gems, or drop chances), Claude asks the user for exact data.
 - **Always check cross-season schedules**: run the schedule through the checker script and include a "⚠️ season-change check" block.
 - **Show the formula before the result**: e.g. `wine price = base price × 3 = 120 × 3 = 360g`.
 
@@ -270,6 +300,8 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 
 ## Limitations and roadmap
 
+### ✅ Done
+
 - [x] Replace the mock data with real 1.6 values (source: Stardew Valley Wiki)
 - [x] Profession bonuses (Tiller, Artisan, Agriculturist) and speed fertilizers (Speed-Gro, Deluxe, Hyper)
 - [x] Crop quality (silver / gold / iridium) and quality fertilizers (Basic / Quality / Deluxe), with a sell-high-stars, process-low-stars plan
@@ -288,7 +320,21 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Artisan goods across seasons (goods still in a machine are credited when they finish next season)
 - [x] Upgrade guide-text search from keyword matching to vector search (ChromaDB)
 - [x] Switch to a multilingual embedding model (paraphrase-multilingual-MiniLM-L12-v2) for better Chinese retrieval
-- [ ] Test model output stability against real APIs
+
+### 🚧 Current limitations
+
+- [ ] Test model output stability against real APIs (`scripts/eval_llm.py` is ready, but no real results yet)
+- [ ] Gift checks keep categories such as "all fish" or "all gems" as the wiki text only, without listing each item, so they can only say "not in the recorded tastes"
+- [ ] The processing simulation runs at most one batch per machine per day (coffee could be reloaded every 2 hours, so this is conservative)
+- [ ] The bee house simulation assumes one plant of each flower is left by the hives; Coffee Bean seeds only come from the Traveling Cart by luck and are counted at 2,500g
+- [ ] Yield doesn't change with farming level (Unmilled Rice averages 2.11 from level 10, but is fixed at 1.61)
+
+### 🔭 Future plans
+
+- [ ] **Prompt caching**: the data tables and rules are resent on every call; caching them would noticeably cut API cost and time to first token, most of all for multi-season planning and self-correction
+- [ ] **Local models**: support OpenAI-compatible endpoints such as Ollama / vLLM for fully offline planning
+- [ ] **Livestock and more greenhouse support**: animals, animal products and the mayonnaise / cheese processing chain; fruit trees and more indoor crops in the greenhouse
+- [ ] **Export to calendar (.ics)**: import the 28-day schedule straight into a phone or desktop calendar, with reminders on festivals and birthdays
 
 ## Data sources and licensing
 
