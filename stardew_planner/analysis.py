@@ -266,6 +266,7 @@ def build_data_context(
     machines: dict[str, int] | None = None,
     greenhouse: bool = False,
     herds=(),
+    bundle_text: str | None = None,
 ) -> dict[str, str]:
     """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 "
@@ -326,6 +327,7 @@ def build_data_context(
         "carryover": carryover,
         "npc_birthdays": describe_birthdays(data, season),
         "livestock": describe_herds(list(herds), normalize_season(season), data.hay_price),
+        "bundles": bundle_text or "（没有选择社区中心献祭路线）",
     }
 
 

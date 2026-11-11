@@ -10,10 +10,11 @@ from .bonuses import NO_BONUSES, Bonuses, fertilizer_availability_note, resolve_
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .farm_state import (
     FarmState, OtherIncome, Planting, SeasonFinance, compute_finance, extract_farm_state,
-    bus_warnings, following_season, greenhouse_warnings, late_planting_warnings, render_state_for_prompt,
+    bus_warnings, following_season, greenhouse_warnings, season_harvest_units, late_planting_warnings, render_state_for_prompt,
     resolve_plantings,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
+from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
 from .livestock import Herd, parse_animals
 from .llm_client import LLMClient, TruncatedOutput, get_client
 from .prompts import REPAIR_PROMPT_TEMPLATE, REVISE_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
@@ -261,6 +262,7 @@ class _Season:
     machines: dict = field(default_factory=dict)
     greenhouse: bool = False
     herds: tuple = ()
+    bundle_needs: tuple = ()   # 献祭路线下本季要留的作物（bundles.CropNeed）
 
 
 @dataclass
@@ -283,12 +285,19 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     notes: list[str] = []
     plantings, planting_warnings = resolve_plantings(strategy.plantings, data, season_key, s.year, s.bonuses,
                                                      s.greenhouse, notes)
+    reservations = []
+    if s.bundle_needs:
+        units = season_harvest_units(plantings, carry_in)
+        odds = s.bonuses.quality_odds()
+        required = [n for n in s.bundle_needs if n.required]  # 可选的（4 选 3、金星）只做提示，不扣钱
+        reservations = reserve(required, units, odds.get("gold", 0) + odds.get("iridium", 0), s.bonuses)
     finance = compute_finance(
         plantings, carry_in, start_gold=s.gold, start_gold_estimated=s.gold_estimated,
         other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock, stock_label=s.stock_label,
         machines=s.machines, rules_for=data.artisan_rules_for,
         goods_in=s.prior_state.goods if s.prior_state else (), season=season_key, honey=data.honey,
         herds=s.herds, hay_price=data.hay_price,
+        set_aside=reservations, bundle_done_in=s.prior_state.bundle_done if s.prior_state else (),
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -305,6 +314,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     problems += greenhouse_warnings(plantings, carry_in, data.greenhouse_tiles)
     if s.herds:
         problems += check_animal_care(goals, [h.animal.name for h in s.herds])
+    problems += route_warnings(reservations, season_key)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
     if note and note.startswith("⚠️"):
         problems.append(note)
@@ -366,6 +376,7 @@ def generate_strategy(
     greenhouse: bool = False,
     bee_houses: int = 0,
     animals=None,
+    route: str | None = None,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -385,6 +396,8 @@ def generate_strategy(
         farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
         kegs / jars: 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工（见 processing.py），
             加工净增计入资金；第 28 天还没做完的带到下一季。
+        route: "community_center" 时走社区中心献祭路线：收集包要用的作物先留下、不卖（从收入里扣掉售价），
+            今年最后能种某种作物的季节还没留下时报“献祭校验”，交给模型修正（见 bundles.py）。
         animals: 本季第 1 天新买的动物，"鸡:2,牛:1" 或 {"鸡": 2}（见 data/animals.json、livestock.py）。
             上季带来的动物（prior_state.animals）自动计入、已成年；产出、买动物和冬季干草计入资金。
         bee_houses: 室外蜂房的数量。每 4 天一罐，按室外开着的最值钱的花算花蜜（见 honey.py），计入资金；冬季不产。
@@ -414,6 +427,12 @@ def generate_strategy(
     herds = tuple(Herd(by_name[name], n, new=False) for name, n in (prior_state.animals if prior_state else ())
                   if name in by_name)
     herds += tuple(Herd(a, n, new=True) for a, n in parse_animals(animals, data.animals).items())
+    route = resolve_route(route)
+    done = set(prior_state.bundle_done) if prior_state else set()
+    bundle_needs = tuple(season_needs(crop_needs(data.bundles, data.crops), season_key, year, done)) if route else ()
+    done_labels = [f"{n.label}" for n in crop_needs(data.bundles, data.crops)
+                   if (n.bundle.name_en, n.crop.name_en) in done] if route else []
+    bundle_text = describe_route(list(bundle_needs), season_key, done_labels) if route else None
     if data.farm_types:
         data.resolve_farm_type(farm_type)  # 写错时尽早报错
     client = client or get_client(provider, model)
@@ -440,7 +459,7 @@ def generate_strategy(
     )
     carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
-                                 machines, greenhouse, herds)
+                                 machines, greenhouse, herds, bundle_text)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -448,7 +467,7 @@ def generate_strategy(
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
-                          machines, greenhouse, herds)
+                          machines, greenhouse, herds, bundle_needs)
     draft = _draft(client, messages, max_retries)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)

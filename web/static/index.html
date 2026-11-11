@@ -160,6 +160,13 @@
             <label for="animals">新买动物 <span class="hint">如 鸡:2,牛:1</span></label>
             <input id="animals" type="text" maxlength="100" placeholder="鸡:2,牛:1">
           </div>
+          <div>
+            <label for="route">路线</label>
+            <select id="route">
+              <option value="">不指定</option>
+              <option value="community_center">社区中心献祭</option>
+            </select>
+          </div>
         </div>
       </details>
 
@@ -312,6 +319,7 @@ $("form").addEventListener("submit", async (e) => {
     jars: Number($("jars").value) || 0,
     bee_houses: Number($("beeHouses").value) || 0,
     animals: $("animals").value.trim() || null,
+    route: $("route").value || null,
     greenhouse: $("greenhouse").checked,
   };
   setLoading(true);

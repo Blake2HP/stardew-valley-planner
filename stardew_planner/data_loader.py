@@ -226,6 +226,7 @@ class GameData:
     honey: HoneyRule | None = None  # 花蜜规则（data/artisan.json）
     animals: list = field(default_factory=list)  # 农场动物（data/animals.json），元素为 livestock.Animal
     hay_price: int = 50                          # 玛妮牧场的干草价格（data/animals.json）
+    bundles: list = field(default_factory=list)  # 社区中心收集包（data/bundles.json），元素为 bundles.Bundle
 
     def resolve_farm_type(self, name: str | None) -> str:
         """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
@@ -286,6 +287,16 @@ def load_crops(path: Path) -> list[Crop]:
     raw = _read_json(path)["crops"]
     return [Crop(**{**item, "seasons": tuple(item["seasons"]), "aliases": tuple(item.get("aliases", ())),
                     "byproducts": tuple(Byproduct(**b) for b in item.get("byproducts", ()))}) for item in raw]
+
+
+def load_bundles(path: Path) -> list:
+    """社区中心收集包；文件不存在时为空（献祭路线没有可检查的物品）。"""
+    from .bundles import Bundle, BundleItem  # 避免循环导入
+    if not path.exists():
+        return []
+    return [Bundle(b["name"], b["name_en"], b["room"], b["room_en"], int(b["slots"]),
+                   tuple(BundleItem(i["name_en"], int(i["count"]), i.get("quality", "normal")) for i in b["items"]))
+            for b in _read_json(path)["bundles"]]
 
 
 def load_animals(path: Path) -> list:
@@ -351,6 +362,7 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         artisan_rules=load_artisan_rules(data_dir / "artisan.json"),
         honey=load_honey(data_dir / "artisan.json"),
         animals=load_animals(data_dir / "animals.json"),
+        bundles=load_bundles(data_dir / "bundles.json"),
         hay_price=int(_read_json(data_dir / "animals.json").get("hay_price", 50)) if (data_dir / "animals.json").exists()
         else 50,
         calendar=load_calendar(data_dir / "calendar.json"),

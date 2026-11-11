@@ -120,6 +120,7 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | `-o, --output` | 同时把攻略保存为 Markdown 文件 | 不保存 |
 | `--kegs` / `--jars` | 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工：低星、多赚多的先加工，机器排满后换另一种机器，加工净增计入资金；第 28 天还没做完的带到下一季 | `0`（不模拟） |
 | `--bee-houses` | 室外蜂房数量。每 4 天一罐，按取蜜当天室外开着的最值钱的花算花蜜（没有花是野蜂蜜 100g），计入资金；冬季不产，温室里的花不算 | `0`（不模拟） |
+| `--route` | 游戏路线。`community_center`：社区中心献祭，收集包要用的作物（春 / 夏 / 秋季作物包、染料包的向日葵、厨师包的虞美人、饲料包的 10 个小麦等）先留下、不卖，按售价从收入里扣掉；今年最后能种某种作物的季节还没留下时报“⚠️ 献祭校验”并交给模型修正 | 不指定 |
 | `--animals` | 本季第 1 天新买的动物，如 `"鸡:2,牛:1"`（鸡、鸭、兔子、牛、山羊、绵羊、猪，也可以写英文名）。按 wiki 的成熟天数和产出周期计算基础产品收入，扣除购买价和冬季干草，计入资金；跨季规划时动物带到下一季、不重复购买。养了动物时每天的目标都要包含“照料动物” | 不养 |
 | `--greenhouse` | 温室已修好。可以在种植清单里写 `"place": "greenhouse"`：温室不受季节限制，可再生作物换季不会枯死，最多 120 格（超出、没修好时使用都会报问题） | 不开启 |
 | `--farm-type` | 农场地图：`standard` / `riverland` / `forest` / `hilltop` / `wilderness` / `four_corners` / `beach` / `meadowlands`（也可以写中文名）。草原农场开局没有赠送的 15 颗防风草种子 | `standard` |
@@ -205,6 +206,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── processing.py           加工模拟（机器数量、加工时间、跨季加工品）
 │   ├── honey.py                蜂房模拟（按开着的花算花蜜）
 │   ├── livestock.py            畜牧（动物产出、购买与干草成本）
+│   ├── bundles.py              社区中心献祭路线（预留作物、献祭校验）
 │   ├── farm_state.py           跨季收获模拟、资金计算、季末农场状态
 │   └── generator.py            generate_strategy() / generate_plan() 主流程
 ├── data/
@@ -215,6 +217,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── farm.json               开局金币
 │   ├── npcs.json               NPC 生日与送礼喜好
 │   ├── animals.json            农场动物：价格、成熟天数、产出周期与产品
+│   ├── bundles.json            社区中心收集包（标准版）
 │   ├── NOTICE.md               数据来源与许可
 │   └── guides/*.md             攻略文本
 ├── tests/                      pytest 测试
@@ -318,6 +321,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 支持跨季连续规划（资金与跨季作物衔接）
 - [x] 跨季的加工品（季末还在机器里的货品下季完成时入账）
 - [x] 温室规划（`--greenhouse`：不受季节限制、120 格上限、作物跨季延续）
+- [x] 社区中心献祭路线（`--route community_center`：收集包作物先留下、按售价扣钱，最后机会没留下时报献祭校验）
 - [x] 畜牧基础（`--animals`：鸡、鸭、兔子、牛、山羊、绵羊、猪的产出、购买和冬季干草，每天照料动物校验）
 - [x] 攻略文本检索从关键词匹配升级为向量检索（ChromaDB）
 - [x] 换用多语言 Embedding 模型（paraphrase-multilingual-MiniLM-L12-v2），提升中文检索效果
@@ -342,7 +346,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 | 内容 | 来源 | 许可 |
 |---|---|---|
 | 代码（`stardew_planner/`、`web/`、`scripts/`、`tests/`、`main.py` 等） | 本项目编写 | [MIT](LICENSE) |
-| `data/crops.json`、`artisan.json`、`bonuses.json`、`farm.json`、`npcs.json`、`animals.json` 中的数值 | 整理自 [Stardew Valley Wiki](https://stardewvalleywiki.com)（1.6 版本，核对日期 2026-11-05） | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)，沿用原协议 |
+| `data/crops.json`、`artisan.json`、`bonuses.json`、`farm.json`、`npcs.json`、`animals.json`、`bundles.json` 中的数值 | 整理自 [Stardew Valley Wiki](https://stardewvalleywiki.com)（1.6 版本，核对日期 2026-11-05） | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)，沿用原协议 |
 | `data/calendar.json`、`data/guides/` | 本项目自行编写（节日日期为游戏内固定日程） | [MIT](LICENSE) |
 
 Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights) 授权：使用时须署名，**不得用于商业用途**，改编后须以相同协议发布。因此，来自 wiki 的数据文件同样按 CC BY-NC-SA 3.0 提供。代码按 MIT 许可，可以自由使用（包括商用）；但如果连同上述数据一起用于商业用途，需要先取得 wiki 版权方的许可，或者换成自行核实的数据。详见 [data/NOTICE.md](data/NOTICE.md)。

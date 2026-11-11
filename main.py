@@ -42,6 +42,8 @@ def main() -> None:
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
     parser.add_argument("--kegs", type=int, default=0, help="小桶数量；给出时按机器数量和加工时间模拟加工，计入资金")
     parser.add_argument("--jars", type=int, default=0, help="罐头瓶数量")
+    parser.add_argument("--route", default=None, choices=["community_center"],
+                        help="游戏路线：community_center = 社区中心献祭，收集包要用的作物先留下、不卖，没留下时报献祭校验")
     parser.add_argument("--animals", default=None,
                         help="本季第 1 天新买的动物，如 \"鸡:2,牛:1\"（鸡、鸭、兔子、牛、山羊、绵羊、猪）；产出和成本计入资金")
     parser.add_argument("--bee-houses", type=int, default=0,
@@ -92,6 +94,7 @@ def main() -> None:
         farming_level=args.farming_level, processing_share=args.processing_share,
         revise_rounds=args.revise_rounds, farm_type=args.farm_type, kegs=args.kegs, jars=args.jars,
         greenhouse=args.greenhouse, bee_houses=args.bee_houses, animals=args.animals,
+        route=args.route,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

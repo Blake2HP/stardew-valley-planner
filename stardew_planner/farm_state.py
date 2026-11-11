@@ -133,12 +133,14 @@ class SeasonFinance:
     goods_out: list[GoodsInProcess] = field(default_factory=list)  # 季末还在机器里的货品，带到下一季
     honey_income: int = 0     # 蜂房产的蜂蜜收入（没有蜂房时为 0）
     livestock_net: int = 0    # 畜牧净收支：动物产品收入 − 买动物 − 冬季干草（没有动物时为 0）
+    bundle_value: int = 0     # 留给社区中心收集包、没有卖的作物原本的售价（献祭路线）
+    bundle_done: tuple[tuple[str, str], ...] = ()  # 到本季为止已经留下的 (收集包英文名, 作物英文名)
     herds_out: tuple[tuple[str, int], ...] = ()  # 季末拥有的动物（名字, 数量），带到下一季
 
     @property
     def crop_net(self) -> int:
         return (self.crop_revenue - self.seed_cost - self.fertilizer_cost + self.processing_net
-                + self.honey_income + self.livestock_net)
+                + self.honey_income + self.livestock_net - self.bundle_value)
 
     @property
     def other_total(self) -> int:
@@ -169,6 +171,7 @@ class FarmState:
     seeds: tuple[tuple[str, float], ...] = ()  # 季末手上剩余的种子（作物名, 数量），下一季先用
     goods: tuple[GoodsInProcess, ...] = ()     # 季末还在机器里的加工品，下一季完成时入账
     animals: tuple[tuple[str, int], ...] = ()  # 季末拥有的动物（名字, 数量），下一季已成年
+    bundle_done: tuple[tuple[str, str], ...] = ()  # 已经留给社区中心的 (收集包英文名, 作物英文名)
 
     @property
     def carried_names(self) -> tuple[str, ...]:
@@ -304,6 +307,8 @@ def compute_finance(
     honey: HoneyRule | None = None,
     herds: tuple[Herd, ...] = (),
     hay_price: int = 50,
+    set_aside=(),
+    bundle_done_in: tuple[tuple[str, str], ...] = (),
 ) -> SeasonFinance:
     """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。
 
@@ -313,6 +318,7 @@ def compute_finance(
     goods_in 是上季还在机器里的货品。
     machines 里的“蜂房”按室外开着的花算蜂蜜（见 honey.py），需要同时给出 season 和 honey。
     herds 是本季的动物（见 livestock.py），需要同时给出 season；不给时不计畜牧。
+    set_aside 是留给社区中心收集包的作物（bundles.Reservation），留下的按售价从收入里扣掉。
     """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
@@ -404,6 +410,18 @@ def compute_finance(
         honey_result = simulate_honey(blooms, normalize_season(season), bee_houses, honey, bonuses)
         lines += honey_result.lines
 
+    bundle_value, done = 0, list(bundle_done_in)
+    first_harvest = {e[1].name: e[0] for e in sorted(harvest_events, key=lambda e: e[0])}
+    for r in set_aside:
+        if not r.reserved:
+            continue
+        n = r.need
+        bundle_value += r.value
+        day = first_harvest.get(n.crop.name, SEASON_DAYS)
+        spent_by_day[day] = spent_by_day.get(day, 0) + r.value
+        done.append((n.bundle.name_en, n.crop.name_en))
+        lines.append(f"献祭预留：{n.label} = {n.count} × {r.value // n.count}g = {r.value}g（不卖，从收入里扣掉）")
+
     livestock = None
     if herds and season is not None:
         livestock = simulate_livestock(list(herds), normalize_season(season), hay_price)
@@ -423,6 +441,8 @@ def compute_finance(
         honey_income=honey_result.income if honey_result else 0,
         livestock_net=livestock.net if livestock else 0,
         herds_out=_merge_herds(herds),
+        bundle_value=bundle_value,
+        bundle_done=tuple(dict.fromkeys(done)),
     )
 
     # 逐日现金流（只算种植收支）：找出第一次买不起种子或肥料的日子
@@ -445,6 +465,17 @@ def compute_finance(
     return finance
 
 
+def season_harvest_units(plantings: list[Planting], carry_in: tuple[CarryCrop, ...] = ()) -> dict[str, float]:
+    """本季每种作物的期望收获个数（只算第 1-28 天的收获）。"""
+    out: dict[str, float] = {}
+    for crop, tiles, days in [(c.crop, c.tiles, c.harvest_days) for c in carry_in] + \
+            [(p.crop, p.tiles, p.harvests) for p in plantings]:
+        n = sum(1 for d in days if d <= SEASON_DAYS)
+        if n:
+            out[crop.name] = out.get(crop.name, 0) + n * tiles * crop.harvest_yield
+    return out
+
+
 def _merge_herds(herds) -> tuple[tuple[str, int], ...]:
     out: dict[str, int] = {}
     for h in herds:
@@ -460,6 +491,7 @@ def describe_finance(f: SeasonFinance) -> list[str]:
     processing = f" + 加工净增 {f.processing_net}" if f.processing_net else ""
     processing += f" + 蜂蜜 {f.honey_income}" if f.honey_income else ""
     processing += f" {'+' if f.livestock_net >= 0 else '−'} 畜牧 {abs(f.livestock_net)}" if f.livestock_net else ""
+    processing += f" − 献祭预留 {f.bundle_value}" if f.bundle_value else ""
     net = (f"种植净收支 = 收入 {f.crop_revenue} − 种子 {f.seed_cost} − 肥料 {f.fertilizer_cost}{processing}"
            f" = {f.crop_net}g（程序计算）")
     out.append(net)
@@ -510,6 +542,7 @@ def extract_farm_state(
         seeds=tuple(finance.seeds_left.items()),
         goods=tuple(finance.goods_out),
         animals=finance.herds_out,
+        bundle_done=finance.bundle_done,
     )
 
 

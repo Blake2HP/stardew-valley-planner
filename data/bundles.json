@@ -1,0 +1,813 @@
+{
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Bundles 的标准收集包（不含开局时可选的“混合收集包”）。收集包与房间的中文名取自 zh.stardewvalleywiki.com/收集包。金库（2,500g–25,000g）和失踪的收集包没有物品，未收录。核对日期 2026-11-11。",
+  "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
+  "_fields": "slots：需要填几格；物品数多于格数时可以任选（如高品质作物收集包 4 选 3），相等时每样都要。items：[英文名, 数量, 品质]，品质 gold 表示金星及以上。程序只用到 crops.json 里有的作物。",
+  "bundles": [
+    {
+      "name": "春季采集收集包",
+      "name_en": "Spring Foraging Bundle",
+      "room": "工艺室",
+      "room_en": "Crafts Room",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Wild Horseradish",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Daffodil",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Leek",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Dandelion",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "夏季采集收集包",
+      "name_en": "Summer Foraging Bundle",
+      "room": "工艺室",
+      "room_en": "Crafts Room",
+      "slots": 3,
+      "items": [
+        {
+          "name_en": "Grape",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Spice Berry",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Sweet Pea",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "冬季采集收集包",
+      "name_en": "Winter Foraging Bundle",
+      "room": "工艺室",
+      "room_en": "Crafts Room",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Winter Root",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Crystal Fruit",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Snow Yam",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Crocus",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "建筑收集包",
+      "name_en": "Construction Bundle",
+      "room": "工艺室",
+      "room_en": "Crafts Room",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Wood",
+          "count": 99,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Wood",
+          "count": 99,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Stone",
+          "count": 99,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Hardwood",
+          "count": 10,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "异国情调采集收集包",
+      "name_en": "Exotic Foraging Bundle",
+      "room": "工艺室",
+      "room_en": "Crafts Room",
+      "slots": 5,
+      "items": [
+        {
+          "name_en": "Coconut",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Cactus Fruit",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Cave Carrot",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Red Mushroom",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Purple Mushroom",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Maple Syrup",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Oak Resin",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Pine Tar",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Morel",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "春季作物收集包",
+      "name_en": "Spring Crops Bundle",
+      "room": "茶水间",
+      "room_en": "Pantry",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Parsnip",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Green Bean",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Cauliflower",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Potato",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "夏季作物收集包",
+      "name_en": "Summer Crops Bundle",
+      "room": "茶水间",
+      "room_en": "Pantry",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Tomato",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Hot Pepper",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Blueberry",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Melon",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "秋季作物收集包",
+      "name_en": "Fall Crops Bundle",
+      "room": "茶水间",
+      "room_en": "Pantry",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Corn",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Eggplant",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Pumpkin",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Yam",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "高品质作物收集包",
+      "name_en": "Quality Crops Bundle",
+      "room": "茶水间",
+      "room_en": "Pantry",
+      "slots": 3,
+      "items": [
+        {
+          "name_en": "Parsnip",
+          "count": 5,
+          "quality": "gold"
+        },
+        {
+          "name_en": "Melon",
+          "count": 5,
+          "quality": "gold"
+        },
+        {
+          "name_en": "Pumpkin",
+          "count": 5,
+          "quality": "gold"
+        },
+        {
+          "name_en": "Corn",
+          "count": 5,
+          "quality": "gold"
+        }
+      ]
+    },
+    {
+      "name": "动物收集包",
+      "name_en": "Animal Bundle",
+      "room": "茶水间",
+      "room_en": "Pantry",
+      "slots": 5,
+      "items": [
+        {
+          "name_en": "Large Milk",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Large Brown Egg",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Large Egg",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Large Goat Milk",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Wool",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Duck Egg",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "工匠收集包",
+      "name_en": "Artisan Bundle",
+      "room": "茶水间",
+      "room_en": "Pantry",
+      "slots": 6,
+      "items": [
+        {
+          "name_en": "Truffle Oil",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Cloth",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Goat Cheese",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Cheese",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Honey",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Jelly",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Apple",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Apricot",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Orange",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Peach",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Pomegranate",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Cherry",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "河鱼收集包",
+      "name_en": "River Fish Bundle",
+      "room": "鱼缸",
+      "room_en": "Fish Tank",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Sunfish",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Catfish",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Shad",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Tiger Trout",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "湖鱼收集包",
+      "name_en": "Lake Fish Bundle",
+      "room": "鱼缸",
+      "room_en": "Fish Tank",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Largemouth Bass",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Carp",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Bullhead",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Sturgeon",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "海鱼收集包",
+      "name_en": "Ocean Fish Bundle",
+      "room": "鱼缸",
+      "room_en": "Fish Tank",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Sardine",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Tuna",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Red Snapper",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Tilapia",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "蟹笼收集包",
+      "name_en": "Crab Pot Bundle",
+      "room": "鱼缸",
+      "room_en": "Fish Tank",
+      "slots": 5,
+      "items": [
+        {
+          "name_en": "Lobster",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Crayfish",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Crab",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Cockle",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Mussel",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Shrimp",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Snail",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Periwinkle",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Oyster",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Clam",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "特色鱼类收集包",
+      "name_en": "Specialty Fish Bundle",
+      "room": "鱼缸",
+      "room_en": "Fish Tank",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Pufferfish",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Ghostfish",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Sandfish",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Woodskip",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "铁匠的收集包",
+      "name_en": "Blacksmith's Bundle",
+      "room": "锅炉房",
+      "room_en": "Boiler Room",
+      "slots": 3,
+      "items": [
+        {
+          "name_en": "Copper Bar",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Iron Bar",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Gold Bar",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "地理学家的收集包",
+      "name_en": "Geologist's Bundle",
+      "room": "锅炉房",
+      "room_en": "Boiler Room",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Quartz",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Earth Crystal",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Frozen Tear",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Fire Quartz",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "冒险家的收集包",
+      "name_en": "Adventurer's Bundle",
+      "room": "锅炉房",
+      "room_en": "Boiler Room",
+      "slots": 2,
+      "items": [
+        {
+          "name_en": "Slime",
+          "count": 99,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Bat Wing",
+          "count": 10,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Solar Essence",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Void Essence",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "厨师收集包",
+      "name_en": "Chef's Bundle",
+      "room": "布告栏",
+      "room_en": "Bulletin Board",
+      "slots": 6,
+      "items": [
+        {
+          "name_en": "Maple Syrup",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Fiddlehead Fern",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Truffle",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Poppy",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Maki Roll",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Fried Egg",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "染料收集包",
+      "name_en": "Dye Bundle",
+      "room": "布告栏",
+      "room_en": "Bulletin Board",
+      "slots": 6,
+      "items": [
+        {
+          "name_en": "Red Mushroom",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Sea Urchin",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Sunflower",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Duck Feather",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Aquamarine",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Red Cabbage",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "土地研究收集包",
+      "name_en": "Field Research Bundle",
+      "room": "布告栏",
+      "room_en": "Bulletin Board",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Purple Mushroom",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Nautilus Shell",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Chub",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Frozen Geode",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "饲料收集包",
+      "name_en": "Fodder Bundle",
+      "room": "布告栏",
+      "room_en": "Bulletin Board",
+      "slots": 3,
+      "items": [
+        {
+          "name_en": "Wheat",
+          "count": 10,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Hay",
+          "count": 10,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Apple",
+          "count": 3,
+          "quality": "normal"
+        }
+      ]
+    },
+    {
+      "name": "魔法师收集包",
+      "name_en": "Enchanter's Bundle",
+      "room": "布告栏",
+      "room_en": "Bulletin Board",
+      "slots": 4,
+      "items": [
+        {
+          "name_en": "Oak Resin",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Wine",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Rabbit's Foot",
+          "count": 1,
+          "quality": "normal"
+        },
+        {
+          "name_en": "Pomegranate",
+          "count": 1,
+          "quality": "normal"
+        }
+      ]
+    }
+  ]
+}
