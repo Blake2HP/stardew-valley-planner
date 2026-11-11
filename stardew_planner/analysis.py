@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, QUALITIES, Bonuses
 from .livestock import describe_herds
+from .tools import describe_tools
 from .data_loader import (
     NO_GUIDES_TEXT, SEASON_ZH, ArtisanRule, Crop, GameData, GiftItem, HoneyRule, normalize_season,
 )
@@ -328,6 +329,7 @@ def build_data_context(
         "npc_birthdays": describe_birthdays(data, season),
         "livestock": describe_herds(list(herds), normalize_season(season), data.hay_price),
         "bundles": bundle_text or "（没有选择社区中心献祭路线）",
+        "tools": describe_tools(data.tool_rules) if data.tool_rules else "（没有工具升级数据）",
     }
 
 

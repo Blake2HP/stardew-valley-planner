@@ -135,12 +135,13 @@ class SeasonFinance:
     livestock_net: int = 0    # 畜牧净收支：动物产品收入 − 买动物 − 冬季干草（没有动物时为 0）
     bundle_value: int = 0     # 留给社区中心收集包、没有卖的作物原本的售价（献祭路线）
     bundle_done: tuple[tuple[str, str], ...] = ()  # 到本季为止已经留下的 (收集包英文名, 作物英文名)
+    tool_cost: int = 0        # 工具升级费用（交送时支付）
     herds_out: tuple[tuple[str, int], ...] = ()  # 季末拥有的动物（名字, 数量），带到下一季
 
     @property
     def crop_net(self) -> int:
         return (self.crop_revenue - self.seed_cost - self.fertilizer_cost + self.processing_net
-                + self.honey_income + self.livestock_net - self.bundle_value)
+                + self.honey_income + self.livestock_net - self.bundle_value - self.tool_cost)
 
     @property
     def other_total(self) -> int:
@@ -309,6 +310,7 @@ def compute_finance(
     hay_price: int = 50,
     set_aside=(),
     bundle_done_in: tuple[tuple[str, str], ...] = (),
+    fixed_costs: list[tuple[int, int, str]] = (),
 ) -> SeasonFinance:
     """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。
 
@@ -319,6 +321,7 @@ def compute_finance(
     machines 里的“蜂房”按室外开着的花算蜂蜜（见 honey.py），需要同时给出 season 和 honey。
     herds 是本季的动物（见 livestock.py），需要同时给出 season；不给时不计畜牧。
     set_aside 是留给社区中心收集包的作物（bundles.Reservation），留下的按售价从收入里扣掉。
+    fixed_costs 是其他固定支出 (日, 金币, 说明)，例如工具升级费。
     """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
@@ -422,6 +425,12 @@ def compute_finance(
         done.append((n.bundle.name_en, n.crop.name_en))
         lines.append(f"献祭预留：{n.label} = {n.count} × {r.value // n.count}g = {r.value}g（不卖，从收入里扣掉）")
 
+    tool_cost = 0
+    for day, gold, label in fixed_costs:
+        tool_cost += gold
+        spent_by_day[day] = spent_by_day.get(day, 0) + gold
+        lines.append(label)
+
     livestock = None
     if herds and season is not None:
         livestock = simulate_livestock(list(herds), normalize_season(season), hay_price)
@@ -443,6 +452,7 @@ def compute_finance(
         herds_out=_merge_herds(herds),
         bundle_value=bundle_value,
         bundle_done=tuple(dict.fromkeys(done)),
+        tool_cost=tool_cost,
     )
 
     # 逐日现金流（只算种植收支）：找出第一次买不起种子或肥料的日子
@@ -458,6 +468,7 @@ def compute_finance(
                 cash += livestock.cash_by_day.get(day, 0)
             if cash < 0:
                 what = "买种子、肥料和动物" if livestock else "买种子和肥料"
+                what += "、升级工具" if tool_cost else ""
                 finance.warnings.append(
                     f"⚠️ 第 {day} 天{what}后现金为 {int(cash)}g：只算种植收支时资金不足"
                     f"（未计入钓鱼、挖矿等其他收入，请确认届时有足够现金）")
@@ -492,6 +503,7 @@ def describe_finance(f: SeasonFinance) -> list[str]:
     processing += f" + 蜂蜜 {f.honey_income}" if f.honey_income else ""
     processing += f" {'+' if f.livestock_net >= 0 else '−'} 畜牧 {abs(f.livestock_net)}" if f.livestock_net else ""
     processing += f" − 献祭预留 {f.bundle_value}" if f.bundle_value else ""
+    processing += f" − 工具升级 {f.tool_cost}" if f.tool_cost else ""
     net = (f"种植净收支 = 收入 {f.crop_revenue} − 种子 {f.seed_cost} − 肥料 {f.fertilizer_cost}{processing}"
            f" = {f.crop_net}g（程序计算）")
     out.append(net)

@@ -10,6 +10,7 @@
 | `artisan.json` | [Keg](https://stardewvalleywiki.com/Keg)、[Preserves Jar](https://stardewvalleywiki.com/Preserves_Jar) |
 | `bonuses.json` | [Farming](https://stardewvalleywiki.com/Farming)、[Fertilizer](https://stardewvalleywiki.com/Fertilizer)、[Speed-Gro](https://stardewvalleywiki.com/Speed-Gro) |
 | `farm.json` | [Gold](https://stardewvalleywiki.com/Gold)、[Getting Started](https://stardewvalleywiki.com/Getting_Started)、[The Farm](https://stardewvalleywiki.com/The_Farm) |
+| `tools.json` | [Blacksmith](https://stardewvalleywiki.com/Blacksmith#Upgrade_Tools) 的工具升级耗时、费用、材料与节日取货规则 |
 | `bundles.json` | [Bundles](https://stardewvalleywiki.com/Bundles) 的标准收集包（房间、格数、物品、数量与品质）；中文名取自 zh.stardewvalleywiki.com/收集包 |
 | `animals.json` | 各动物页面（[Chicken](https://stardewvalleywiki.com/Chicken) 等）的购买价、成熟夜数、产出周期与产品售价，[Marnie's Ranch](https://stardewvalleywiki.com/Marnie%27s_Ranch) 的干草与工具价格，[Animals](https://stardewvalleywiki.com/Animals#Food) 的喂养规则 |
 | `npcs.json` | 34 位可送礼村民页面（[Haley](https://stardewvalleywiki.com/Haley) 等）的生日、是否可结婚与 Gifts、[Friendship](https://stardewvalleywiki.com/Friendship)；中文名取自官方 wiki 中文版（zh.stardewvalleywiki.com）的跨语言链接 |
@@ -35,4 +36,4 @@ Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://creativecommons.org/l
 
 ---
 
-**English summary**: values in `crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json`, `animals.json` and `bundles.json` are compiled from the Stardew Valley Wiki and are provided under CC BY-NC-SA 3.0, the same license as the wiki: attribution required, no commercial use, share alike. `calendar.json` and `guides/` were written for this project and, like the code, are MIT-licensed (see LICENSE). Stardew Valley and its content belong to ConcernedApe; this project is unofficial.
+**English summary**: values in `crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json`, `animals.json`, `bundles.json` and `tools.json` are compiled from the Stardew Valley Wiki and are provided under CC BY-NC-SA 3.0, the same license as the wiki: attribution required, no commercial use, share alike. `calendar.json` and `guides/` were written for this project and, like the code, are MIT-licensed (see LICENSE). Stardew Valley and its content belong to ConcernedApe; this project is unofficial.

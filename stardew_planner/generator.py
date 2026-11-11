@@ -16,6 +16,7 @@ from .farm_state import (
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
 from .livestock import Herd, parse_animals
+from .tools import check_upgrades, parse_upgrades, upgrade_costs
 from .llm_client import LLMClient, TruncatedOutput, get_client
 from .prompts import REPAIR_PROMPT_TEMPLATE, REVISE_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
 from .renderer import render_markdown
@@ -80,6 +81,7 @@ class ParsedStrategy:
     goals: dict[int, str]
     plantings: list[dict] = field(default_factory=list)  # {"day", "crop", "tiles"}
     other_income: list[OtherIncome] = field(default_factory=list)
+    tool_upgrades: list = field(default_factory=list)    # 原样保留，校验见 tools.py
 
 
 def _parse_plantings(raw, errors: list[str] | None) -> list[dict]:
@@ -154,7 +156,7 @@ def validate_payload(payload: dict) -> ParsedStrategy:
         raise StrategyParseError("；".join(errors))
 
     return ParsedStrategy(macro, _clean_milestones(milestones), goals, plantings,
-                          _parse_other_income(payload.get("other_income")))
+                          _parse_other_income(payload.get("other_income")), payload.get("tool_upgrades") or [])
 
 
 def _clean_milestones(milestones) -> list[dict]:
@@ -182,7 +184,7 @@ def _lenient_parse(payload: dict) -> ParsedStrategy:
         goals[d] = v.strip() if isinstance(v, str) and v.strip() else FALLBACK_GOAL
     return ParsedStrategy(macro, _clean_milestones(payload.get("key_milestones")), goals,
                           _parse_plantings(payload.get("plantings"), None),
-                          _parse_other_income(payload.get("other_income")))
+                          _parse_other_income(payload.get("other_income")), payload.get("tool_upgrades") or [])
 
 
 def _fallback_warnings(error: str | None, goals: dict[int, str], payload: dict, parsed: ParsedStrategy) -> list[str]:
@@ -285,6 +287,13 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     notes: list[str] = []
     plantings, planting_warnings = resolve_plantings(strategy.plantings, data, season_key, s.year, s.bonuses,
                                                      s.greenhouse, notes)
+    upgrades, tool_problems = [], []
+    if data.tool_rules is not None:
+        closed = {e.day for e in data.events_in_season(season_key)
+                  if e.type == "festival" and e.name not in data.tool_rules.open_festivals}
+        upgrades, tool_problems = parse_upgrades(strategy.tool_upgrades, data.tool_rules, closed)
+        tool_problems += check_upgrades(upgrades, goals, {p.day for p in plantings})
+
     reservations = []
     if s.bundle_needs:
         units = season_harvest_units(plantings, carry_in)
@@ -298,6 +307,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         goods_in=s.prior_state.goods if s.prior_state else (), season=season_key, honey=data.honey,
         herds=s.herds, hay_price=data.hay_price,
         set_aside=reservations, bundle_done_in=s.prior_state.bundle_done if s.prior_state else (),
+        fixed_costs=upgrade_costs(upgrades),
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -315,6 +325,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     if s.herds:
         problems += check_animal_care(goals, [h.animal.name for h in s.herds])
     problems += route_warnings(reservations, season_key)
+    problems += tool_problems
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
     if note and note.startswith("⚠️"):
         problems.append(note)

@@ -227,6 +227,7 @@ class GameData:
     animals: list = field(default_factory=list)  # 农场动物（data/animals.json），元素为 livestock.Animal
     hay_price: int = 50                          # 玛妮牧场的干草价格（data/animals.json）
     bundles: list = field(default_factory=list)  # 社区中心收集包（data/bundles.json），元素为 bundles.Bundle
+    tool_rules: object = None                    # 工具升级规则（data/tools.json），tools.ToolRules
 
     def resolve_farm_type(self, name: str | None) -> str:
         """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
@@ -287,6 +288,18 @@ def load_crops(path: Path) -> list[Crop]:
     raw = _read_json(path)["crops"]
     return [Crop(**{**item, "seasons": tuple(item["seasons"]), "aliases": tuple(item.get("aliases", ())),
                     "byproducts": tuple(Byproduct(**b) for b in item.get("byproducts", ()))}) for item in raw]
+
+
+def load_tool_rules(path: Path):
+    """工具升级规则；文件不存在时为 None（不校验 tool_upgrades）。"""
+    from .tools import Tool, ToolRules, UpgradeLevel  # 避免循环导入
+    if not path.exists():
+        return None
+    raw = _read_json(path)
+    tools = tuple(Tool(t["name"], t["name_en"], tuple(t.get("aliases", ())), tuple(t.get("conflict_words", ())),
+                       bool(t.get("blocks_planting", False))) for t in raw["tools"])
+    levels = tuple(UpgradeLevel(**lv) for lv in raw["levels"])
+    return ToolRules(tools, levels, int(raw.get("upgrade_days", 2)), tuple(raw.get("open_festivals", ())))
 
 
 def load_bundles(path: Path) -> list:
@@ -363,6 +376,7 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         honey=load_honey(data_dir / "artisan.json"),
         animals=load_animals(data_dir / "animals.json"),
         bundles=load_bundles(data_dir / "bundles.json"),
+        tool_rules=load_tool_rules(data_dir / "tools.json"),
         hay_price=int(_read_json(data_dir / "animals.json").get("hay_price", 50)) if (data_dir / "animals.json").exists()
         else 50,
         calendar=load_calendar(data_dir / "calendar.json"),

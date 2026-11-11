@@ -1,0 +1,96 @@
+{
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Blacksmith#Upgrade_Tools（升级耗时 2 天、各级费用与材料、节日期间的取货规则、营业时间与休息日）。工具与金属锭的中文名取自官方 wiki 中文版。核对日期 2026-11-11。",
+  "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
+  "_rules": "第 D 天交给克林特，第 D + 2 天早上可以取（wiki：节日前一天交，节日后一天照常取）；所以第 D + 1 天整天和第 D 天交出之后，这件工具都不在手上。取货日铁匠铺关门（节日）时要再等一天。每次只能升一级，不能跳级。金币在交送时支付；金属锭需要玩家自己准备（挖矿熔炼），程序不计。",
+  "upgrade_days": 2,
+  "open_festivals": [
+    "月光水母起舞",
+    "万灵节",
+    "夜市"
+  ],
+  "_open_festivals": "铁匠铺在节日当天关门，这几个节日例外（wiki：月光水母起舞、万灵节不关门；夜市照常营业）。",
+  "levels": [
+    {
+      "name": "铜",
+      "name_en": "Copper",
+      "bar": "铜锭",
+      "bars": 5,
+      "price": 2000
+    },
+    {
+      "name": "钢",
+      "name_en": "Steel",
+      "bar": "铁锭",
+      "bars": 5,
+      "price": 5000
+    },
+    {
+      "name": "金",
+      "name_en": "Gold",
+      "bar": "金锭",
+      "bars": 5,
+      "price": 10000
+    },
+    {
+      "name": "铱",
+      "name_en": "Iridium",
+      "bar": "铱锭",
+      "bars": 5,
+      "price": 25000
+    }
+  ],
+  "tools": [
+    {
+      "name": "喷壶",
+      "name_en": "Watering Can",
+      "aliases": [
+        "水壶"
+      ],
+      "conflict_words": [
+        "浇水"
+      ],
+      "blocks_planting": true
+    },
+    {
+      "name": "锄头",
+      "name_en": "Hoe",
+      "aliases": [],
+      "conflict_words": [
+        "开垦",
+        "锄地",
+        "翻地"
+      ],
+      "blocks_planting": false
+    },
+    {
+      "name": "十字镐",
+      "name_en": "Pickaxe",
+      "aliases": [
+        "镐子",
+        "镐"
+      ],
+      "conflict_words": [
+        "下矿",
+        "矿井",
+        "挖矿",
+        "采矿",
+        "骷髅洞穴",
+        "敲石头"
+      ],
+      "blocks_planting": false
+    },
+    {
+      "name": "斧头",
+      "name_en": "Axe",
+      "aliases": [],
+      "conflict_words": [
+        "砍树",
+        "伐木",
+        "砍硬木",
+        "劈树桩"
+      ],
+      "blocks_planting": false
+    }
+  ],
+  "_tools": "conflict_words：工具不在手上时日程里不能出现的工作；blocks_planting：喷壶不在时新播种的作物没法浇水。"
+}
