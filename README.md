@@ -3,6 +3,11 @@
 # 🌱 星露谷物语攻略生成器
 
 [![tests](https://github.com/Blake2HP/stardew-valley-planner/actions/workflows/tests.yml/badge.svg)](https://github.com/Blake2HP/stardew-valley-planner/actions/workflows/tests.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Code License: MIT](https://img.shields.io/badge/code%20license-MIT-green)](LICENSE)
+[![Data License: CC BY-NC-SA 3.0](https://img.shields.io/badge/data%20license-CC%20BY--NC--SA%203.0-lightgrey)](data/NOTICE.md)
+[![Stardew Valley 1.6](https://img.shields.io/badge/Stardew%20Valley-1.6-6BA539)](https://stardewvalleywiki.com/Version_History)
+[![LLM: Claude](https://img.shields.io/badge/LLM-Claude%20Opus%205.5-D97757)](https://www.anthropic.com/claude)
 
 根据你的**玩法风格**和**节奏偏好**，调用大模型为《星露谷物语》(Stardew Valley) 生成一整季的攻略：宏观策略、关键时间节点，以及第 1–28 天的每日目标。
 
@@ -16,6 +21,10 @@
 > `data/` 中的作物和加工数值来自 [Stardew Valley Wiki](https://stardewvalleywiki.com/Crops)（游戏 1.6 版本），核对日期 2026-11-05；开局金币 500g 来自 [Gold](https://stardewvalleywiki.com/Gold) 页面，开局赠送的 15 颗防风草种子来自 [Getting Started](https://stardewvalleywiki.com/Getting_Started) 页面（新存档的第 1 年春季计入资金，草原农场除外）。
 
 ## 示例输出
+
+<!-- 请在此处补充一张 CLI 运行截图或 Web 界面动图 (GIF) -->
+
+> 🖼️ **截图位**：这里适合放一张终端运行 `python main.py --provider mock` 的截图，画面里最好能同时看到“⚠️ 换季校验”区块和“📅 每日核心目标”，让读者一眼看出“程序算数、模型规划”的效果。
 
 ```bash
 python main.py -p "钓鱼赚钱，兼顾种田" -c "休闲慢节奏" -s spring --provider mock
@@ -42,6 +51,23 @@ python main.py -p "钓鱼赚钱，兼顾种田" -c "休闲慢节奏" -s spring -
 ```
 
 完整示例见 [sample_output.md](sample_output.md)。
+
+## 目录
+
+- [示例输出](#示例输出)
+- [快速开始](#快速开始)
+  - [命令行参数](#命令行参数)
+  - [在代码中调用](#在代码中调用)
+- [工作流程](#工作流程)
+- [项目结构](#项目结构)
+- [扩展游戏数据](#扩展游戏数据)
+- [测试](#测试)
+- [网页版 Demo](#网页版-demo)
+- [模型稳定性评估](#模型稳定性评估)
+- [Claude Code skill：`stardew-data-guard`](#claude-code-skillstardew-data-guard)
+- [当前局限与未来路线图 (Roadmap)](#当前局限与未来路线图-roadmap)
+- [数据来源与许可](#数据来源与许可)
+- [声明](#声明)
 
 ## 快速开始
 
@@ -219,6 +245,10 @@ python -m pytest
 
 `web/` 是一个最简单的网页版：左边选玩法、节奏、季节（可以连续规划多季）、职业、肥料和耕种等级，右边显示期末资金卡片和完整攻略，可复制或下载 Markdown。后端是 FastAPI，直接调用 `generate_strategy` / `generate_plan`，没有改业务代码。
 
+<!-- 请在此处补充一张 CLI 运行截图或 Web 界面动图 (GIF) -->
+
+> 🎬 **动图位**：这里适合放一段 10 秒左右的网页操作 GIF：在左侧选好玩法、节奏和季节（可以顺手勾上“温室已修好”、填几个小桶和蜂房），点“生成攻略”，右侧出现期末资金卡片和完整攻略。用 mock 模式录制即可，不消耗 API 额度。
+
 ```bash
 pip install -r requirements.txt
 python -m web                           # 打开 http://127.0.0.1:8000，默认用 mock，不消耗额度
@@ -243,7 +273,7 @@ python scripts/eval_llm.py --provider mock                 # 离线检查脚本�
 
 在本项目中使用 [Claude Code](https://claude.com/claude-code) 时，涉及星露谷数值的请求会自动启用这个 skill（也可以用 `/stardew-data-guard` 手动调用）。它要求 Claude：
 
-- **不凭记忆给数值**：数字只能来自 `data/` 或用户提供的数据。数据库没有的内容（如未收录的 NPC、概率掉落），会请用户提供。
+- **不凭记忆给数值**：数字只能来自 `data/` 或用户提供的数据。数据库没有的内容（如鱼、宝石逐项的送礼喜好，概率掉落），会请用户提供。
 - **跨季日程必须校验**：用脚本检查日程，并附上“⚠️ 换季校验”。
 - **先写公式再给结果**：例如 `果酒售价 = 基础售价 × 3 = 120 × 3 = 360g`。
 
@@ -264,7 +294,9 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 
 退出码：`0` 成功，`2` 数据库中没有该数据，`3` 校验发现问题。
 
-## 当前局限与计划
+## 当前局限与未来路线图 (Roadmap)
+
+### ✅ 已完成
 
 - [x] 用游戏 1.6 版本的真实数值替换 mock 数据（来源：Stardew Valley Wiki）
 - [x] 职业加成（农耕人、工匠、农业学家）与加速肥料（生长激素、高级、顶级）
@@ -284,7 +316,21 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 温室规划（`--greenhouse`：不受季节限制、120 格上限、作物跨季延续）
 - [x] 攻略文本检索从关键词匹配升级为向量检索（ChromaDB）
 - [x] 换用多语言 Embedding 模型（paraphrase-multilingual-MiniLM-L12-v2），提升中文检索效果
-- [ ] 用真实 API 测试模型输出的稳定性
+
+### 🚧 当前局限
+
+- [ ] 用真实 API 测试模型输出的稳定性（`scripts/eval_llm.py` 已就绪，还没有跑过真实结果）
+- [ ] 送礼校验遇到“所有鱼”“所有宝石”这类类别时只保存了 wiki 原文，没有逐项展开，只能提示“不在记录的喜好中”
+- [ ] 加工模拟按每台机器每天最多做 1 批计算（咖啡 2 小时就能再装，这里偏保守）
+- [ ] 蜂房模拟假设每种花在蜂房旁边留 1 株不收；咖啡豆种子只能从旅行货车碰运气，按 2500g 计
+- [ ] 产量不随耕种等级变化（未碾米 10 级起平均 2.11 个，目前固定按 1.61 计）
+
+### 🔭 未来路线图
+
+- [ ] **引入 Prompt Caching**：游戏数据表、规则说明这些长上下文每次都要重新发送，缓存后可以明显降低 API 成本和首字延迟，跨季规划和自动修正受益最大
+- [ ] **兼容本地大模型**：支持 Ollama / vLLM 等 OpenAI 兼容接口，实现完全离线的高级规划
+- [ ] **畜牧业系统与温室全量化支持**：动物、动物产品和蛋黄酱 / 奶酪等加工链；温室里的果树、更多室内作物
+- [ ] **导出为日历文件 (.ics)**：把生成的 28 天日程一键导入手机或电脑日历，节日和生日当天自动提醒
 
 ## 数据来源与许可
 
