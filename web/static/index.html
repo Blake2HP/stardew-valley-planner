@@ -167,6 +167,13 @@
               <option value="community_center">社区中心献祭</option>
             </select>
           </div>
+          <div>
+            <label for="location">种植地点</label>
+            <select id="location">
+              <option value="pelican_town">鹈鹕镇农场</option>
+              <option value="ginger_island">姜岛农场（不受季节限制）</option>
+            </select>
+          </div>
         </div>
       </details>
 
@@ -320,6 +327,7 @@ $("form").addEventListener("submit", async (e) => {
     bee_houses: Number($("beeHouses").value) || 0,
     animals: $("animals").value.trim() || null,
     route: $("route").value || null,
+    location: $("location").value,
     greenhouse: $("greenhouse").checked,
   };
   setLoading(true);

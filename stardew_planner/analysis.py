@@ -268,6 +268,7 @@ def build_data_context(
     greenhouse: bool = False,
     herds=(),
     bundle_text: str | None = None,
+    location: str = "pelican_town",
 ) -> dict[str, str]:
     """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 "
@@ -319,6 +320,8 @@ def build_data_context(
     if notes:
         crop_lines += ["", "作物备注（程序计算）："] + [f"- {n}" for n in notes]
 
+    if location == "ginger_island":
+        crop_lines = island_crop_lines(data, bonuses, year)
     return {
         "crop_table": "\n".join(crop_lines),
         "artisan_rules": "\n".join(artisan_lines + _machine_lines(machines)),
@@ -330,7 +333,46 @@ def build_data_context(
         "livestock": describe_herds(list(herds), normalize_season(season), data.hay_price),
         "bundles": bundle_text or "（没有选择社区中心献祭路线）",
         "tools": describe_tools(data.tool_rules) if data.tool_rules else "（没有工具升级数据）",
+        "location": describe_location(data, location),
     }
+
+
+def island_crop_lines(data: GameData, bonuses: Bonuses = NO_BONUSES, year: int | None = None) -> list[str]:
+    """姜岛农场的作物收益：任何季节都能种、不会枯死，按“稳定生产时每 28 天”计算，不受本季剩余天数限制。
+
+    - 单次收获：每 28 天收获 28 / 生长天数 次，每次补种都买种子；
+    - 可再生：成熟后每 28 天收获 28 / 再生天数 次，只在第一次种下时买种子（稳态不计种子钱）。
+    """
+    rows = []
+    for c in data.crops_for_year(year):
+        grow = bonuses.grow_days(c)
+        value = bonuses.expected_crop_value(c)
+        if c.regrow_days:
+            per28 = SEASON_DAYS / c.regrow_days
+            net = per28 * value - bonuses.fertilizer_cost
+        else:
+            per28 = SEASON_DAYS / grow
+            net = per28 * (value - c.seed_price) - bonuses.fertilizer_cost
+        rows.append((net, c, grow, per28))
+    rows.sort(key=lambda r: r[0], reverse=True)
+    lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 每 28 天收获次数（稳态） | 单格每 28 天净利（稳态） | 种子开售季节 | 种子来源 |",
+             "|---|---|---|---|---|---|---|---|"]
+    for net, c, grow, per28 in rows:
+        regrow = f"{grow}/{c.regrow_days}" if c.regrow_days else f"{grow}/-"
+        when = "/".join(SEASON_ZH[s] for s in c.seasons)
+        lines.append(f"| {c.name} | {c.seed_price}g | {bonuses.crop_price(c)}g | {regrow} | {per28:.1f} | {net:.0f}g | "
+                     f"{when} | {c.seed_source} |")
+    lines += ["", "姜岛农场：任何作物在任何季节都能种，换季不会枯死，生长天数不受本季剩余天数限制；"
+                  "可再生作物只在第一次种下时买种子。种子只能在“种子开售季节”从商店买，非当季的要提前买好带上岛。"]
+    return lines
+
+
+def describe_location(data: GameData, location: str) -> str:
+    if location != "ginger_island":
+        return "鹈鹕镇的农场：作物受季节限制，换季时非下一季作物枯死。"
+    return (f"姜岛农场（主农田 {data.island_tiles} 格）：和温室一样，任何作物在任何季节都能种，换季不会枯死，"
+            "第 28 天不需要清理农场。前提是已经完成社区中心（或 Joja 路线）并修好威利的船（200 个硬木、5 个铱锭、5 个电池组）；"
+            "往返船票 1000g，日程里要留出坐船的时间。")
 
 
 def _compact_crop(r: CropProfit) -> str:

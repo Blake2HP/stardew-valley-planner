@@ -26,6 +26,9 @@ BEE_HOUSE = "蜂房"  # machines 里的蜂房数量：不参与小桶 / 罐头�
 SEASON_DAYS = 28
 SEASON_ORDER = ["spring", "summer", "fall", "winter"]
 GREENHOUSE = "greenhouse"
+ISLAND = "island"  # 姜岛农场：和温室一样不受季节限制
+SEASON_FREE = (GREENHOUSE, ISLAND)
+LOCATIONS = ("pelican_town", "ginger_island")
 GREENHOUSE_HORIZON_SEASONS = 8  # 温室里的可再生作物不会枯死：模拟往后 8 季（两年）的收获
 
 
@@ -52,7 +55,7 @@ def harvest_days(crop: Crop, plant_day: int, season: str, bonuses: Bonuses = NO_
 
     首次收获日 = 种植日 + 生长天数；可再生作物之后每隔再生天数收获一次，
     直到作物能存活的最后一天（28 × 可存活季数）。成熟前就枯死则返回空列表。
-    温室里不受季节限制，按往后 GREENHOUSE_HORIZON_SEASONS 季计算。
+    温室和姜岛农场不受季节限制（greenhouse=True），按往后 GREENHOUSE_HORIZON_SEASONS 季计算。
     """
     seasons = GREENHOUSE_HORIZON_SEASONS if greenhouse else alive_seasons(crop, season)
     limit = SEASON_DAYS * seasons
@@ -89,6 +92,10 @@ class Planting:
     def in_greenhouse(self) -> bool:
         return self.place == GREENHOUSE
 
+    @property
+    def season_free(self) -> bool:
+        return self.place in SEASON_FREE
+
 
 @dataclass(frozen=True)
 class CarryCrop:
@@ -102,7 +109,7 @@ class CarryCrop:
     def describe(self, season: str) -> str:
         days = "、".join(str(d) for d in self.harvest_days if d <= SEASON_DAYS)
         later = [d for d in self.harvest_days if d > SEASON_DAYS]
-        where = "，温室" if self.place == GREENHOUSE else ""
+        where = {GREENHOUSE: "，温室", ISLAND: "，姜岛"}.get(self.place, "")
         text = f"{self.crop.name} ×{self.tiles} 格（{self.origin}{where}）：{SEASON_ZH[season]}第 {days} 天可收获" if days \
             else f"{self.crop.name} ×{self.tiles} 格（{self.origin}{where}）：本季无收获"
         if later:
@@ -185,52 +192,56 @@ class FarmState:
 
 def resolve_plantings(
     raw: list[dict], data: GameData, season: str, year: int, bonuses: Bonuses = NO_BONUSES,
-    greenhouse: bool = False, notes: list[str] | None = None,
+    greenhouse: bool = False, notes: list[str] | None = None, location: str = "pelican_town",
 ) -> tuple[list[Planting], list[str]]:
     """把模型输出的 plantings 转成 Planting；不合法的条目剔除并给出警告（不计入资金）。
 
     greenhouse 表示温室已修好；"place": "greenhouse" 的条目不受季节限制。
     notes 用来收集说明类提示（比如温室里种非当季作物，种子要提前买好），不算问题。
+    location="ginger_island" 时所有种植都在姜岛农场：和温室一样不受季节限制、换季不枯死。
     """
     season = normalize_season(season)
     by_name = {n: c for c in data.crops for n in c.names} | {c.name_en.lower(): c for c in data.crops}
     plantings, warnings = [], []
     for item in raw:
         name, day, tiles = item["crop"], item["day"], item["tiles"]
-        place = item.get("place", "field")
+        place = ISLAND if location == "ginger_island" else item.get("place", "field")
         crop = by_name.get(name) or by_name.get(name.lower())
-        where = f"种植清单第 {day} 天的{name}" + ("（温室）" if place == GREENHOUSE else "")
+        where = f"种植清单第 {day} 天的{name}" + {GREENHOUSE: "（温室）", ISLAND: "（姜岛）"}.get(place, "")
         if crop is None:
             warnings.append(f"⚠️ {where}不在数据库中，未计入资金")
         elif place == GREENHOUSE and not greenhouse:
             warnings.append(f"⚠️ {where}：温室还没修好（需要完成社区中心茶水间收集包，或在 Joja 花 35,000g），未计入资金")
-        elif place != GREENHOUSE and season not in crop.seasons:
+        elif place not in SEASON_FREE and season not in crop.seasons:
             warnings.append(f"⚠️ {where}不是{SEASON_ZH[season]}作物，未计入资金")
         elif year < crop.available_year:
             warnings.append(f"⚠️ {where}：种子第 {crop.available_year} 年起才出售，未计入资金")
-        elif day < crop.earliest_available_day and place != GREENHOUSE:
+        elif day < crop.earliest_available_day and place not in SEASON_FREE:
             warnings.append(f"⚠️ {where}：种子第 {crop.earliest_available_day} 天才开售，未计入资金")
         else:
-            in_gh = place == GREENHOUSE
+            in_gh = place in SEASON_FREE
             if in_gh and season not in crop.seasons and notes is not None:
                 allowed = "/".join(SEASON_ZH[s] for s in crop.seasons)
-                notes.append(f"ℹ️ {where}：商店只在{allowed}卖这种种子，需要提前买好带进温室")
+                into = "带上岛" if place == ISLAND else "带进温室"
+                notes.append(f"ℹ️ {where}：商店只在{allowed}卖这种种子，需要提前买好{into}")
             plantings.append(Planting(day, crop, tiles, tuple(harvest_days(crop, day, season, bonuses, in_gh)), place))
     return sorted(plantings, key=lambda p: p.day), warnings
 
 
-def greenhouse_warnings(plantings: list[Planting], carry_in: tuple[CarryCrop, ...], limit: int) -> list[str]:
-    """温室同时占用的格数不能超过上限（可再生作物一直占着，单次收获的作物收获当天空出来）。"""
-    if not any(p.in_greenhouse for p in plantings) and not any(c.place == GREENHOUSE for c in carry_in):
+def greenhouse_warnings(plantings: list[Planting], carry_in: tuple[CarryCrop, ...], limit: int,
+                        place: str = GREENHOUSE) -> list[str]:
+    """温室（或姜岛农场）同时占用的格数不能超过上限（可再生作物一直占着，单次收获的作物收获当天空出来）。"""
+    if not any(p.place == place for p in plantings) and not any(c.place == place for c in carry_in):
         return []
+    label = "温室" if place == GREENHOUSE else "姜岛农场"
     for day in range(1, SEASON_DAYS + 1):
-        used = sum(c.tiles for c in carry_in if c.place == GREENHOUSE
+        used = sum(c.tiles for c in carry_in if c.place == place
                    and (c.crop.regrow_days or (c.harvest_days and day < c.harvest_days[0])))
         for p in plantings:
-            if p.in_greenhouse and p.day <= day and (p.crop.regrow_days or not p.harvests or day < p.harvests[0]):
+            if p.place == place and p.day <= day and (p.crop.regrow_days or not p.harvests or day < p.harvests[0]):
                 used += p.tiles
         if used > limit:
-            return [f"⚠️ 第 {day} 天温室要用 {used} 格，超过温室的 {limit} 格"]
+            return [f"⚠️ 第 {day} 天{label}要用 {used} 格，超过{label}的 {limit} 格"]
     return []
 
 
@@ -306,6 +317,7 @@ def compute_finance(
     goods_in: tuple[GoodsInProcess, ...] = (),
     season: str | None = None,
     honey: HoneyRule | None = None,
+    honey_all_seasons: bool = False,
     herds: tuple[Herd, ...] = (),
     hay_price: int = 50,
     set_aside=(),
@@ -410,7 +422,8 @@ def compute_finance(
                   and c.harvest_days[0] <= SEASON_DAYS]
         blooms += [(p.crop, p.harvests[0]) for p in plantings
                    if p.crop.category == "flower" and not p.in_greenhouse and p.harvests and p.harvests[0] <= SEASON_DAYS]
-        honey_result = simulate_honey(blooms, normalize_season(season), bee_houses, honey, bonuses)
+        honey_season = "spring" if honey_all_seasons else normalize_season(season)  # 姜岛的蜂房冬季也产蜜
+        honey_result = simulate_honey(blooms, honey_season, bee_houses, honey, bonuses)
         lines += honey_result.lines
 
     bundle_value, done = 0, list(bundle_done_in)

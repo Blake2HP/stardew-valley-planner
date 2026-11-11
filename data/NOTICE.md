@@ -10,6 +10,7 @@
 | `artisan.json` | [Keg](https://stardewvalleywiki.com/Keg)、[Preserves Jar](https://stardewvalleywiki.com/Preserves_Jar) |
 | `bonuses.json` | [Farming](https://stardewvalleywiki.com/Farming)、[Fertilizer](https://stardewvalleywiki.com/Fertilizer)、[Speed-Gro](https://stardewvalleywiki.com/Speed-Gro) |
 | `farm.json` | [Gold](https://stardewvalleywiki.com/Gold)、[Getting Started](https://stardewvalleywiki.com/Getting_Started)、[The Farm](https://stardewvalleywiki.com/The_Farm) |
+| `farm.json`（姜岛部分） | [Ginger Island](https://stardewvalleywiki.com/Ginger_Island#The_Farm) 的耕地格数与种植规则，[Fish Shop](https://stardewvalleywiki.com/Fish_Shop#Willy%27s_Boat) 的修船材料与船票 |
 | `tools.json` | [Blacksmith](https://stardewvalleywiki.com/Blacksmith#Upgrade_Tools) 的工具升级耗时、费用、材料与节日取货规则 |
 | `bundles.json` | [Bundles](https://stardewvalleywiki.com/Bundles) 的标准收集包（房间、格数、物品、数量与品质）；中文名取自 zh.stardewvalleywiki.com/收集包 |
 | `animals.json` | 各动物页面（[Chicken](https://stardewvalleywiki.com/Chicken) 等）的购买价、成熟夜数、产出周期与产品售价，[Marnie's Ranch](https://stardewvalleywiki.com/Marnie%27s_Ranch) 的干草与工具价格，[Animals](https://stardewvalleywiki.com/Animals#Food) 的喂养规则 |

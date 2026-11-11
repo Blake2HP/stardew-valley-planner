@@ -124,6 +124,7 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
 | `--kegs` / `--jars` | Number of kegs and preserves jars. When given, processing is simulated with machine counts and processing times: low-quality, high-gain crops go first, overflow moves to the other machine type, and the gain counts toward gold; goods still in a machine on day 28 carry into the next season | `0` (not simulated) |
 | `--bee-houses` | Number of outdoor bee houses. One jar every 4 days, priced by the most valuable flower blooming outdoors on the collection day (wild honey, 100g, with no flower), counted toward gold; none in winter, and greenhouse flowers don't count | `0` (not simulated) |
+| `--location` | Where to farm: `pelican_town` (the valley farm) or `ginger_island` (the island farm). Like the greenhouse, the island has no season limits and crops survive the season change; the profit table switches to a steady-state per-28-days view, day 28 needs no cleanup, and the field holds up to 777 tiles. It requires a finished Community Center (or Joja route) and Willy's repaired boat | `pelican_town` |
 | `--route` | Game route. `community_center`: the bundle route; crops needed for bundles (spring / summer / fall crops bundles, the Sunflower in the dye bundle, the Poppy in the chef's bundle, 10 Wheat for the fodder bundle, etc.) are kept instead of sold and their price is taken out of income; if the last season of the year to grow a crop ends without keeping it, a "⚠️ 献祭校验" (bundle check) problem is reported and sent back to the model | none |
 | `--animals` | Animals bought on day 1 of the season, e.g. `"鸡:2,牛:1"` (chicken, duck, rabbit, cow, goat, sheep, pig; English names work too). Base product income follows the wiki's maturity and production times, minus the purchase price and winter hay, and counts toward gold; in multi-season plans the animals carry over without being bought again. With animals, every day's goal must include "照料动物" (care for animals) | none |
 | `--greenhouse` | The greenhouse is repaired. Plantings may set `"place": "greenhouse"`: no season limits, regrowing crops survive the season change, at most 120 tiles (exceeding it or using a locked greenhouse is reported as a problem) | off |
@@ -220,7 +221,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── artisan.json            artisan rules: multiplier, bonus, fixed price, processing time
 │   ├── calendar.json           festivals, foraging seasons and season changes
 │   ├── bonuses.json            profession, fertilizer and crop quality rules
-│   ├── farm.json               starting gold
+│   ├── farm.json               starting gold and seeds, farm maps, greenhouse and Ginger Island farm
 │   ├── npcs.json               villager birthdays and gift preferences
 │   ├── animals.json            farm animals: prices, maturity, production times and products
 │   ├── bundles.json            Community Center bundles (standard)
@@ -319,6 +320,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add the remaining villagers (34 in total) and the universal like / neutral / dislike / hate lists; gift checks tell the four levels apart
 - [x] Simulate processing with machine counts and processing time (`--kegs` / `--jars`)
 - [x] Greenhouse planning (`--greenhouse`: no season limits, 120-tile cap, crops carry across seasons)
+- [x] Ginger Island farm (`--location ginger_island`: no season limits, crops survive the season change, steady-state per-28-days profit table)
 - [x] Tool upgrade timeline (the model outputs `tool_upgrades`; no work needing the tool during the 2-day upgrade, pickup moves past festival closures, cost counted toward gold)
 - [x] Community Center route (`--route community_center`: bundle crops are kept and their price deducted; a bundle check fires when the last chance passes)
 - [x] Basic livestock (`--animals`: output, purchase and winter hay for chickens, ducks, rabbits, cows, goats, sheep and pigs, plus a daily animal-care check)

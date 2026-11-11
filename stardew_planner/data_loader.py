@@ -223,6 +223,7 @@ class GameData:
     starting_seeds: dict[str, int] = field(default_factory=dict)  # 开局赠送的种子（作物英文名 → 数量）
     farm_types: dict[str, dict] = field(default_factory=dict)      # 农场地图；可覆盖 starting_seeds
     greenhouse_tiles: int = 120  # 温室耕地格数（data/farm.json）
+    island_tiles: int = 777      # 姜岛农场主农田的耕地格数（data/farm.json）
     honey: HoneyRule | None = None  # 花蜜规则（data/artisan.json）
     animals: list = field(default_factory=list)  # 农场动物（data/animals.json），元素为 livestock.Animal
     hay_price: int = 50                          # 玛妮牧场的干草价格（data/animals.json）
@@ -386,6 +387,8 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         farm_types=load_farm_types(data_dir / "farm.json"),
         greenhouse_tiles=int((_read_json(data_dir / "farm.json").get("greenhouse") or {}).get("tiles", 120))
         if (data_dir / "farm.json").exists() else 120,
+        island_tiles=int((_read_json(data_dir / "farm.json").get("ginger_island") or {}).get("tiles", 777))
+        if (data_dir / "farm.json").exists() else 777,
         npc_data=load_npcs(data_dir / "npcs.json"),
     )
 

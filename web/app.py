@@ -80,6 +80,7 @@ class GenerateRequest(BaseModel):
     bee_houses: int = Field(default=0, ge=0, le=1000)
     animals: str | None = Field(default=None, max_length=100)
     route: Literal["community_center"] | None = None
+    location: Literal["pelican_town", "ginger_island"] = "pelican_town"
     greenhouse: bool = False
 
 
@@ -271,7 +272,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                 farming_level=req.farming_level, processing_share=req.processing_share, start_gold=req.start_gold,
                 farm_type=req.farm_type, kegs=req.kegs, jars=req.jars, greenhouse=req.greenhouse,
                 bee_houses=req.bee_houses, animals=req.animals or None,
-                route=req.route,
+                route=req.route, location=req.location,
             )
             if len(plan) == 1:
                 results = [generate_strategy(req.playstyle, req.pacing, plan[0][0], plan[0][1], **kwargs)]

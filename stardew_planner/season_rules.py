@@ -115,6 +115,7 @@ def check_plantings(
     year: int | None = None,
     carried: Iterable[str] = (),
     greenhouse: bool = False,
+    season_free: bool = False,
 ) -> list[SeasonWarning]:
     """检查日程里的种植安排。
 
@@ -127,7 +128,7 @@ def check_plantings(
     warnings = []
     for day in sorted(daily_goals):
         # 温室已修好且日程写明“温室”：不查季节、开售日和成熟日（种子可以提前买好，作物不会因换季枯死）
-        in_greenhouse = greenhouse and "温室" in daily_goals[day]
+        in_greenhouse = season_free or (greenhouse and "温室" in daily_goals[day])  # 姜岛：整季都不受季节限制
         for crop in _planted_crops(daily_goals[day], data.crops):
             if year == 1 and crop.requires_bus and (season in crop.seasons or in_greenhouse):
                 warnings.append(SeasonWarning(

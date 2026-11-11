@@ -10,7 +10,7 @@ from .bonuses import NO_BONUSES, Bonuses, fertilizer_availability_note, resolve_
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .farm_state import (
     FarmState, OtherIncome, Planting, SeasonFinance, compute_finance, extract_farm_state,
-    bus_warnings, following_season, greenhouse_warnings, season_harvest_units, late_planting_warnings, render_state_for_prompt,
+    ISLAND, LOCATIONS, bus_warnings, following_season, greenhouse_warnings, season_harvest_units, late_planting_warnings, render_state_for_prompt,
     resolve_plantings,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
@@ -265,6 +265,7 @@ class _Season:
     greenhouse: bool = False
     herds: tuple = ()
     bundle_needs: tuple = ()   # 献祭路线下本季要留的作物（bundles.CropNeed）
+    location: str = "pelican_town"
 
 
 @dataclass
@@ -285,8 +286,9 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     goals = dict(strategy.goals)
 
     notes: list[str] = []
+    island = s.location == "ginger_island"
     plantings, planting_warnings = resolve_plantings(strategy.plantings, data, season_key, s.year, s.bonuses,
-                                                     s.greenhouse, notes)
+                                                     s.greenhouse, notes, s.location)
     upgrades, tool_problems = [], []
     if data.tool_rules is not None:
         closed = {e.day for e in data.events_in_season(season_key)
@@ -305,6 +307,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock, stock_label=s.stock_label,
         machines=s.machines, rules_for=data.artisan_rules_for,
         goods_in=s.prior_state.goods if s.prior_state else (), season=season_key, honey=data.honey,
+        honey_all_seasons=island,
         herds=s.herds, hay_price=data.hay_price,
         set_aside=reservations, bundle_done_in=s.prior_state.bundle_done if s.prior_state else (),
         fixed_costs=upgrade_costs(upgrades),
@@ -313,7 +316,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
                                    strategy.macro.get("season_goals"))
 
     carried = s.prior_state.carried_names if s.prior_state else ()
-    goal_checks = check_plantings(goals, data, season_key, s.bonuses, s.year, carried, s.greenhouse)
+    goal_checks = check_plantings(goals, data, season_key, s.bonuses, s.year, carried, s.greenhouse, island)
     reported = {(w.day, w.crop) for w in goal_checks}
     problems = [f"⚠️ {w}" for w in goal_checks] + planting_warnings
     problems += late_planting_warnings(plantings, season_key, s.bonuses, reported)
@@ -322,6 +325,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         problems += [f"⚠️ {w}" for w in check_plantings_match(goals, plantings, data, reported)]
     problems += finance.warnings
     problems += greenhouse_warnings(plantings, carry_in, data.greenhouse_tiles)
+    problems += greenhouse_warnings(plantings, carry_in, data.island_tiles, ISLAND)
     if s.herds:
         problems += check_animal_care(goals, [h.animal.name for h in s.herds])
     problems += route_warnings(reservations, season_key)
@@ -335,9 +339,14 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         warnings.append(note)
     last_goal = goals.get(SEASON_DAYS, "")
     had_cleanup = "清理农场" in last_goal and "停止种植" in last_goal
-    goals, inserted = enforce_season_end(goals, end_state.carried_names)
     nxt_zh = SEASON_ZH[next_season(season_key)]
-    dying = "、".join(c.name for c in withering_crops(data, season_key, s.year))
+    if island:  # 姜岛：换季不枯死，不需要第 28 天清理
+        inserted, dying = False, ""
+        warnings.append("ℹ️ 姜岛农场：作物不受季节限制、换季不会枯死；需要已完成社区中心（或 Joja 路线）并修好威利的船，"
+                        "往返船票 1000g（程序不计入资金）。")
+    else:
+        goals, inserted = enforce_season_end(goals, end_state.carried_names)
+        dying = "、".join(c.name for c in withering_crops(data, season_key, s.year))
     if dying:
         warnings.append(f"⚠️ 第 28 天是换季前一天：{dying}将在进入{nxt_zh}时枯死，请在此之前收获完毕。")
     if end_state.carry:
@@ -350,6 +359,17 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
 
     gift_warnings = [f"⚠️ {w}" for w in check_gifts(goals, data, season_key)]
     return _Evaluation(goals, plantings, finance, end_state, warnings, gift_warnings, problems + gift_warnings)
+
+
+def resolve_location(location: str | None) -> str:
+    """种植地点：pelican_town（默认）/ ginger_island，也接受中文名。"""
+    if location in (None, ""):
+        return "pelican_town"
+    key = str(location).strip().lower().replace("-", "_").replace(" ", "_")
+    key = {"鹈鹕镇": "pelican_town", "姜岛": "ginger_island", "island": "ginger_island"}.get(key, key)
+    if key not in LOCATIONS:
+        raise ValueError(f"不支持的种植地点：{location}（可选：pelican_town、ginger_island）")
+    return key
 
 
 def _revise_prompt(problems: list[str]) -> str:
@@ -388,6 +408,7 @@ def generate_strategy(
     bee_houses: int = 0,
     animals=None,
     route: str | None = None,
+    location: str | None = None,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -407,6 +428,8 @@ def generate_strategy(
         farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
         kegs / jars: 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工（见 processing.py），
             加工净增计入资金；第 28 天还没做完的带到下一季。
+        location: 种植地点，"pelican_town"（默认）或 "ginger_island"。姜岛农场和温室一样不受季节限制、换季不枯死，
+            收益表按每 28 天稳态计算，第 28 天不要求清理农场。
         route: "community_center" 时走社区中心献祭路线：收集包要用的作物先留下、不卖（从收入里扣掉售价），
             今年最后能种某种作物的季节还没留下时报“献祭校验”，交给模型修正（见 bundles.py）。
         animals: 本季第 1 天新买的动物，"鸡:2,牛:1" 或 {"鸡": 2}（见 data/animals.json、livestock.py）。
@@ -439,6 +462,7 @@ def generate_strategy(
                   if name in by_name)
     herds += tuple(Herd(a, n, new=True) for a, n in parse_animals(animals, data.animals).items())
     route = resolve_route(route)
+    location = resolve_location(location)
     done = set(prior_state.bundle_done) if prior_state else set()
     bundle_needs = tuple(season_needs(crop_needs(data.bundles, data.crops), season_key, year, done)) if route else ()
     done_labels = [f"{n.label}" for n in crop_needs(data.bundles, data.crops)
@@ -470,7 +494,7 @@ def generate_strategy(
     )
     carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
-                                 machines, greenhouse, herds, bundle_text)
+                                 machines, greenhouse, herds, bundle_text, location)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -478,7 +502,7 @@ def generate_strategy(
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
-                          machines, greenhouse, herds, bundle_needs)
+                          machines, greenhouse, herds, bundle_needs, location)
     draft = _draft(client, messages, max_retries)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)

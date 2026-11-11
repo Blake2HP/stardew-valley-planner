@@ -45,5 +45,10 @@
   "_greenhouse": "温室（https://stardewvalleywiki.com/Greenhouse，核对日期 2026-11-09）：完成社区中心茶水间（Pantry）收集包，或在 Joja 社区发展表花 35,000g 修好；室内耕地 10 × 12 = 120 格，任何季节都能种任何作物，可再生作物和肥料不会因换季消失。种子仍要在对应季节从商店买，非当季作物需要提前买好。",
   "greenhouse": {
     "tiles": 120
+  },
+  "_ginger_island": "姜岛农场（https://stardewvalleywiki.com/Ginger_Island#The_Farm 、/Fish_Shop#Willy's_Boat，核对日期 2026-11-11）：和温室一样，任何作物在任何季节都能种，换季不会枯死；主农田 777 格可耕地（岛西合计 879 格）。上岛条件：完成社区中心收集包（或看完 Joja 仓库完工的过场），之后修好威利的船（200 个硬木、5 个铱锭、5 个电池组），往返船票 1000g；岛西入口要喂鹦鹉 10 个金色核桃。种子仍要在对应季节从皮埃尔杂货店等处买。",
+  "ginger_island": {
+    "tiles": 777,
+    "boat_ticket": 1000
   }
 }
