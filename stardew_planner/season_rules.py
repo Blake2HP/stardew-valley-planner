@@ -360,6 +360,20 @@ def gift_taste(npc: NPC, item: str, data: GameData) -> str | None:
 _TASTE_TEXT = {DISLIKE: ("不喜欢", "−20"), HATE: ("讨厌", "−40")}
 
 
+ANIMAL_CARE_WORDS = ("动物", "喂", "抚摸", "摸")
+
+
+def check_animal_care(daily_goals: dict[int, str], animal_names=()) -> list[str]:
+    """养了动物时，每天的目标都要包含照料动物（喂食、抚摸、收产品）；缺的日子合并成一条问题。"""
+    words = (*ANIMAL_CARE_WORDS, *animal_names)
+    missing = [d for d in sorted(daily_goals) if not any(w in daily_goals[d] for w in words)]
+    if not missing:
+        return []
+    days = "、".join(map(str, missing[:10])) + ("……" if len(missing) > 10 else "")
+    return [f"⚠️ 第 {days} 天（共 {len(missing)} 天）的目标没有写“照料动物”：养了动物每天都要喂食、抚摸、收产品，"
+            "否则好感和心情下降、产量减少"]
+
+
 def check_gifts(daily_goals: dict[int, str], data: GameData, season: str) -> list[GiftWarning]:
     """核对送礼任务：礼物最好是该 NPC 最爱 / 喜欢的，不能是不喜欢 / 讨厌的；可以结婚的村民生日当天须有送礼任务。"""
     season = normalize_season(season)

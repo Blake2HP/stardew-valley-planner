@@ -14,12 +14,13 @@ from .farm_state import (
     resolve_plantings,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
+from .livestock import Herd, parse_animals
 from .llm_client import LLMClient, TruncatedOutput, get_client
 from .prompts import REPAIR_PROMPT_TEMPLATE, REVISE_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
 from .renderer import render_markdown
 from .schedule import ScheduleBlock, merge_daily_goals
 from .season_rules import (
-    check_gifts, check_plantings, check_plantings_match, enforce_season_end, next_season, withering_crops,
+    check_animal_care, check_gifts, check_plantings, check_plantings_match, enforce_season_end, next_season, withering_crops,
 )
 
 FALLBACK_GOAL = "自由安排"
@@ -259,6 +260,7 @@ class _Season:
     stock_label: str
     machines: dict = field(default_factory=dict)
     greenhouse: bool = False
+    herds: tuple = ()
 
 
 @dataclass
@@ -286,6 +288,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         other_income=strategy.other_income, bonuses=s.bonuses, seed_stock=s.seed_stock, stock_label=s.stock_label,
         machines=s.machines, rules_for=data.artisan_rules_for,
         goods_in=s.prior_state.goods if s.prior_state else (), season=season_key, honey=data.honey,
+        herds=s.herds, hay_price=data.hay_price,
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -300,6 +303,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         problems += [f"⚠️ {w}" for w in check_plantings_match(goals, plantings, data, reported)]
     problems += finance.warnings
     problems += greenhouse_warnings(plantings, carry_in, data.greenhouse_tiles)
+    if s.herds:
+        problems += check_animal_care(goals, [h.animal.name for h in s.herds])
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
     if note and note.startswith("⚠️"):
         problems.append(note)
@@ -360,6 +365,7 @@ def generate_strategy(
     jars: int = 0,
     greenhouse: bool = False,
     bee_houses: int = 0,
+    animals=None,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -379,6 +385,8 @@ def generate_strategy(
         farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
         kegs / jars: 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工（见 processing.py），
             加工净增计入资金；第 28 天还没做完的带到下一季。
+        animals: 本季第 1 天新买的动物，"鸡:2,牛:1" 或 {"鸡": 2}（见 data/animals.json、livestock.py）。
+            上季带来的动物（prior_state.animals）自动计入、已成年；产出、买动物和冬季干草计入资金。
         bee_houses: 室外蜂房的数量。每 4 天一罐，按室外开着的最值钱的花算花蜜（见 honey.py），计入资金；冬季不产。
         greenhouse: 温室已修好。模型可以把种植安排在温室（不受季节限制、可再生作物不会枯死，最多 120 格）。
         revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
@@ -402,6 +410,10 @@ def generate_strategy(
     machines = {name: n for name, n in (("小桶", kegs), ("罐头瓶", jars), ("蜂房", bee_houses)) if n}
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
+    by_name = {a.name: a for a in data.animals}
+    herds = tuple(Herd(by_name[name], n, new=False) for name, n in (prior_state.animals if prior_state else ())
+                  if name in by_name)
+    herds += tuple(Herd(a, n, new=True) for a, n in parse_animals(animals, data.animals).items())
     if data.farm_types:
         data.resolve_farm_type(farm_type)  # 写错时尽早报错
     client = client or get_client(provider, model)
@@ -428,7 +440,7 @@ def generate_strategy(
     )
     carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
-                                 machines, greenhouse)
+                                 machines, greenhouse, herds)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -436,7 +448,7 @@ def generate_strategy(
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
-                          machines, greenhouse)
+                          machines, greenhouse, herds)
     draft = _draft(client, messages, max_retries)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)
@@ -586,5 +598,6 @@ def generate_plan(
             break
         results.append(result)
         state = result.end_state
+        kwargs.pop("animals", None)  # 动物只在第一季买入，之后随季末状态带下去
     out.markdown = render_plan(out, data)
     return out

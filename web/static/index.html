@@ -156,6 +156,10 @@
             <label for="beeHouses">蜂房 <span class="hint">个，室外</span></label>
             <input id="beeHouses" type="number" min="0" max="1000" value="0">
           </div>
+          <div>
+            <label for="animals">新买动物 <span class="hint">如 鸡:2,牛:1</span></label>
+            <input id="animals" type="text" maxlength="100" placeholder="鸡:2,牛:1">
+          </div>
         </div>
       </details>
 
@@ -307,6 +311,7 @@ $("form").addEventListener("submit", async (e) => {
     kegs: Number($("kegs").value) || 0,
     jars: Number($("jars").value) || 0,
     bee_houses: Number($("beeHouses").value) || 0,
+    animals: $("animals").value.trim() || null,
     greenhouse: $("greenhouse").checked,
   };
   setLoading(true);

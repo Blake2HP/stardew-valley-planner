@@ -224,6 +224,8 @@ class GameData:
     farm_types: dict[str, dict] = field(default_factory=dict)      # 农场地图；可覆盖 starting_seeds
     greenhouse_tiles: int = 120  # 温室耕地格数（data/farm.json）
     honey: HoneyRule | None = None  # 花蜜规则（data/artisan.json）
+    animals: list = field(default_factory=list)  # 农场动物（data/animals.json），元素为 livestock.Animal
+    hay_price: int = 50                          # 玛妮牧场的干草价格（data/animals.json）
 
     def resolve_farm_type(self, name: str | None) -> str:
         """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
@@ -286,6 +288,14 @@ def load_crops(path: Path) -> list[Crop]:
                     "byproducts": tuple(Byproduct(**b) for b in item.get("byproducts", ()))}) for item in raw]
 
 
+def load_animals(path: Path) -> list:
+    """农场动物；文件不存在时为空（不支持 --animals）。"""
+    from .livestock import Animal  # 避免循环导入
+    if not path.exists():
+        return []
+    return [Animal(**a) for a in _read_json(path)["animals"]]
+
+
 def load_honey(path: Path) -> HoneyRule | None:
     raw = _read_json(path).get("honey")
     return HoneyRule(**raw) if raw else None
@@ -340,6 +350,9 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         crops=load_crops(data_dir / "crops.json"),
         artisan_rules=load_artisan_rules(data_dir / "artisan.json"),
         honey=load_honey(data_dir / "artisan.json"),
+        animals=load_animals(data_dir / "animals.json"),
+        hay_price=int(_read_json(data_dir / "animals.json").get("hay_price", 50)) if (data_dir / "animals.json").exists()
+        else 50,
         calendar=load_calendar(data_dir / "calendar.json"),
         guide_chunks=load_guides(data_dir / "guides"),
         starting_gold=load_starting_gold(data_dir / "farm.json"),

@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, QUALITIES, Bonuses
+from .livestock import describe_herds
 from .data_loader import (
     NO_GUIDES_TEXT, SEASON_ZH, ArtisanRule, Crop, GameData, GiftItem, HoneyRule, normalize_season,
 )
@@ -264,6 +265,7 @@ def build_data_context(
     processing_share: float = 1.0,
     machines: dict[str, int] | None = None,
     greenhouse: bool = False,
+    herds=(),
 ) -> dict[str, str]:
     """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 "
@@ -323,6 +325,7 @@ def build_data_context(
         "bonuses": describe_bonuses(bonuses),
         "carryover": carryover,
         "npc_birthdays": describe_birthdays(data, season),
+        "livestock": describe_herds(list(herds), normalize_season(season), data.hay_price),
     }
 
 

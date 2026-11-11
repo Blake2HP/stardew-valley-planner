@@ -124,6 +124,7 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `-o, --output` | Also save the guide to a Markdown file | not saved |
 | `--kegs` / `--jars` | Number of kegs and preserves jars. When given, processing is simulated with machine counts and processing times: low-quality, high-gain crops go first, overflow moves to the other machine type, and the gain counts toward gold; goods still in a machine on day 28 carry into the next season | `0` (not simulated) |
 | `--bee-houses` | Number of outdoor bee houses. One jar every 4 days, priced by the most valuable flower blooming outdoors on the collection day (wild honey, 100g, with no flower), counted toward gold; none in winter, and greenhouse flowers don't count | `0` (not simulated) |
+| `--animals` | Animals bought on day 1 of the season, e.g. `"鸡:2,牛:1"` (chicken, duck, rabbit, cow, goat, sheep, pig; English names work too). Base product income follows the wiki's maturity and production times, minus the purchase price and winter hay, and counts toward gold; in multi-season plans the animals carry over without being bought again. With animals, every day's goal must include "照料动物" (care for animals) | none |
 | `--greenhouse` | The greenhouse is repaired. Plantings may set `"place": "greenhouse"`: no season limits, regrowing crops survive the season change, at most 120 tiles (exceeding it or using a locked greenhouse is reported as a problem) | off |
 | `--farm-type` | Farm map: `standard` / `riverland` / `forest` / `hilltop` / `wilderness` / `four_corners` / `beach` / `meadowlands` (Chinese names also work). The Meadowlands farm starts without the 15 free Parsnip Seeds | `standard` |
 | `--revise-rounds` | Self-correction rounds: when the checks find problems (late plantings, wrong gifts, cash shortfalls, goals that don't match the plantings list, etc.), the list goes back to the model for a rewrite, kept only if it has fewer problems; costs extra model calls | `1` (`0` = off) |
@@ -206,6 +207,8 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── renderer.py             Markdown rendering
 │   ├── bonuses.py              profession and speed-fertilizer bonuses
 │   ├── processing.py           processing simulation (machine counts, processing time, goods across seasons)
+│   ├── honey.py                bee house simulation (honey priced by the flowers in bloom)
+│   ├── livestock.py            livestock (animal output, purchase and hay costs)
 │   ├── farm_state.py           cross-season harvest simulation, gold, end-of-season farm state
 │   └── generator.py            generate_strategy() / generate_plan() pipeline
 ├── data/
@@ -215,6 +218,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── bonuses.json            profession, fertilizer and crop quality rules
 │   ├── farm.json               starting gold
 │   ├── npcs.json               villager birthdays and gift preferences
+│   ├── animals.json            farm animals: prices, maturity, production times and products
 │   ├── NOTICE.md               data sources and licensing
 │   └── guides/*.md             guide texts
 ├── tests/                      pytest tests
@@ -309,6 +313,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add the remaining villagers (34 in total) and the universal like / neutral / dislike / hate lists; gift checks tell the four levels apart
 - [x] Simulate processing with machine counts and processing time (`--kegs` / `--jars`)
 - [x] Greenhouse planning (`--greenhouse`: no season limits, 120-tile cap, crops carry across seasons)
+- [x] Basic livestock (`--animals`: output, purchase and winter hay for chickens, ducks, rabbits, cows, goats, sheep and pigs, plus a daily animal-care check)
 - [x] Add an "earliest planting day" field to crops (e.g. strawberry seeds are only sold at the Egg Festival on day 13) to fix the profit ranking
 - [x] Add Garlic, Red Cabbage and Sunflower, and track seeds sold only from year 2 with `available_year`
 - [x] Add Blue Jazz, Wheat and Poppy (Wheat → Beer via a crop-specific artisan rule)
@@ -333,7 +338,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 
 - [ ] **Prompt caching**: the data tables and rules are resent on every call; caching them would noticeably cut API cost and time to first token, most of all for multi-season planning and self-correction
 - [ ] **Local models**: support OpenAI-compatible endpoints such as Ollama / vLLM for fully offline planning
-- [ ] **Livestock and more greenhouse support**: animals, animal products and the mayonnaise / cheese processing chain; fruit trees and more indoor crops in the greenhouse
+- [ ] **Advanced livestock and greenhouse**: large and quality products from friendship, the mayonnaise / cheese processing chain, building and tool costs; fruit trees and more indoor crops in the greenhouse
 - [ ] **Export to calendar (.ics)**: import the 28-day schedule straight into a phone or desktop calendar, with reminders on festivals and birthdays
 
 ## Data sources and licensing
@@ -341,7 +346,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 | Content | Source | License |
 |---|---|---|
 | Code (`stardew_planner/`, `web/`, `scripts/`, `tests/`, `main.py`, etc.) | Written for this project | [MIT](LICENSE) |
-| Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
+| Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json`, `animals.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
 | `data/calendar.json`, `data/guides/` | Written for this project (festival dates are the game's fixed schedule) | [MIT](LICENSE) |
 
 Stardew Valley Wiki content is licensed under [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights): it requires attribution, **does not allow commercial use**, and adaptations must be shared under the same license. The data files derived from the wiki are therefore also provided under CC BY-NC-SA 3.0. The code is MIT-licensed and free to use, including commercially; commercial use together with that data requires permission from the wiki's copyright holders, or replacing the data with independently verified values. See [data/NOTICE.md](data/NOTICE.md).

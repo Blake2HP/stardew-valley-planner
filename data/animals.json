@@ -1,0 +1,106 @@
+{
+  "_source": "Stardew Valley Wiki（1.6）：各动物页面（https://stardewvalleywiki.com/Chicken 、/Duck、/Rabbit、/Cow、/Goat、/Sheep、/Pig）的购买价、居住建筑、成熟所需夜数、产出周期与产品售价；产品售价同时对照各产品页面（Egg、Milk 等）；干草、挤奶桶、剪刀价格来自 https://stardewvalleywiki.com/Marnie%27s_Ranch ；喂养规则来自 https://stardewvalleywiki.com/Animals#Food 。核对日期 2026-11-11。中文名取自官方 wiki 中文版。",
+  "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
+  "_model": "程序的简化假设：动物在本季第 1 天从玛妮牧场买入（扣购买价），每天都喂饱；幼崽过完 mature_nights 个夜晚成年，成年后每 produce_every_days 天产一次，第一次产出按“买入日 + 成熟夜数 + 产出周期”计（偏保守）。只算基础产品：大号产品、鸭毛、兔脚和品质都要靠好感与心情，不计入。春夏秋假设放出去吃草，不花钱；冬季动物不出门，每只每天吃 1 份干草，按玛妮牧场 50g 一份计。鸡舍、畜棚等建筑和挤奶桶、剪刀假设已经有了，不计成本。猪只在出门时找松露：冬季和雨天不出门；程序不知道哪天下雨，非冬季按每天 1 个计（偏乐观），冬季不产。",
+  "hay_price": 50,
+  "tools": {
+    "挤奶桶": {
+      "name_en": "Milk Pail",
+      "price": 1000
+    },
+    "剪刀": {
+      "name_en": "Shears",
+      "price": 1000
+    }
+  },
+  "animals": [
+    {
+      "name": "鸡",
+      "name_en": "Chicken",
+      "building": "鸡舍",
+      "building_en": "Coop",
+      "buy_price": 800,
+      "mature_nights": 3,
+      "produce_every_days": 1,
+      "product": "蛋",
+      "product_en": "Egg",
+      "product_price": 50
+    },
+    {
+      "name": "鸭",
+      "name_en": "Duck",
+      "building": "大鸡舍",
+      "building_en": "Big Coop",
+      "buy_price": 1200,
+      "mature_nights": 5,
+      "produce_every_days": 2,
+      "product": "鸭蛋",
+      "product_en": "Duck Egg",
+      "product_price": 95
+    },
+    {
+      "name": "兔子",
+      "name_en": "Rabbit",
+      "building": "高级鸡舍",
+      "building_en": "Deluxe Coop",
+      "buy_price": 8000,
+      "mature_nights": 6,
+      "produce_every_days": 4,
+      "product": "动物毛",
+      "product_en": "Wool",
+      "product_price": 340
+    },
+    {
+      "name": "牛",
+      "name_en": "Cow",
+      "building": "畜棚",
+      "building_en": "Barn",
+      "buy_price": 1500,
+      "mature_nights": 5,
+      "produce_every_days": 1,
+      "product": "牛奶",
+      "product_en": "Milk",
+      "product_price": 125,
+      "tool": "挤奶桶"
+    },
+    {
+      "name": "山羊",
+      "name_en": "Goat",
+      "building": "大畜棚",
+      "building_en": "Big Barn",
+      "buy_price": 4000,
+      "mature_nights": 5,
+      "produce_every_days": 2,
+      "product": "羊奶",
+      "product_en": "Goat Milk",
+      "product_price": 225,
+      "tool": "挤奶桶"
+    },
+    {
+      "name": "绵羊",
+      "name_en": "Sheep",
+      "building": "高级畜棚",
+      "building_en": "Deluxe Barn",
+      "buy_price": 8000,
+      "mature_nights": 4,
+      "produce_every_days": 3,
+      "product": "动物毛",
+      "product_en": "Wool",
+      "product_price": 340,
+      "tool": "剪刀"
+    },
+    {
+      "name": "猪",
+      "name_en": "Pig",
+      "building": "高级畜棚",
+      "building_en": "Deluxe Barn",
+      "buy_price": 16000,
+      "mature_nights": 10,
+      "produce_every_days": 1,
+      "product": "松露",
+      "product_en": "Truffle",
+      "product_price": 625,
+      "outdoor_only": true
+    }
+  ]
+}
