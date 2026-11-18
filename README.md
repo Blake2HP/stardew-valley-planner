@@ -112,6 +112,7 @@ python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summe
 | 参数 | 说明 | 默认值 |
 |---|---|---|
 | `-p, --playstyle` | 玩法风格，如“钓鱼赚钱”“全收集”“种田为主” | `钓鱼赚钱，兼顾种田` |
+| `--list-playstyles` | 列出预设的玩法风格和节奏偏好，以及各自的优劣势和适合人群（网页上点选预设时也会显示），然后退出 | - |
 | `-c, --pacing` | 节奏偏好，如“休闲慢节奏”“速通极限” | `休闲慢节奏` |
 | `-s, --season` | `spring/summer/fall/winter`，也可以写 `春季`、`夏` 等；用逗号分隔多个**连续**季节做跨季规划，如 `spring,summer`（冬季之后进入下一年春季） | `spring` |
 | `-y, --year` | 游戏年份；第 1 年的收益表和校验不计入第 2 年起才出售种子的作物（大蒜、红叶卷心菜、未碾米、洋蓟） | `1` |
@@ -219,6 +220,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── bonuses.json            职业、肥料与作物品质规则
 │   ├── farm.json               开局金币、开局种子、农场地图、温室与姜岛农场
 │   ├── npcs.json               NPC 生日与送礼喜好
+│   ├── playstyles.json         预设玩法 / 节奏及其优劣势说明（给新手挑选用）
 │   ├── animals.json            农场动物：价格、成熟天数、产出周期与产品
 │   ├── bundles.json            社区中心收集包（标准版）
 │   ├── tools.json              铁匠铺工具升级：耗时、费用与材料
@@ -353,7 +355,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 |---|---|---|
 | 代码（`stardew_planner/`、`web/`、`scripts/`、`tests/`、`main.py` 等） | 本项目编写 | [MIT](LICENSE) |
 | `data/crops.json`、`artisan.json`、`bonuses.json`、`farm.json`、`npcs.json`、`animals.json`、`bundles.json`、`tools.json` 中的数值 | 整理自 [Stardew Valley Wiki](https://stardewvalleywiki.com)（1.6 版本，核对日期 2026-11-05） | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)，沿用原协议 |
-| `data/calendar.json`、`data/guides/` | 本项目自行编写（节日日期为游戏内固定日程） | [MIT](LICENSE) |
+| `data/calendar.json`、`data/playstyles.json`、`data/guides/` | 本项目自行编写（节日日期为游戏内固定日程） | [MIT](LICENSE) |
 
 Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights) 授权：使用时须署名，**不得用于商业用途**，改编后须以相同协议发布。因此，来自 wiki 的数据文件同样按 CC BY-NC-SA 3.0 提供。代码按 MIT 许可，可以自由使用（包括商用）；但如果连同上述数据一起用于商业用途，需要先取得 wiki 版权方的许可，或者换成自行核实的数据。详见 [data/NOTICE.md](data/NOTICE.md)。
 

@@ -35,6 +35,14 @@
   .chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 10px; font-size: 13px;
           cursor: pointer; color: var(--ink); }
   .chip:hover { border-color: var(--green); color: var(--green); }
+  .chip.active { border-color: var(--green); background: var(--green-soft); color: var(--green); font-weight: 600; }
+  .preset-note { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+                 background: #fafaf5; font-size: 13px; line-height: 1.55; }
+  .preset-note p { margin: 0 0 4px; }
+  .preset-note ul { margin: 2px 0 4px; padding-left: 18px; }
+  .preset-note .pro::marker { content: "＋ "; color: var(--green); }
+  .preset-note .con::marker { content: "－ "; color: #b54708; }
+  .preset-note .fit { color: var(--muted); margin: 0; }
   .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
   label.inline { display: flex; align-items: center; gap: 6px; font-weight: 600; }
   .checks label { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; margin: 0; }
@@ -85,21 +93,13 @@
     <div class="card">
       <label for="playstyle">玩法风格</label>
       <input id="playstyle" type="text" maxlength="100" value="钓鱼赚钱，兼顾种田" required>
-      <div class="chips" data-target="playstyle">
-        <button type="button" class="chip">种田极限赚钱</button>
-        <button type="button" class="chip">钓鱼赚钱，兼顾种田</button>
-        <button type="button" class="chip">酿酒加工为主</button>
-        <button type="button" class="chip">社交送礼优先</button>
-        <button type="button" class="chip">挖矿与全收集</button>
-      </div>
+      <div class="chips" data-target="playstyle" data-presets="playstyles"></div>
+      <div class="preset-note" id="playstyleNote" hidden></div>
 
       <label for="pacing">节奏偏好</label>
       <input id="pacing" type="text" maxlength="50" value="休闲慢节奏" required>
-      <div class="chips" data-target="pacing">
-        <button type="button" class="chip">休闲慢节奏</button>
-        <button type="button" class="chip">稳健</button>
-        <button type="button" class="chip">速通极限</button>
-      </div>
+      <div class="chips" data-target="pacing" data-presets="pacings"></div>
+      <div class="preset-note" id="pacingNote" hidden></div>
 
       <div class="row">
         <div>
@@ -257,6 +257,7 @@ async function loadOptions() {
     for (const f of options.fertilizers.filter((x) => x.kind === kind)) og.appendChild(new Option(f.name, f.key));
     fert.appendChild(og);
   }
+  setupPresets();
 }
 
 function seasonList() {
@@ -355,10 +356,39 @@ $("form").addEventListener("submit", async (e) => {
   }
 });
 
-for (const group of document.querySelectorAll(".chips")) {
-  group.addEventListener("click", (e) => {
-    if (e.target.classList.contains("chip")) $(group.dataset.target).value = e.target.textContent;
-  });
+// 预设的玩法 / 节奏：按钮来自 /api/options，选中（或输入的文字正好是预设名）时显示优劣势说明
+function renderPresetNote(group) {
+  const target = group.dataset.target;
+  const value = $(target).value.trim();
+  const preset = (options?.[group.dataset.presets] || []).find((p) => p.name === value);
+  for (const chip of group.querySelectorAll(".chip")) chip.classList.toggle("active", chip.textContent === value);
+  const note = $(`${target}Note`);
+  if (!preset) { note.hidden = true; note.innerHTML = ""; return; }
+  const items = (list, cls) => list.map((x) => `<li class="${cls}">${escapeText(x)}</li>`).join("");
+  note.innerHTML = `<p>${escapeText(preset.summary)}</p>`
+    + `<ul>${items(preset.pros, "pro")}${items(preset.cons, "con")}</ul>`
+    + `<p class="fit">适合：${escapeText(preset.suited_for)}</p>`;
+  note.hidden = false;
+}
+
+function setupPresets() {
+  for (const group of document.querySelectorAll(".chips[data-presets]")) {
+    for (const p of options[group.dataset.presets] || []) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = p.name;
+      chip.title = p.summary;
+      group.appendChild(chip);
+    }
+    group.addEventListener("click", (e) => {
+      if (!e.target.classList.contains("chip")) return;
+      $(group.dataset.target).value = e.target.textContent;
+      renderPresetNote(group);
+    });
+    $(group.dataset.target).addEventListener("input", () => renderPresetNote(group));
+    renderPresetNote(group);
+  }
 }
 $("share").addEventListener("input", () => { $("shareText").textContent = `${$("share").value}%`; });
 $("copy").addEventListener("click", async () => {

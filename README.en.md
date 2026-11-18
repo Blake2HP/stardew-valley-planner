@@ -116,6 +116,7 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | Option | Description | Default |
 |---|---|---|
 | `-p, --playstyle` | Playstyle, e.g. "fishing for money", "completionist", "farming first" | `钓鱼赚钱，兼顾种田` |
+| `--list-playstyles` | List the preset playstyles and pacings with their pros, cons and who they suit (the web page shows the same note when you pick a preset), then exit | - |
 | `-c, --pacing` | Pacing, e.g. "relaxed", "speedrun" | `休闲慢节奏` |
 | `-s, --season` | `spring/summer/fall/winter` (Chinese names like `春季` also work); a comma-separated list of **consecutive** seasons plans them in a row, e.g. `spring,summer` (winter is followed by spring of the next year) | `spring` |
 | `-y, --year` | In-game year; in year 1 the profit table and checks leave out crops whose seeds are only sold from year 2 (Garlic, Red Cabbage, Unmilled Rice, Artichoke) | `1` |
@@ -223,6 +224,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── bonuses.json            profession, fertilizer and crop quality rules
 │   ├── farm.json               starting gold and seeds, farm maps, greenhouse and Ginger Island farm
 │   ├── npcs.json               villager birthdays and gift preferences
+│   ├── playstyles.json         preset playstyles / pacings with pros and cons for new players
 │   ├── animals.json            farm animals: prices, maturity, production times and products
 │   ├── bundles.json            Community Center bundles (standard)
 │   ├── tools.json              Blacksmith tool upgrades: time, cost and materials
@@ -357,7 +359,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 |---|---|---|
 | Code (`stardew_planner/`, `web/`, `scripts/`, `tests/`, `main.py`, etc.) | Written for this project | [MIT](LICENSE) |
 | Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json`, `animals.json`, `bundles.json`, `tools.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
-| `data/calendar.json`, `data/guides/` | Written for this project (festival dates are the game's fixed schedule) | [MIT](LICENSE) |
+| `data/calendar.json`, `data/playstyles.json`, `data/guides/` | Written for this project (festival dates are the game's fixed schedule) | [MIT](LICENSE) |
 
 Stardew Valley Wiki content is licensed under [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights): it requires attribution, **does not allow commercial use**, and adaptations must be shared under the same license. The data files derived from the wiki are therefore also provided under CC BY-NC-SA 3.0. The code is MIT-licensed and free to use, including commercially; commercial use together with that data requires permission from the wiki's copyright holders, or replacing the data with independently verified values. See [data/NOTICE.md](data/NOTICE.md).
 

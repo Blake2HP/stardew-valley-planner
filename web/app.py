@@ -37,6 +37,7 @@ from stardew_planner.bonuses import load_bonus_rules, resolve_bonuses
 from stardew_planner.data_loader import SEASON_ZH, get_guide_store, load_game_data
 from stardew_planner.generator import parse_seasons
 from stardew_planner.llm_client import ModelRefusal, get_client
+from stardew_planner.playstyles import load_presets
 
 try:
     from dotenv import load_dotenv
@@ -229,6 +230,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
     @app.get("/api/options")
     def options():
         rules = load_bonus_rules()
+        presets = load_presets()
         return {
             "provider": settings.provider,
             "is_mock": settings.provider == "mock",
@@ -241,6 +243,8 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             "fertilizers": [{"key": k, "name": f.name_zh,
                              "kind": "quality" if f.quality_level else "speed", "source": f.source}
                             for k, f in rules.fertilizers.items()],
+            "playstyles": [p.as_dict() for p in presets.playstyles],
+            "pacings": [p.as_dict() for p in presets.pacings],
         }
 
     @app.post("/api/generate")

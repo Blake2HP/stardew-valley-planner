@@ -17,6 +17,7 @@ from stardew_planner import generate_plan, generate_strategy
 from stardew_planner.bonuses import resolve_bonuses
 from stardew_planner.data_loader import SEASON_ZH
 from stardew_planner.generator import parse_seasons
+from stardew_planner.playstyles import describe_presets, load_presets
 
 try:
     from dotenv import load_dotenv
@@ -32,8 +33,11 @@ def main() -> None:
             stream.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(description="星露谷物语最佳攻略生成器")
-    parser.add_argument("-p", "--playstyle", default="钓鱼赚钱，兼顾种田", help="玩法风格")
-    parser.add_argument("-c", "--pacing", default="休闲慢节奏", help="节奏偏好")
+    parser.add_argument("-p", "--playstyle", default="钓鱼赚钱，兼顾种田",
+                        help="玩法风格，可以自己写；用 --list-playstyles 查看预设玩法和各自的优劣势")
+    parser.add_argument("-c", "--pacing", default="休闲慢节奏", help="节奏偏好，可以自己写；预设见 --list-playstyles")
+    parser.add_argument("--list-playstyles", action="store_true",
+                        help="列出预设的玩法风格和节奏偏好，以及各自的优劣势，然后退出")
     parser.add_argument("-s", "--season", default="spring",
                         help="spring/summer/fall/winter 或 春季/夏季…；逗号分隔多个连续季节做跨季规划，如 spring,summer")
     parser.add_argument("-y", "--year", type=int, default=1, help="游戏年份；第 1 年不计入第 2 年起才出售种子的作物")
@@ -69,6 +73,9 @@ def main() -> None:
     parser.add_argument("--fertilizer", default=None,
                         help="肥料（每格只能一种）：加速 speed_gro / deluxe_speed_gro / hyper_speed_gro，品质 basic_fertilizer / quality_fertilizer / deluxe_fertilizer")
     args = parser.parse_args()
+    if args.list_playstyles:
+        print(describe_presets(load_presets()), end="")
+        return
     if args.year < 1:
         parser.error("年份必须 ≥ 1")
     if not 0 <= args.processing_share <= 1:
