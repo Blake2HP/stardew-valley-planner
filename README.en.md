@@ -193,6 +193,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 9. **Multi-season planning**: seasons are generated one at a time. After each season the farm state is extracted (end-of-season gold, multi-season crops still in the ground with their harvest days next season, cleared crops, leftover seeds, last season's planned goals) and written into a "carried-over state" section of the next season's user prompt; the system prompt stays the same apart from one rule about following on. Replanting a crop that is still in the ground triggers a warning, and the day-28 cleanup goal names the crops to keep (e.g. `清理农场/停止种植（保留玉米）`).
 10. **Birthday gifts**: `data/npcs.json` holds birthdays and loved / liked / disliked / hated gifts for all 34 giftable villagers, plus the universal like, neutral, dislike and hate lists. When a season is generated, the villagers with a birthday that season and their preferences are injected into the data reference, and the system prompt requires a "送{NPC}{礼物}" (give NPC a gift) task on the birthday. The program then checks each gift: first the items listed on the villager's page, then the wiki's category notes for crops and artisan goods (e.g. Haley dislikes all vegetables, Sebastian hates artisan goods), then the universal lists (Poppy is a universal hate, except for Penny). Disliked, hated and neutral gifts are all reported. The 12 marriage candidates must get a gift on their birthday; other villagers are optional. A loved gift on a birthday is worth 80 × 8 = 640 friendship points.
 11. **Tool upgrades**: the model can schedule upgrades in `tool_upgrades` (tool, drop-off day, level). Following the wiki, the program works out the pickup day (morning of day D + 2, pushed back when the Blacksmith is closed for a festival), checks that the schedule says "交送升级X" (drop off) and "取回X" (pick up), and that no work needing the tool is planned while it is away (watering can: watering and sowing; pickaxe: the mines; axe: chopping trees; hoe: tilling). Conflicts go back to the model for a rewrite. The upgrade cost is taken from gold on the drop-off day.
+12. **Energy**: players start with 270 max energy, and each watering costs 2 − 0.1 × farming level (wiki Energy, Skills). From the planting list the program works out how many tiles must be hand-watered each day (single-harvest crops until the day before harvest, regrowing crops all season; sprinklers and rain are not counted). Days above 100 energy of watering are heavy; across a run of heavy days, at least one day in every 3 must plan food (foraging leeks, picking salmonberries, buying a salad at the Saloon, etc.), otherwise a "⚠️ 体力预警" (energy warning) goes back to the model.
 
 ## Project structure
 
@@ -215,6 +216,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── livestock.py            livestock (animal output, purchase and hay costs)
 │   ├── bundles.py              Community Center bundle route (kept crops, bundle checks)
 │   ├── tools.py                tool upgrade timeline (pickup day, conflict checks, upgrade cost)
+│   ├── energy.py               early-game energy (tiles watered per day, watering energy, food checks)
 │   ├── farm_state.py           cross-season harvest simulation, gold, end-of-season farm state
 │   └── generator.py            generate_strategy() / generate_plan() pipeline
 ├── data/
@@ -228,6 +230,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── animals.json            farm animals: prices, maturity, production times and products
 │   ├── bundles.json            Community Center bundles (standard)
 │   ├── tools.json              Blacksmith tool upgrades: time, cost and materials
+│   ├── energy.json             max energy and watering cost
 │   ├── NOTICE.md               data sources and licensing
 │   └── guides/*.md             guide texts
 ├── tests/                      pytest tests
@@ -322,6 +325,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add the remaining villagers (34 in total) and the universal like / neutral / dislike / hate lists; gift checks tell the four levels apart
 - [x] Simulate processing with machine counts and processing time (`--kegs` / `--jars`)
 - [x] Greenhouse planning (`--greenhouse`: no season limits, 120-tile cap, crops carry across seasons)
+- [x] Early-game energy (watering energy per day from the planting list; on heavy days food must be planned at least every 3 days, otherwise the model revises)
 - [x] Ginger Island farm (`--location ginger_island`: no season limits, crops survive the season change, steady-state per-28-days profit table)
 - [x] Tool upgrade timeline (the model outputs `tool_upgrades`; no work needing the tool during the 2-day upgrade, pickup moves past festival closures, cost counted toward gold)
 - [x] Community Center route (`--route community_center`: bundle crops are kept and their price deducted; a bundle check fires when the last chance passes)
@@ -358,7 +362,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 | Content | Source | License |
 |---|---|---|
 | Code (`stardew_planner/`, `web/`, `scripts/`, `tests/`, `main.py`, etc.) | Written for this project | [MIT](LICENSE) |
-| Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json`, `animals.json`, `bundles.json`, `tools.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
+| Values in `data/crops.json`, `artisan.json`, `bonuses.json`, `farm.json`, `npcs.json`, `animals.json`, `bundles.json`, `tools.json`, `energy.json` | Compiled from the [Stardew Valley Wiki](https://stardewvalleywiki.com) (version 1.6, checked on 2026-11-05) | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), same as the original |
 | `data/calendar.json`, `data/playstyles.json`, `data/guides/` | Written for this project (festival dates are the game's fixed schedule) | [MIT](LICENSE) |
 
 Stardew Valley Wiki content is licensed under [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights): it requires attribution, **does not allow commercial use**, and adaptations must be shared under the same license. The data files derived from the wiki are therefore also provided under CC BY-NC-SA 3.0. The code is MIT-licensed and free to use, including commercially; commercial use together with that data requires permission from the wiki's copyright holders, or replacing the data with independently verified values. See [data/NOTICE.md](data/NOTICE.md).

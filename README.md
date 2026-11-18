@@ -189,6 +189,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 9. **跨季连续规划**：逐季生成。每季结束后提取农场状态（期末资金、仍在地里的跨季作物及其在下一季的收获日、清空的作物、手上剩余的种子、上季计划目标），写进下一季用户 Prompt【数据参考】的“上季延续状态”一节；系统 Prompt 保持不变，只多一条衔接规则。下一季再种仍在地里的作物会报警，第 28 天的清理目标会注明保留跨季作物（如“清理农场/停止种植（保留玉米）”）。
 10. **生日送礼**：`data/npcs.json` 记录了全部 34 位可送礼村民的生日和最爱 / 喜欢 / 不喜欢 / 讨厌物品，以及通用喜欢、中立、不喜欢、讨厌列表。生成某季攻略时，当季过生日的 NPC 及其喜好会注入【数据参考】，系统 Prompt 要求在生日当天写“送{NPC}{礼物}”。程序随后核对每件礼物：先查 NPC 页面逐项列出的物品，再按 wiki 的类别说明判断作物和加工品（如海莉不喜欢所有蔬菜、塞巴斯蒂安讨厌工匠物品），最后查通用列表（虞美人是通用讨厌，潘妮例外）；不喜欢、讨厌、中立的礼物都会报出来。12 位可以结婚的村民生日当天必须有送礼任务，其他村民可选。生日送最爱 = 80 × 8 = 640 好感度。
 11. **工具升级**：模型可以在 `tool_upgrades` 里安排工具升级（工具、交送日、等级）。程序按 wiki 规则算出取回日（第 D + 2 天早上，取货日铁匠铺因节日关门时顺延），核对日程里有没有写“交送升级X”和“取回X”，以及工具不在手上的日子有没有安排要用它的工作（喷壶：浇水、播种；十字镐：下矿；斧头：砍树；锄头：开垦），有冲突就交给模型重写。升级费在交送日从资金里扣掉。
+12. **体力**：开局最大体力 270 点，喷壶每浇一格消耗 2 − 0.1 × 耕种等级 点（wiki Energy、Skills）。程序按种植清单算出每天要手浇的格数（单次收获的作物浇到收获前一天，可再生作物整季都浇；不算洒水器和下雨天）。浇水超过 100 点的日子算压力大，连续压力大的日子里每 3 天至少要有一天安排补体力（采集大葱、摘鲑莓、去沙龙买沙拉等），否则报“⚠️ 体力预警”并交给模型修正。
 
 ## 项目结构
 
@@ -211,6 +212,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── livestock.py            畜牧（动物产出、购买与干草成本）
 │   ├── bundles.py              社区中心献祭路线（预留作物、献祭校验）
 │   ├── tools.py                工具升级时间轴（取回日、冲突校验、升级费用）
+│   ├── energy.py               前期体力（每天手浇格数、浇水体力、补体力校验）
 │   ├── farm_state.py           跨季收获模拟、资金计算、季末农场状态
 │   └── generator.py            generate_strategy() / generate_plan() 主流程
 ├── data/
@@ -224,6 +226,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── animals.json            农场动物：价格、成熟天数、产出周期与产品
 │   ├── bundles.json            社区中心收集包（标准版）
 │   ├── tools.json              铁匠铺工具升级：耗时、费用与材料
+│   ├── energy.json             体力上限与浇水消耗
 │   ├── NOTICE.md               数据来源与许可
 │   └── guides/*.md             攻略文本
 ├── tests/                      pytest 测试
@@ -327,6 +330,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 支持跨季连续规划（资金与跨季作物衔接）
 - [x] 跨季的加工品（季末还在机器里的货品下季完成时入账）
 - [x] 温室规划（`--greenhouse`：不受季节限制、120 格上限、作物跨季延续）
+- [x] 前期体力（按种植清单算每天手浇的体力，压力大时每 3 天至少安排一次补体力，否则交给模型修正）
 - [x] 姜岛农场（`--location ginger_island`：不受季节限制、换季不枯死、收益表按每 28 天稳态计算）
 - [x] 工具升级时间轴（模型输出 `tool_upgrades`；升级 2 天期间不能安排要用这件工具的工作，节日关门顺延取回，升级费计入资金）
 - [x] 社区中心献祭路线（`--route community_center`：收集包作物先留下、按售价扣钱，最后机会没留下时报献祭校验）
@@ -354,7 +358,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 | 内容 | 来源 | 许可 |
 |---|---|---|
 | 代码（`stardew_planner/`、`web/`、`scripts/`、`tests/`、`main.py` 等） | 本项目编写 | [MIT](LICENSE) |
-| `data/crops.json`、`artisan.json`、`bonuses.json`、`farm.json`、`npcs.json`、`animals.json`、`bundles.json`、`tools.json` 中的数值 | 整理自 [Stardew Valley Wiki](https://stardewvalleywiki.com)（1.6 版本，核对日期 2026-11-05） | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)，沿用原协议 |
+| `data/crops.json`、`artisan.json`、`bonuses.json`、`farm.json`、`npcs.json`、`animals.json`、`bundles.json`、`tools.json`、`energy.json` 中的数值 | 整理自 [Stardew Valley Wiki](https://stardewvalleywiki.com)（1.6 版本，核对日期 2026-11-05） | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/)，沿用原协议 |
 | `data/calendar.json`、`data/playstyles.json`、`data/guides/` | 本项目自行编写（节日日期为游戏内固定日程） | [MIT](LICENSE) |
 
 Stardew Valley Wiki 的内容按 [CC BY-NC-SA 3.0](https://stardewvalleywiki.com/Stardew_Valley_Wiki:Copyrights) 授权：使用时须署名，**不得用于商业用途**，改编后须以相同协议发布。因此，来自 wiki 的数据文件同样按 CC BY-NC-SA 3.0 提供。代码按 MIT 许可，可以自由使用（包括商用）；但如果连同上述数据一起用于商业用途，需要先取得 wiki 版权方的许可，或者换成自行核实的数据。详见 [data/NOTICE.md](data/NOTICE.md)。

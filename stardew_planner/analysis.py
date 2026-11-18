@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, QUALITIES, Bonuses
+from .energy import describe_energy
 from .livestock import describe_herds
 from .tools import describe_tools
 from .data_loader import (
@@ -334,6 +335,7 @@ def build_data_context(
         "bundles": bundle_text or "（没有选择社区中心献祭路线）",
         "tools": describe_tools(data.tool_rules) if data.tool_rules else "（没有工具升级数据）",
         "location": describe_location(data, location),
+        "energy": describe_energy(data.energy_rules, bonuses),
     }
 
 

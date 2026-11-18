@@ -229,6 +229,7 @@ class GameData:
     hay_price: int = 50                          # 玛妮牧场的干草价格（data/animals.json）
     bundles: list = field(default_factory=list)  # 社区中心收集包（data/bundles.json），元素为 bundles.Bundle
     tool_rules: object = None                    # 工具升级规则（data/tools.json），tools.ToolRules
+    energy_rules: object = None                  # 体力与浇水规则（data/energy.json），energy.EnergyRules
 
     def resolve_farm_type(self, name: str | None) -> str:
         """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
@@ -289,6 +290,11 @@ def load_crops(path: Path) -> list[Crop]:
     raw = _read_json(path)["crops"]
     return [Crop(**{**item, "seasons": tuple(item["seasons"]), "aliases": tuple(item.get("aliases", ())),
                     "byproducts": tuple(Byproduct(**b) for b in item.get("byproducts", ()))}) for item in raw]
+
+
+def _load_energy(data_dir: Path):
+    from .energy import load_energy_rules  # 避免循环导入
+    return load_energy_rules(data_dir)
 
 
 def load_tool_rules(path: Path):
@@ -378,6 +384,7 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         animals=load_animals(data_dir / "animals.json"),
         bundles=load_bundles(data_dir / "bundles.json"),
         tool_rules=load_tool_rules(data_dir / "tools.json"),
+        energy_rules=_load_energy(data_dir),
         hay_price=int(_read_json(data_dir / "animals.json").get("hay_price", 50)) if (data_dir / "animals.json").exists()
         else 50,
         calendar=load_calendar(data_dir / "calendar.json"),

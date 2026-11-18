@@ -15,6 +15,7 @@ from .farm_state import (
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
+from .energy import check_energy
 from .livestock import Herd, parse_animals
 from .tools import check_upgrades, parse_upgrades, upgrade_costs
 from .llm_client import LLMClient, TruncatedOutput, get_client
@@ -330,6 +331,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         problems += check_animal_care(goals, [h.animal.name for h in s.herds])
     problems += route_warnings(reservations, season_key)
     problems += tool_problems
+    if data.energy_rules is not None:
+        problems += check_energy(goals, plantings, carry_in, data.energy_rules, s.bonuses)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
     if note and note.startswith("⚠️"):
         problems.append(note)
