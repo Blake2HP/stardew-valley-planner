@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .bonuses import NO_BONUSES, QUALITIES, Bonuses
+from .buildings import describe_buildings
 from .energy import describe_energy
 from .livestock import describe_herds
 from .tools import describe_tools
@@ -336,6 +337,7 @@ def build_data_context(
         "tools": describe_tools(data.tool_rules) if data.tool_rules else "（没有工具升级数据）",
         "location": describe_location(data, location),
         "energy": describe_energy(data.energy_rules, bonuses),
+        "buildings": describe_buildings(data.building_rules),
     }
 
 

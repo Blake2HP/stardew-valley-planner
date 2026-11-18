@@ -1,0 +1,262 @@
+{
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Carpenter%27s_Shop（Farm Buildings 表的价格、材料与工期；周二不营业；下单第二天开工、节日不施工）。建筑和材料的中文名取自官方 wiki 中文版。核对日期 2026-11-18。",
+  "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
+  "_rules": "day 是去罗宾那里下单付款的日子：周二商店不营业（下雨的周二例外，程序不知道天气，一律按不营业算），节日不能下单。下单第二天开工，节日当天不施工、工期顺延；工期 N 天表示下单后第 N 天早上完工。同一时间只能建一座，完工前不能再下单。金币在下单时支付；材料需要玩家自己准备，程序不计。升级建筑（如大鸡舍）要先有原来的建筑。",
+  "closed_weekday": "tuesday",
+  "night_festivals": [
+    "月光水母起舞",
+    "万灵节",
+    "夜市"
+  ],
+  "_night_festivals": "这几个节日在晚上举行，白天照常（calendar.json 的提示），程序不把它们当作不能下单、不施工的日子。",
+  "buildings": [
+    {
+      "name": "鸡舍",
+      "name_en": "Coop",
+      "price": 4000,
+      "days": 3,
+      "materials": [
+        {
+          "name": "木材",
+          "name_en": "Wood",
+          "count": 300
+        },
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 100
+        }
+      ]
+    },
+    {
+      "name": "大鸡舍",
+      "name_en": "Big Coop",
+      "price": 10000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "木材",
+          "name_en": "Wood",
+          "count": 400
+        },
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 150
+        }
+      ],
+      "upgrades_from": "鸡舍"
+    },
+    {
+      "name": "高级鸡舍",
+      "name_en": "Deluxe Coop",
+      "price": 20000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "木材",
+          "name_en": "Wood",
+          "count": 500
+        },
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 200
+        }
+      ],
+      "upgrades_from": "大鸡舍"
+    },
+    {
+      "name": "畜棚",
+      "name_en": "Barn",
+      "price": 6000,
+      "days": 3,
+      "materials": [
+        {
+          "name": "木材",
+          "name_en": "Wood",
+          "count": 350
+        },
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 150
+        }
+      ]
+    },
+    {
+      "name": "大畜棚",
+      "name_en": "Big Barn",
+      "price": 12000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "木材",
+          "name_en": "Wood",
+          "count": 450
+        },
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 200
+        }
+      ],
+      "upgrades_from": "畜棚"
+    },
+    {
+      "name": "高级畜棚",
+      "name_en": "Deluxe Barn",
+      "price": 25000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "木材",
+          "name_en": "Wood",
+          "count": 550
+        },
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 300
+        }
+      ],
+      "upgrades_from": "大畜棚"
+    },
+    {
+      "name": "筒仓",
+      "name_en": "Silo",
+      "price": 100,
+      "days": 2,
+      "materials": [
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 100
+        },
+        {
+          "name": "粘土",
+          "name_en": "Clay",
+          "count": 10
+        },
+        {
+          "name": "铜锭",
+          "name_en": "Copper Bar",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "name": "鱼塘",
+      "name_en": "Fish Pond",
+      "price": 5000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 200
+        },
+        {
+          "name": "海草",
+          "name_en": "Seaweed",
+          "count": 5
+        },
+        {
+          "name": "绿藻",
+          "name_en": "Green Algae",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "name": "磨坊",
+      "name_en": "Mill",
+      "price": 2500,
+      "days": 2,
+      "materials": [
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 50
+        },
+        {
+          "name": "木材",
+          "name_en": "Wood",
+          "count": 150
+        },
+        {
+          "name": "布料",
+          "name_en": "Cloth",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "name": "小屋",
+      "name_en": "Shed",
+      "price": 15000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "木材",
+          "name_en": "Wood",
+          "count": 300
+        }
+      ]
+    },
+    {
+      "name": "史莱姆屋",
+      "name_en": "Slime Hutch",
+      "price": 10000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 500
+        },
+        {
+          "name": "精炼石英",
+          "name_en": "Refined Quartz",
+          "count": 10
+        },
+        {
+          "name": "铱锭",
+          "name_en": "Iridium Bar",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "name": "马厩",
+      "name_en": "Stable",
+      "price": 10000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "硬木",
+          "name_en": "Hardwood",
+          "count": 100
+        },
+        {
+          "name": "铁锭",
+          "name_en": "Iron Bar",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "name": "水井",
+      "name_en": "Well",
+      "price": 1000,
+      "days": 2,
+      "materials": [
+        {
+          "name": "石头",
+          "name_en": "Stone",
+          "count": 75
+        }
+      ]
+    }
+  ]
+}

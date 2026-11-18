@@ -230,6 +230,7 @@ class GameData:
     bundles: list = field(default_factory=list)  # 社区中心收集包（data/bundles.json），元素为 bundles.Bundle
     tool_rules: object = None                    # 工具升级规则（data/tools.json），tools.ToolRules
     energy_rules: object = None                  # 体力与浇水规则（data/energy.json），energy.EnergyRules
+    building_rules: object = None                # 罗宾的农场建筑（data/buildings.json），buildings.BuildingRules
 
     def resolve_farm_type(self, name: str | None) -> str:
         """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
@@ -290,6 +291,20 @@ def load_crops(path: Path) -> list[Crop]:
     raw = _read_json(path)["crops"]
     return [Crop(**{**item, "seasons": tuple(item["seasons"]), "aliases": tuple(item.get("aliases", ())),
                     "byproducts": tuple(Byproduct(**b) for b in item.get("byproducts", ()))}) for item in raw]
+
+
+def load_building_rules(path: Path):
+    """农场建筑；文件不存在时为 None（不校验 constructions）。"""
+    from .buildings import Building, BuildingRules, Material  # 避免循环导入
+    if not path.exists():
+        return None
+    raw = _read_json(path)
+    buildings = tuple(Building(b["name"], b["name_en"], int(b["price"]), int(b["days"]),
+                               tuple(Material(**m) for m in b.get("materials", ())), b.get("upgrades_from"))
+                      for b in raw["buildings"])
+    closed = {"monday": "周一", "tuesday": "周二", "wednesday": "周三", "thursday": "周四", "friday": "周五",
+              "saturday": "周六", "sunday": "周日"}.get(raw.get("closed_weekday", "tuesday"), "周二")
+    return BuildingRules(buildings, closed, tuple(raw.get("night_festivals", ())))
 
 
 def _load_energy(data_dir: Path):
@@ -385,6 +400,7 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         bundles=load_bundles(data_dir / "bundles.json"),
         tool_rules=load_tool_rules(data_dir / "tools.json"),
         energy_rules=_load_energy(data_dir),
+        building_rules=load_building_rules(data_dir / "buildings.json"),
         hay_price=int(_read_json(data_dir / "animals.json").get("hay_price", 50)) if (data_dir / "animals.json").exists()
         else 50,
         calendar=load_calendar(data_dir / "calendar.json"),
