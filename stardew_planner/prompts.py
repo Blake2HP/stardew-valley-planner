@@ -87,6 +87,7 @@ USER_PROMPT_TEMPLATE = """\
 - 玩法风格：{playstyle}
 - 节奏偏好：{pacing}
 - 职业与肥料：{bonuses}
+- 联机：{coop}
 
 ## 数据参考
 
@@ -146,6 +147,12 @@ REVISE_PROMPT_TEMPLATE = """\
 - 日程（daily_goals）和种植清单要一致，数值仍以【数据参考】为准；
 - 仍然只输出 JSON，不要任何额外文字。
 """
+
+
+def build_system_prompt(players: int = 1) -> str:
+    """单人时就是 SYSTEM_PROMPT；多人时在末尾追加联机规则（见 coop.py）。"""
+    from .coop import coop_system_rules  # 避免循环导入
+    return SYSTEM_PROMPT + coop_system_rules(players)
 
 
 def build_user_prompt(*, playstyle: str, pacing: str, season_zh: str, year: int, context: dict[str, str]) -> str:

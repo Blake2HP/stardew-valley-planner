@@ -162,3 +162,18 @@ def coop_system_rules(players: int) -> str:
 17. 必须按【玩家画像】里的分工明确分配任务，避免所有人干同一件事；没有指定分工时自己安排互补的分工。播种、送礼、第 28 天清理等全农场的事写在负责的那个玩家的目标里即可。
 18. 联机时打开菜单、钓鱼小游戏时间不会暂停：请适度减少极限卡点的日程安排，钓鱼的单日期望收益要保守估计（other_income 里写低一些）。
 19. tool_upgrades 每条都要写 player（如 "P1"）：工具是个人的，某个玩家的工具在铁匠铺时，只有他不能做要用这件工具的事，其他人照常；每个人升级工具都要单独付钱。"""
+
+
+def apply_season_end(day_goals: dict[str, str], old: str, new: str) -> dict[str, str]:
+    """第 28 天自动补上的清理目标（合成字符串末尾多出来的部分）放回对应的玩家：
+    “（保留X）”补给写了清理的玩家，“；清理农场/停止种植”交给房主 P1。"""
+    if new == old or not new.startswith(old):
+        return dict(day_goals)
+    suffix = new[len(old):]
+    out = dict(day_goals)
+    if suffix.startswith("；"):
+        out["P1"] = f"{out['P1']}{suffix}"
+        return out
+    owner = next((p for p, g in out.items() if "清理农场" in g and "停止种植" in g), "P1")
+    out[owner] = f"{out[owner]}{suffix}"
+    return out

@@ -93,7 +93,11 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
     for block in result.schedule:
         tags = [f"{name}({d}日)" for d in range(block.start, block.end + 1) for name in events_by_day.get(d, [])]
         suffix = f"　🎉 *{'、'.join(tags)}*" if tags else ""
-        out.append(f"- **{block.label}**：{block.goal}{suffix}")
+        if block.players:  # 联机：按玩家分行
+            out.append(f"- **{block.label}**：{suffix.strip()}".rstrip())
+            out += [f"  - **{p}**: {g}" for p, g in block.players]
+        else:
+            out.append(f"- **{block.label}**：{block.goal}{suffix}")
     out.append("")
 
     # ---- 种植清单与资金（程序计算）----

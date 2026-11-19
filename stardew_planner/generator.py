@@ -16,14 +16,18 @@ from .farm_state import (
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
-from .coop import check_players, parse_roles
+from .coop import (
+    apply_season_end, check_division, check_players, describe_coop, merge_day, parse_player_goals, parse_roles, player_ids,
+)
 from .energy import check_energy
 from .livestock import Herd, parse_animals
 from .tools import check_upgrades, parse_upgrades, upgrade_costs
 from .llm_client import LLMClient, TruncatedOutput, get_client
-from .prompts import REPAIR_PROMPT_TEMPLATE, REVISE_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_user_prompt
+from .prompts import (
+    REPAIR_PROMPT_TEMPLATE, REVISE_PROMPT_TEMPLATE, SYSTEM_PROMPT, build_system_prompt, build_user_prompt,
+)
 from .renderer import render_markdown
-from .schedule import ScheduleBlock, merge_daily_goals
+from .schedule import ScheduleBlock, merge_daily_goals, merge_player_goals
 from .season_rules import (
     check_animal_care, check_gifts, check_plantings, check_plantings_match, enforce_season_end, next_season, withering_crops,
 )
@@ -89,6 +93,7 @@ class ParsedStrategy:
     other_income: list[OtherIncome] = field(default_factory=list)
     tool_upgrades: list = field(default_factory=list)    # 原样保留，校验见 tools.py
     constructions: list = field(default_factory=list)    # 原样保留，校验见 buildings.py
+    player_goals: dict = field(default_factory=dict)     # 联机时每天按玩家的目标；goals 是合成后的字符串
 
 
 def _parse_plantings(raw, errors: list[str] | None) -> list[dict]:
@@ -128,7 +133,7 @@ def _parse_other_income(raw) -> list[OtherIncome]:
     return out
 
 
-def validate_payload(payload: dict) -> ParsedStrategy:
+def validate_payload(payload: dict, players: int = 1) -> ParsedStrategy:
     errors = []
 
     macro = payload.get("macro_strategy")
@@ -142,8 +147,15 @@ def validate_payload(payload: dict) -> ParsedStrategy:
 
     raw_goals = payload.get("daily_goals")
     goals: dict[int, str] = {}
+    player_goals: dict[int, dict[str, str]] = {}
     if not isinstance(raw_goals, dict):
         errors.append("daily_goals 必须是对象")
+    elif players > 1:  # 联机：每天按玩家写成对象
+        player_goals = parse_player_goals(raw_goals, players, errors)
+        goals = {d: merge_day(g) for d, g in player_goals.items()}
+        missing = [d for d in range(1, SEASON_DAYS + 1) if d not in goals]
+        if missing:
+            errors.append(f"daily_goals 缺少或不完整的天数: {missing}")
     else:
         for k, v in raw_goals.items():
             try:
@@ -164,7 +176,7 @@ def validate_payload(payload: dict) -> ParsedStrategy:
 
     return ParsedStrategy(macro, _clean_milestones(milestones), goals, plantings,
                           _parse_other_income(payload.get("other_income")), payload.get("tool_upgrades") or [],
-                          payload.get("constructions") or [])
+                          payload.get("constructions") or [], player_goals)
 
 
 def _clean_milestones(milestones) -> list[dict]:
@@ -182,18 +194,25 @@ def _clean_milestones(milestones) -> list[dict]:
     return sorted(cleaned, key=lambda m: m["day"])
 
 
-def _lenient_parse(payload: dict) -> ParsedStrategy:
+def _lenient_parse(payload: dict, players: int = 1) -> ParsedStrategy:
     """重试仍失败时的兜底：尽量保留能用的部分，缺失的天数填充占位。"""
     macro = payload.get("macro_strategy") if isinstance(payload.get("macro_strategy"), dict) else {}
     raw = payload.get("daily_goals") if isinstance(payload.get("daily_goals"), dict) else {}
-    goals = {}
+    goals, player_goals = {}, {}
+    if players > 1:
+        parsed = parse_player_goals(raw, players, None)
+        for d in range(1, SEASON_DAYS + 1):
+            player_goals[d] = parsed.get(d) or {p: FALLBACK_GOAL for p in player_ids(players)}
+            goals[d] = merge_day(player_goals[d])
     for d in range(1, SEASON_DAYS + 1):
+        if players > 1:
+            break
         v = raw.get(str(d), raw.get(d))
         goals[d] = v.strip() if isinstance(v, str) and v.strip() else FALLBACK_GOAL
     return ParsedStrategy(macro, _clean_milestones(payload.get("key_milestones")), goals,
                           _parse_plantings(payload.get("plantings"), None),
                           _parse_other_income(payload.get("other_income")), payload.get("tool_upgrades") or [],
-                          payload.get("constructions") or [])
+                          payload.get("constructions") or [], player_goals)
 
 
 def _fallback_warnings(error: str | None, goals: dict[int, str], payload: dict, parsed: ParsedStrategy) -> list[str]:
@@ -225,7 +244,8 @@ class _Draft:
     messages: list
 
 
-def _draft(client: LLMClient, messages: list, max_retries: int, allow_fallback: bool = True) -> _Draft:
+def _draft(client: LLMClient, messages: list, max_retries: int, allow_fallback: bool = True,
+           system: str = SYSTEM_PROMPT, players: int = 1) -> _Draft:
     """调用模型并校验格式；不合格时把错误回传给模型重试。重试用完：能兜底就兜底，否则抛出 StrategyParseError。"""
     messages = list(messages)
     raw, parse_method, calls = "", "", 0
@@ -234,14 +254,14 @@ def _draft(client: LLMClient, messages: list, max_retries: int, allow_fallback: 
         calls = attempt + 1
         truncated = False
         try:
-            raw = client.complete(SYSTEM_PROMPT, messages)
+            raw = client.complete(system, messages)
         except TruncatedOutput as e:  # 截断的 JSON 可能被修复成“看起来完整”的结果，不能直接采信
             raw, truncated = e.text, True
         payload = {}
         try:
             parsed = extract_json(raw)  # 语法错误在本地修复，不消耗重试次数
             payload, parse_method = parsed.data, parsed.method
-            strategy = validate_payload(payload)
+            strategy = validate_payload(payload, players)
             if truncated:
                 raise StrategyParseError(TRUNCATED_ERROR)
             return _Draft(raw, payload, parse_method, strategy, None, calls, messages)
@@ -250,7 +270,7 @@ def _draft(client: LLMClient, messages: list, max_retries: int, allow_fallback: 
             if attempt == max_retries:
                 if not payload or not allow_fallback:
                     raise StrategyParseError(reason) from e
-                return _Draft(raw, payload, parse_method, _lenient_parse(payload), reason, calls, messages)
+                return _Draft(raw, payload, parse_method, _lenient_parse(payload, players), reason, calls, messages)
             messages += [
                 {"role": "assistant", "content": raw},
                 {"role": "user", "content": REPAIR_PROMPT_TEMPLATE.format(error=reason)},
@@ -288,6 +308,7 @@ class _Evaluation:
     warnings: list[str]
     gift_warnings: list[str]
     problems: list[str]  # 需要模型修正的问题：warnings 和 gift_warnings 中排除固定提醒、说明类的部分
+    player_goals: dict = field(default_factory=dict)  # 联机时每天按玩家的目标（含第 28 天自动补的清理）
 
 
 def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
@@ -349,6 +370,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     problems += route_warnings(reservations, season_key)
     problems += tool_problems
     problems += building_problems
+    if s.players > 1:
+        problems += check_division(strategy.player_goals, s.roles)
     if data.energy_rules is not None:
         problems += check_energy(goals, plantings, carry_in, data.energy_rules, s.bonuses)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
@@ -366,8 +389,12 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         warnings.append("ℹ️ 姜岛农场：作物不受季节限制、换季不会枯死；需要已完成社区中心（或 Joja 路线）并修好威利的船，"
                         "往返船票 1000g（程序不计入资金）。")
     else:
+        before = goals.get(SEASON_DAYS, "")
         goals, inserted = enforce_season_end(goals, end_state.carried_names)
         dying = "、".join(c.name for c in withering_crops(data, season_key, s.year))
+    player_goals = {d: dict(g) for d, g in strategy.player_goals.items()}
+    if inserted and player_goals:  # 联机：自动补的清理目标放回对应的玩家
+        player_goals[SEASON_DAYS] = apply_season_end(player_goals[SEASON_DAYS], before, goals[SEASON_DAYS])
     if dying:
         warnings.append(f"⚠️ 第 28 天是换季前一天：{dying}将在进入{nxt_zh}时枯死，请在此之前收获完毕。")
     if end_state.carry:
@@ -379,7 +406,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         warnings.append(f"ℹ️ 已自动在第 28 天加入“{goals[SEASON_DAYS].split('；')[-1]}”。")
 
     gift_warnings = [f"⚠️ {w}" for w in check_gifts(goals, data, season_key)]
-    return _Evaluation(goals, plantings, finance, end_state, warnings, gift_warnings, problems + gift_warnings)
+    return _Evaluation(goals, plantings, finance, end_state, warnings, gift_warnings, problems + gift_warnings,
+                       player_goals)
 
 
 def resolve_location(location: str | None) -> str:
@@ -522,6 +550,7 @@ def generate_strategy(
     carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
                                  machines, greenhouse, herds, bundle_text, location)
+    context["coop"] = describe_coop(players, roles)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -530,7 +559,8 @@ def generate_strategy(
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
                           machines, greenhouse, herds, bundle_needs, location, players, roles)
-    draft = _draft(client, messages, max_retries)
+    system = build_system_prompt(players)
+    draft = _draft(client, messages, max_retries, system=system, players=players)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)
     initial_problems = list(evaluation.problems)
@@ -546,7 +576,7 @@ def generate_strategy(
         ]
         record = {"round": round_no, "problems_before": len(evaluation.problems)}
         try:
-            candidate = _draft(client, conversation, 0, allow_fallback=False)
+            candidate = _draft(client, conversation, 0, allow_fallback=False, system=system, players=players)
         except StrategyParseError as e:
             attempts += 1
             revisions.append({**record, "problems_after": None, "accepted": False, "error": str(e)[:150]})
@@ -584,7 +614,7 @@ def generate_strategy(
         macro_strategy=macro,
         key_milestones=milestones,
         daily_goals=goals,
-        schedule=merge_daily_goals(goals),
+        schedule=merge_player_goals(evaluation.player_goals) if players > 1 else merge_daily_goals(goals),
         season_warnings=warnings,
         gift_warnings=evaluation.gift_warnings,
         raw_response=raw,
@@ -602,6 +632,7 @@ def generate_strategy(
         revisions=revisions,
         players=players,
         roles=roles,
+        player_goals=evaluation.player_goals,
     )
     result.markdown = render_markdown(result, data)
     return result

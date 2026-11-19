@@ -119,10 +119,21 @@ class MockClient:
     def __init__(self, model: str | None = None, **_):
         self.model = model or "mock"
 
+    _COOP = re.compile(r"## 联机模式（(\d) 人")
+    # 联机时其他玩家的固定分工（P1 用原来的单人日程）
+    _COOP_TASKS = {"P2": "下矿井推进", "P3": "海滩钓鱼攒钱", "P4": "采集野菜，和村民聊天"}
+
     def complete(self, system: str, messages: list[Message]) -> str:
         m = self._SEASON.search(messages[0]["content"]) if messages else None
         season = self._KEYS[m.group(1)] if m else "spring"
-        return json.dumps(MOCK_RESPONSES[season], ensure_ascii=False)
+        payload = MOCK_RESPONSES[season]
+        coop = self._COOP.search(system or "")
+        if coop and int(coop.group(1)) > 1:
+            n = int(coop.group(1))
+            payload = {**payload, "daily_goals": {
+                day: {"P1": goal, **{f"P{i}": self._COOP_TASKS[f"P{i}"] for i in range(2, n + 1)}}
+                for day, goal in payload["daily_goals"].items()}}
+        return json.dumps(payload, ensure_ascii=False)
 
 
 _PROVIDERS = {"anthropic": AnthropicClient, "mock": MockClient}

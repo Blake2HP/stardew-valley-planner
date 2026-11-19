@@ -11,6 +11,7 @@ class ScheduleBlock:
     start: int
     end: int
     goal: str
+    players: tuple[tuple[str, str], ...] = ()  # 联机时每个玩家的目标 (("P1", ...), ("P2", ...))
 
     @property
     def label(self) -> str:
@@ -41,4 +42,18 @@ def merge_daily_goals(daily_goals: dict[int | str, str]) -> list[ScheduleBlock]:
             blocks[-1] = ScheduleBlock(last.start, day, last.goal)
         else:
             blocks.append(ScheduleBlock(day, day, norm))
+    return blocks
+
+
+def merge_player_goals(player_goals: dict[int, dict[str, str]]) -> list[ScheduleBlock]:
+    """联机日程：连续几天每个玩家的目标都相同（逐个规范化后比较）才合并成一个区间。"""
+    blocks: list[ScheduleBlock] = []
+    for day in sorted(player_goals):
+        players = tuple((p, _normalize(g)) for p, g in sorted(player_goals[day].items(), key=lambda x: int(x[0][1:])))
+        merged = "；".join(f"{p}：{g}" for p, g in players)
+        last = blocks[-1] if blocks else None
+        if last and last.players == players and last.end == day - 1:
+            blocks[-1] = ScheduleBlock(last.start, day, last.goal, players)
+        else:
+            blocks.append(ScheduleBlock(day, day, merged, players))
     return blocks

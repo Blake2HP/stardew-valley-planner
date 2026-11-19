@@ -338,6 +338,7 @@ def build_data_context(
         "location": describe_location(data, location),
         "energy": describe_energy(data.energy_rules, bonuses),
         "buildings": describe_buildings(data.building_rules),
+        "coop": "单人",
     }
 
 
