@@ -16,7 +16,7 @@ from .farm_state import (
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
-from .achievements import Progress, parse_progress, resolve_goals
+from .achievements import Progress, advance, describe_targets, parse_progress, resolve_goals, season_targets
 from .coop import (
     apply_season_end, check_division, check_players, describe_coop, merge_day, parse_player_goals, parse_roles, player_ids,
 )
@@ -30,7 +30,8 @@ from .prompts import (
 from .renderer import render_markdown
 from .schedule import ScheduleBlock, merge_daily_goals, merge_player_goals
 from .season_rules import (
-    check_animal_care, check_gifts, check_plantings, check_plantings_match, enforce_season_end, next_season, withering_crops,
+    check_animal_care, check_gifts, check_plantings, check_plantings_match, enforce_season_end, gift_tasks, next_season,
+    withering_crops,
 )
 
 FALLBACK_GOAL = "自由安排"
@@ -73,6 +74,8 @@ class StrategyResult:
     revisions: list[dict] = field(default_factory=list)  # 每轮自动修正：问题数前后、是否采用
     achievements: list = field(default_factory=list)     # 想完成的成就（achievements.Goal）
     achievement_progress: object = None                  # 本季开始时的成就进度（achievements.Progress）
+    achievement_targets: object = None                   # 本季成就缺口（achievements.SeasonTargets）
+    achievement_progress_end: object = None              # 本季结束时的成就进度，跨季规划时传给下一季
 
 
 # ---------------------------------------------------------------------------
@@ -413,6 +416,17 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
                        player_goals)
 
 
+def _season_earned(f: SeasonFinance) -> int:
+    """本季赚取的金币（富翁类成就）：出货 + 加工净增 + 蜂蜜 + 畜牧净收入 + 模型估算的其他收入。"""
+    return f.crop_revenue + f.processing_net + f.honey_income + max(0, f.livestock_net) + f.other_total
+
+
+def _progress_after(progress: Progress, ev: _Evaluation, carry_in, data: GameData) -> Progress:
+    units = season_harvest_units(ev.plantings, carry_in)
+    gifted = {npc.name for goal in ev.goals.values() for npc, _ in gift_tasks(goal, data)}
+    return advance(progress, units, gifted, _season_earned(ev.finance))
+
+
 def resolve_location(location: str | None) -> str:
     """种植地点：pelican_town（默认）/ ginger_island，也接受中文名。"""
     if location in (None, ""):
@@ -563,6 +577,10 @@ def generate_strategy(
                                  machines, greenhouse, herds, bundle_text, location)
     context["coop"] = describe_coop(players, roles)
     context["energy"] = describe_energy(data.energy_rules, bonuses, players)
+    targets = season_targets(goals_wanted, progress, data.crops, season_key, year) if goals_wanted else None
+    if targets is not None:
+        context["achievement_block"] = ("### 【🏆 成就规划目标】（程序计算，data/achievements.json）\n"
+                                        + describe_targets(targets, data.achievement_rules) + "\n\n")
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
@@ -647,6 +665,9 @@ def generate_strategy(
         player_goals=evaluation.player_goals,
         achievements=goals_wanted,
         achievement_progress=progress,
+        achievement_targets=targets,
+        achievement_progress_end=_progress_after(progress, evaluation, carry_in=prior_state.carry if prior_state
+                                                 else (), data=data) if goals_wanted else None,
     )
     result.markdown = render_markdown(result, data)
     return result
@@ -726,6 +747,8 @@ def generate_plan(
             break
         results.append(result)
         state = result.end_state
+        if result.achievement_progress_end is not None:  # 成就进度累计到下一季
+            kwargs["achievement_progress"] = result.achievement_progress_end
         kwargs.pop("animals", None)  # 动物只在第一季买入，之后随季末状态带下去
     out.markdown = render_plan(out, data)
     return out

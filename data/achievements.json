@@ -1,5 +1,5 @@
 {
-  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Achievements（成就条件、Polyculture 的 28 种作物）、https://stardewvalleywiki.com/Friendship（每颗心 250 好感度、每天对话 +20、每周最多 2 次礼物、一周送满 2 次礼物周日额外 +10），核对日期 2026-11-19。中文名取自 zh.stardewvalleywiki.com/成就。",
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Achievements（成就条件、Polyculture 的 28 种作物）、https://stardewvalleywiki.com/Friendship（每颗心 250 好感度、每天对话 +20、送最爱的礼物 +80、喜欢的 +45、每周最多 2 次礼物、一周送满 2 次礼物周日额外 +10），核对日期 2026-11-19。中文名取自 zh.stardewvalleywiki.com/成就。",
   "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_kinds": "earnings：累计赚取 target 金币；ship_each_crop：crops 里每种作物各运送 target 个（作物用 crops.json 的英文名）；friendship：与 target 个人达到 hearts 颗心（每颗心 points_per_heart 好感度）。aliases 是常见的非官方叫法。",
   "achievements": [
@@ -17,7 +17,7 @@
       "name_en": "Legend",
       "kind": "earnings",
       "target": 10000000,
-      "description": "赚取 10,000,000g（隐藏成就）"
+      "description": "赚取 10,000,000g，隐藏成就"
     },
     {
       "key": "polyculture",
@@ -26,7 +26,7 @@
       "aliases": ["多作种植"],
       "kind": "ship_each_crop",
       "target": 15,
-      "description": "运送 15 份每种农作物（共 28 种）",
+      "description": "运送 15 份每种农作物，共 28 种",
       "crops": [
         "Cauliflower", "Coffee Bean", "Garlic", "Green Bean", "Kale", "Parsnip", "Potato", "Rhubarb", "Strawberry",
         "Blueberry", "Corn", "Hops", "Hot Pepper", "Melon", "Radish", "Red Cabbage", "Starfruit", "Tomato", "Wheat",
@@ -46,6 +46,8 @@
   ],
   "friendship": {
     "talk_daily": 20,
+    "gift_love": 80,
+    "gift_like": 45,
     "gifts_per_week": 2,
     "full_week_bonus": 10
   }

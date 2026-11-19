@@ -339,6 +339,7 @@ def build_data_context(
         "energy": describe_energy(data.energy_rules, bonuses),
         "buildings": describe_buildings(data.building_rules),
         "coop": "单人",
+        "achievement_block": "",  # 选了成就时由 generate_strategy 填入（见 achievements.py）
     }
 
 

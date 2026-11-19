@@ -124,7 +124,7 @@ USER_PROMPT_TEMPLATE = """\
 ### 农场建筑（罗宾，data/buildings.json）
 {buildings}
 
-### 相关攻略片段（检索自攻略库，仅供参考）
+{achievement_block}### 相关攻略片段（检索自攻略库，仅供参考）
 {guide_excerpts}
 
 请严格按照系统提示中的 JSON 输出协议作答。
