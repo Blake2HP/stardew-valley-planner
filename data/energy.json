@@ -1,5 +1,5 @@
 {
-  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Energy（开局最大体力 270）、https://stardewvalleywiki.com/Skills#Proficiency（初始喷壶每次 2 点体力，耕种每升一级少 0.1 点）、https://stardewvalleywiki.com/The_Stardrop_Saloon（沙龙常驻出售沙拉 220g）。核对日期 2026-11-18。",
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Energy（开局最大体力 270）、https://stardewvalleywiki.com/Skills#Proficiency（初始喷壶每次 2 点体力，耕种每升一级少 0.1 点）、https://stardewvalleywiki.com/The_Stardrop_Saloon（沙龙常驻出售沙拉 220g）。核对日期 2026-11-18。 温泉（Spa）站在里面会恢复体力，同样见 Energy 页面。",
   "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_model": "简化假设：每格作物每天浇一次、全靠手浇（不算洒水器），不算下雨天（下雨不用浇水，实际会更轻松）；单次收获的作物从种下当天浇到收获前一天，可再生作物整季都要浇。浇水体力 = 格数 × 每格消耗；每格消耗 = 2 − 0.1 × 耕种等级。超过 heavy_threshold 的日子算“浇水压力大”，连续压力大的日子里每 replenish_every_days 天内至少要有一天安排补体力（目标里出现 replenish_words 之一）。heavy_threshold 与 replenish_every_days 是本项目的规划阈值，不是游戏数值。",
   "max_energy": 270,
@@ -14,6 +14,8 @@
     "沙拉",
     "补体力",
     "补充体力",
-    "吃"
-  ]
+    "吃",
+    "温泉"
+  ],
+  "_coop": "联机时每人各有一条体力，压力阈值按人数放大（heavy_threshold × 人数）；任何一个玩家安排了补体力都算。"
 }

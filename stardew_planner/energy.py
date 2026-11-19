@@ -65,10 +65,12 @@ def watered_tiles(plantings, carry_in=()) -> dict[int, int]:
     return tiles
 
 
-def heavy_days(tiles: dict[int, int], rules: EnergyRules, bonuses: Bonuses = NO_BONUSES) -> dict[int, float]:
-    """浇水体力超过阈值的日子 → 当天浇水体力。"""
+def heavy_days(tiles: dict[int, int], rules: EnergyRules, bonuses: Bonuses = NO_BONUSES,
+               players: int = 1) -> dict[int, float]:
+    """浇水体力超过阈值的日子 → 当天浇水体力。联机时每人一条体力，阈值按人数放大。"""
     cost = rules.cost_per_tile(bonuses.effective_farming_level)
-    return {d: n * cost for d, n in tiles.items() if n * cost > rules.heavy_threshold}
+    limit = rules.heavy_threshold * players
+    return {d: n * cost for d, n in tiles.items() if n * cost > limit}
 
 
 def _runs(days) -> list[list[int]]:
@@ -82,10 +84,13 @@ def _runs(days) -> list[list[int]]:
 
 
 def check_energy(goals: dict[int, str], plantings, carry_in, rules: EnergyRules,
-                 bonuses: Bonuses = NO_BONUSES) -> list[str]:
-    """浇水压力大的日子里，每 replenish_every_days 天内至少一天要安排补体力。"""
+                 bonuses: Bonuses = NO_BONUSES, players: int = 1) -> list[str]:
+    """浇水压力大的日子里，每 replenish_every_days 天内至少一天要安排补体力。
+
+    联机时 goals 是所有玩家合成的目标，任何一个玩家安排了补体力都算；阈值 = 单人阈值 × 人数。
+    """
     tiles = watered_tiles(plantings, carry_in)
-    heavy = heavy_days(tiles, rules, bonuses)
+    heavy = heavy_days(tiles, rules, bonuses, players)
     if not heavy:
         return []
     cost = rules.cost_per_tile(bonuses.effective_farming_level)
@@ -98,6 +103,13 @@ def check_energy(goals: dict[int, str], plantings, carry_in, rules: EnergyRules,
             continue
         peak = max(tiles[d] for d in run)
         span = "、".join(f"第 {c[0]}-{c[-1]} 天" if len(c) > 1 else f"第 {c[0]} 天" for c in missing)
+        if players > 1:
+            problems.append(
+                f"⚠️ 联机校验：体力预警：第 {run[0]}-{run[-1]} 天 {players} 人合计每天要手浇最多 {peak} 格，"
+                f"约 {peak * cost:.0f} 点体力（每格 {cost:g} 点，每人上限 {rules.max_energy}，"
+                f"{players} 人的安全线约 {rules.heavy_threshold * players:g} 点），{span}没有安排补充体力；"
+                f"请至少每 {step} 天让大家一起补体力（采集大葱/鲑莓、去沙龙买沙拉、泡温泉），或者减少种植格数")
+            continue
         problems.append(
             f"⚠️ 体力预警：第 {run[0]}-{run[-1]} 天每天要手浇最多 {peak} 格，约 {peak * cost:.0f} 点体力"
             f"（每格 {cost:g} 点，开局上限 {rules.max_energy}），{span}没有安排补充体力；"
@@ -105,14 +117,16 @@ def check_energy(goals: dict[int, str], plantings, carry_in, rules: EnergyRules,
     return problems
 
 
-def describe_energy(rules: EnergyRules | None, bonuses: Bonuses = NO_BONUSES) -> str:
-    """Prompt【数据参考】里的体力一节。"""
+def describe_energy(rules: EnergyRules | None, bonuses: Bonuses = NO_BONUSES, players: int = 1) -> str:
+    """Prompt【数据参考】里的体力一节。联机时每人一条体力，安全线按人数放大。"""
     if rules is None:
         return "（没有体力数据）"
     level = bonuses.effective_farming_level
     cost = rules.cost_per_tile(level)
-    tiles = int(rules.heavy_threshold // cost) if cost else 0
-    return (f"开局最大体力 {rules.max_energy} 点；喷壶每浇一格消耗 2 − 0.1 × 耕种等级 = {cost:g} 点（耕种等级 {level}）。"
-            f"程序按种植清单算每天要手浇的格数（不算洒水器和下雨天）：浇水超过 {rules.heavy_threshold:g} 点"
+    limit = rules.heavy_threshold * players
+    tiles = int(limit // cost) if cost else 0
+    who = f"每人开局最大体力 {rules.max_energy} 点（{players} 人联机，各自一条）" if players > 1         else f"开局最大体力 {rules.max_energy} 点"
+    return (f"{who}；喷壶每浇一格消耗 2 − 0.1 × 耕种等级 = {cost:g} 点（耕种等级 {level}）。"
+            f"程序按种植清单算每天要手浇的格数（不算洒水器和下雨天）：浇水超过 {limit:g} 点"
             f"（约 {tiles} 格）的日子，每 {rules.replenish_every_days} 天内至少要安排一次补体力，"
-            "例如春季采集大葱、鲑莓采集季摘鲑莓、秋季黑莓采集季摘黑莓、随时可以去沙龙买沙拉。")
+            "例如春季采集大葱、鲑莓采集季摘鲑莓、秋季黑莓采集季摘黑莓、随时可以去沙龙买沙拉或泡温泉。")

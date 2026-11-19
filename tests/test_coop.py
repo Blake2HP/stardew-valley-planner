@@ -184,3 +184,38 @@ def test_plan_two_seasons(data, indexed_store):
     plan = generate_plan("全收集", "稳健", "spring,summer", client=MockClient(), data=data,
                          guide_store=indexed_store, players=2)
     assert [r.players for r in plan.results] == [2, 2] and plan.results[1].player_goals[1]["P2"] == "下矿井推进"
+
+
+# ---------------------------------------------------------------------------
+# 任务 3：多人体力
+# ---------------------------------------------------------------------------
+
+def test_coop_energy_threshold(data):
+    from stardew_planner.energy import check_energy, describe_energy, heavy_days, watered_tiles
+    from stardew_planner.farm_state import resolve_plantings
+
+    plantings, _ = resolve_plantings([{"day": 1, "crop": "防风草", "tiles": 80}], data, "spring", 1)
+    tiles = watered_tiles(plantings)                     # 第 1-4 天 80 格 × 2 = 160 点
+    assert heavy_days(tiles, data.energy_rules) and not heavy_days(tiles, data.energy_rules, players=2)
+    assert heavy_days(watered_tiles(resolve_plantings([{"day": 1, "crop": "防风草", "tiles": 120}], data, "spring", 1)[0]),
+                      data.energy_rules, players=2)      # 120 × 2 = 240 > 200
+    goals = {d: "P1：种地；P2：钓鱼" for d in range(1, 29)}
+    big, _ = resolve_plantings([{"day": 1, "crop": "防风草", "tiles": 120}], data, "spring", 1)
+    (w,) = check_energy(goals, big, (), data.energy_rules, players=2)
+    assert w.startswith("⚠️ 联机校验：体力预警：第 1-4 天 2 人合计每天要手浇最多 120 格") and "约 200 点" in w
+    goals[2] = "P1：种地；P2：泡温泉"                       # 任何一个玩家补体力都算
+    goals[4] = "P1：去沙龙买沙拉；P2：钓鱼"
+    assert check_energy(goals, big, (), data.energy_rules, players=2) == []
+    assert "每人开局最大体力 270 点（3 人联机，各自一条）" in describe_energy(data.energy_rules, players=3)
+    assert "约 150 格" in describe_energy(data.energy_rules, players=3)
+
+
+def test_coop_prompt_energy_scaled(data, indexed_store):
+    class Recorder(MockClient):
+        def complete(self, system, messages):
+            self.user = messages[0]["content"]
+            return super().complete(system, messages)
+
+    client = Recorder()
+    generate_strategy("种田", "稳健", "spring", client=client, data=data, guide_store=indexed_store, players=2)
+    assert "浇水超过 200 点（约 100 格）" in client.user

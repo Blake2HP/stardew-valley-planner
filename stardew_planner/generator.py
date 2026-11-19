@@ -19,7 +19,7 @@ from .bundles import crop_needs, describe_route, reserve, resolve_route, route_w
 from .coop import (
     apply_season_end, check_division, check_players, describe_coop, merge_day, parse_player_goals, parse_roles, player_ids,
 )
-from .energy import check_energy
+from .energy import check_energy, describe_energy
 from .livestock import Herd, parse_animals
 from .tools import check_upgrades, parse_upgrades, upgrade_costs
 from .llm_client import LLMClient, TruncatedOutput, get_client
@@ -373,7 +373,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     if s.players > 1:
         problems += check_division(strategy.player_goals, s.roles)
     if data.energy_rules is not None:
-        problems += check_energy(goals, plantings, carry_in, data.energy_rules, s.bonuses)
+        problems += check_energy(goals, plantings, carry_in, data.energy_rules, s.bonuses, s.players)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
     if note and note.startswith("⚠️"):
         problems.append(note)
@@ -551,6 +551,7 @@ def generate_strategy(
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
                                  machines, greenhouse, herds, bundle_text, location)
     context["coop"] = describe_coop(players, roles)
+    context["energy"] = describe_energy(data.energy_rules, bonuses, players)
     user_prompt = build_user_prompt(
         playstyle=playstyle, pacing=pacing, season_zh=season_zh, year=year, context=context
     )
