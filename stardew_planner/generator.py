@@ -325,8 +325,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     if data.tool_rules is not None:
         closed = {e.day for e in data.events_in_season(season_key)
                   if e.type == "festival" and e.name not in data.tool_rules.open_festivals}
-        upgrades, tool_problems = parse_upgrades(strategy.tool_upgrades, data.tool_rules, closed)
-        tool_problems += check_upgrades(upgrades, goals, {p.day for p in plantings})
+        upgrades, tool_problems = parse_upgrades(strategy.tool_upgrades, data.tool_rules, closed, s.players)
+        tool_problems += check_upgrades(upgrades, goals, {p.day for p in plantings}, strategy.player_goals or None)
 
     constructions, building_problems = [], []
     if data.building_rules is not None:

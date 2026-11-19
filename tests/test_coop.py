@@ -219,3 +219,75 @@ def test_coop_prompt_energy_scaled(data, indexed_store):
     client = Recorder()
     generate_strategy("种田", "稳健", "spring", client=client, data=data, guide_store=indexed_store, players=2)
     assert "浇水超过 200 点（约 100 格）" in client.user
+
+
+# ---------------------------------------------------------------------------
+# 任务 4：工具按玩家校验
+# ---------------------------------------------------------------------------
+
+def coop_upgrades(data, raw, players=2):
+    from stardew_planner.tools import parse_upgrades
+    return parse_upgrades(raw, data.tool_rules, set(), players)
+
+
+def pg(**days):
+    goals = {d: {"P1": "钓鱼", "P2": "钓鱼，下矿"} for d in range(1, 29)}
+    for k, v in days.items():
+        goals[int(k[1:])] = v
+    return goals
+
+
+def test_tool_conflict_only_for_owner(data):
+    from stardew_planner.tools import check_upgrades
+
+    (u,), problems = coop_upgrades(data, [{"tool": "喷壶", "day": 5, "level": "铜", "player": "P1"}])
+    assert problems == [] and u.player == "P1"
+    goals = pg(d5={"P1": "交送升级喷壶", "P2": "钓鱼"}, d6={"P1": "钓鱼", "P2": "大面积浇水"},
+               d7={"P1": "取回喷壶", "P2": "钓鱼"})
+    assert check_upgrades([u], {}, set(), goals) == []                     # P2 用自己的喷壶浇水
+    goals[6] = {"P1": "大面积浇水", "P2": "钓鱼"}
+    (w,) = check_upgrades([u], {}, set(), goals)
+    assert w.startswith("⚠️ 联机校验：工具冲突：第 6 天 P1 的喷壶还在铁匠铺升级") and "但P1 的目标里安排了“浇水”" in w
+
+
+def test_sowing_blocked_only_when_every_can_is_away(data):
+    from stardew_planner.tools import check_upgrades
+
+    ok_goals = pg(d5={"P1": "交送升级喷壶", "P2": "交送升级喷壶"}, d7={"P1": "取回喷壶", "P2": "取回喷壶"})
+    (u1,), _ = coop_upgrades(data, [{"tool": "喷壶", "day": 5, "player": "P1"}])
+    assert check_upgrades([u1], {}, {6}, ok_goals) == []                    # P2 的喷壶还在，可以浇新种的地
+    both, _ = coop_upgrades(data, [{"tool": "喷壶", "day": 5, "player": "P1"}, {"tool": "喷壶", "day": 5, "player": "P2"}])
+    problems = check_upgrades(both, {}, {6}, ok_goals)
+    assert len(problems) == 2 and all("新播种的作物没法浇水" in p for p in problems)
+
+
+def test_missing_player_defaults_to_p1_and_bad_player(data):
+    (u,), _ = coop_upgrades(data, [{"tool": "斧头", "day": 3}])
+    assert u.player == "P1"
+    items, problems = coop_upgrades(data, [{"tool": "斧头", "day": 3, "player": "P3"}])
+    assert items == [] and problems[0].startswith("⚠️ 联机校验：tool_upgrades[0] 的 player 只能是 P1-P2")
+    (solo,), _ = coop_upgrades(data, [{"tool": "斧头", "day": 3, "player": "P3"}], players=1)
+    assert solo.player == "P1"                                              # 单人忽略 player
+
+
+def test_each_upgrade_is_charged(data, indexed_store):
+    import copy
+    import json
+
+    payload = copy.deepcopy(MOCK_RESPONSE)
+    payload["daily_goals"] = {str(d): {"P1": MOCK_RESPONSE["daily_goals"][str(d)], "P2": "下矿井推进"}
+                              for d in range(1, 29)}
+    payload["daily_goals"]["3"] = {"P1": "交送升级喷壶", "P2": "交送升级喷壶"}
+    payload["daily_goals"]["5"] = {"P1": "取回喷壶，下矿井", "P2": "取回喷壶，下矿井"}
+    payload["tool_upgrades"] = [{"tool": "喷壶", "day": 3, "level": "铜", "player": "P1"},
+                                {"tool": "喷壶", "day": 3, "level": "铜", "player": "P2"}]
+
+    class Fixed:
+        def complete(self, system, messages):
+            return json.dumps(payload, ensure_ascii=False)
+
+    result = generate_strategy("种田", "稳健", "spring", client=Fixed(), data=data, guide_store=indexed_store,
+                               players=2, start_gold=10000, revise_rounds=0)
+    assert result.finance.tool_cost == 2 * 2000                             # 两个人各付一份
+    assert any(line.startswith("工具升级：P2 的喷壶升级到铜（第 3 天交）") for line in result.finance.lines)
+    assert not any("工具冲突" in p for p in result.problems)

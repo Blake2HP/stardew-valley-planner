@@ -59,6 +59,8 @@ class Upgrade:
     day: int                      # 交送日
     level: UpgradeLevel | None    # 升到哪一级；没写时不计费用
     ready_day: int                # 可以取回的日子（可能 > 28，跨到下一季）
+    player: str = "P1"            # 联机时工具的主人（工具是个人的）
+    coop: bool = False            # 联机模式：说明里带上玩家编号
 
     @property
     def away_days(self) -> range:
@@ -68,11 +70,15 @@ class Upgrade:
     @property
     def label(self) -> str:
         level = f"升级到{self.level.name}" if self.level else "升级"
-        return f"{self.tool.name}{level}（第 {self.day} 天交）"
+        owner = f"{self.player} 的" if self.coop else ""
+        return f"{owner}{self.tool.name}{level}（第 {self.day} 天交）"
 
 
-def parse_upgrades(raw, rules: ToolRules, closed_days: set[int]) -> tuple[list[Upgrade], list[str]]:
-    """模型输出的 tool_upgrades → Upgrade；写错的条目丢弃并给出问题（交给模型修正，不当格式错误重试）。"""
+def parse_upgrades(raw, rules: ToolRules, closed_days: set[int], players: int = 1) -> tuple[list[Upgrade], list[str]]:
+    """模型输出的 tool_upgrades → Upgrade；写错的条目丢弃并给出问题（交给模型修正，不当格式错误重试）。
+
+    联机时每条要写 player（P1-Pn），漏写按 P1；单人时忽略 player。
+    """
     if raw in (None, []):
         return [], []
     if not isinstance(raw, list):
@@ -88,36 +94,62 @@ def parse_upgrades(raw, rules: ToolRules, closed_days: set[int]) -> tuple[list[U
             known = "、".join(t.name for t in rules.tools)
             problems.append(f"⚠️ tool_upgrades[{i}] 无效（tool 只能是{known}，day 为 1-28）：{item!r}")
             continue
+        player = "P1"
+        if players > 1:
+            player = str(item.get("player") or "P1").strip().upper()
+            if player not in [f"P{i}" for i in range(1, players + 1)]:
+                problems.append(f"⚠️ 联机校验：tool_upgrades[{i}] 的 player 只能是 P1-P{players}：{item!r}")
+                continue
         level = rules.find_level(item.get("level", "")) if item.get("level") else None
         ready = day + rules.upgrade_days
         while ready in closed_days:  # 取货日铁匠铺关门，再等一天
             ready += 1
-        upgrades.append(Upgrade(tool, day, level, ready))
+        upgrades.append(Upgrade(tool, day, level, ready, player, players > 1))
     return upgrades, problems
 
 
-def check_upgrades(upgrades: list[Upgrade], goals: dict[int, str], planting_days: set[int]) -> list[str]:
-    """交送日、取回日要写进日程；工具不在手上的日子不能安排要用它的工作。"""
+def check_upgrades(upgrades: list[Upgrade], goals: dict[int, str], planting_days: set[int],
+                   player_goals: dict[int, dict[str, str]] | None = None) -> list[str]:
+    """交送日、取回日要写进日程；工具不在手上的日子不能安排要用它的工作。
+
+    联机时（给出 player_goals）只看工具主人自己当天的目标：P1 的喷壶在铁匠铺，P2 照样可以浇水；
+    新播种只有在所有玩家的这件工具都不在手上时才算冲突。
+    """
+    players = sorted({p for g in (player_goals or {}).values() for p in g})
+
+    def goal_of(day: int, u: Upgrade) -> str:
+        return player_goals.get(day, {}).get(u.player, "") if player_goals else goals.get(day, "")
+
+    def away_for_all(day: int, u: Upgrade) -> bool:
+        if not player_goals:
+            return True
+        owners = {x.player for x in upgrades if x.tool == u.tool and day in x.away_days}
+        return all(p in owners for p in players)
+
     problems = []
     for u in upgrades:
         names = u.tool.names
-        drop_goal = goals.get(u.day, "")
+        target = f"{u.player} 的目标" if player_goals else "目标"         # 冲突提示：“但 P1 的目标里……”
+        whose = f" {target}" if player_goals else "的目标"                 # “第 5 天 P1 的目标” / “第 5 天的目标”
+        pre = "⚠️ 联机校验：" if player_goals else "⚠️ "
+        drop_goal = goal_of(u.day, u)
         if not any(n in drop_goal for n in names) or not any(w in drop_goal for w in ("升级", "交", "送")):
-            problems.append(f"⚠️ 第 {u.day} 天的目标没有写“交送升级{u.tool.name}”（tool_upgrades 里安排了这天交给铁匠铺）")
+            problems.append(f"{pre}第 {u.day} 天{whose}没有写“交送升级{u.tool.name}”（tool_upgrades 里安排了这天交给铁匠铺）")
         if u.ready_day <= SEASON_DAYS:
-            pick_goal = goals.get(u.ready_day, "")
+            pick_goal = goal_of(u.ready_day, u)
             if not any(n in pick_goal for n in names) or "取" not in pick_goal:
-                problems.append(f"⚠️ 第 {u.ready_day} 天的目标没有写“取回{u.tool.name}”（升级要 2 天，这天早上可以去铁匠铺取）")
+                problems.append(f"{pre}第 {u.ready_day} 天{whose}没有写“取回{u.tool.name}”（升级要 2 天，这天早上可以去铁匠铺取）")
         for d in u.away_days:
             if d > SEASON_DAYS:
                 break
-            goal = goals.get(d, "")
+            goal = goal_of(d, u)
             hit = next((w for w in u.tool.conflict_words if w in goal), None)
+            owner = f" {u.player} 的" if player_goals else ""
             if hit:
-                problems.append(f"⚠️ 工具冲突：第 {d} 天{u.tool.name}还在铁匠铺升级（第 {u.day} 天交、第 {u.ready_day} 天取），"
-                                f"但目标里安排了“{hit}”")
-            elif u.tool.blocks_planting and d in planting_days:
-                problems.append(f"⚠️ 工具冲突：第 {d} 天{u.tool.name}还在铁匠铺升级，新播种的作物没法浇水；"
+                problems.append(f"{pre}工具冲突：第 {d} 天{owner}{u.tool.name}还在铁匠铺升级（第 {u.day} 天交、"
+                                f"第 {u.ready_day} 天取），但{target}里安排了“{hit}”")
+            elif u.tool.blocks_planting and d in planting_days and away_for_all(d, u):
+                problems.append(f"{pre}工具冲突：第 {d} 天{owner}{u.tool.name}还在铁匠铺升级，新播种的作物没法浇水；"
                                 "把播种挪到取回之后，或者换个不种地的日子升级")
     return problems
 
