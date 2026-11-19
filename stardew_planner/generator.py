@@ -16,6 +16,7 @@ from .farm_state import (
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
+from .coop import check_players, parse_roles
 from .energy import check_energy
 from .livestock import Herd, parse_animals
 from .tools import check_upgrades, parse_upgrades, upgrade_costs
@@ -61,6 +62,9 @@ class StrategyResult:
     end_state: FarmState | None = None     # 本季结束时的农场状态
     problems: list[str] = field(default_factory=list)          # 最终版本里需要修正的问题（警告的子集）
     initial_problems: list[str] = field(default_factory=list)  # 自动修正之前的问题
+    players: int = 1                                           # 联机人数
+    roles: dict = field(default_factory=dict)                  # 联机分工
+    player_goals: dict = field(default_factory=dict)           # 联机时每天按玩家的目标 {日: {"P1": ...}}
     revisions: list[dict] = field(default_factory=list)  # 每轮自动修正：问题数前后、是否采用
 
 
@@ -271,6 +275,8 @@ class _Season:
     herds: tuple = ()
     bundle_needs: tuple = ()   # 献祭路线下本季要留的作物（bundles.CropNeed）
     location: str = "pelican_town"
+    players: int = 1           # 联机人数（见 coop.py）
+    roles: dict = field(default_factory=dict)  # 联机分工 {"P1": "种田"}
 
 
 @dataclass
@@ -424,6 +430,8 @@ def generate_strategy(
     animals=None,
     route: str | None = None,
     location: str | None = None,
+    players: int = 1,
+    roles=None,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -443,6 +451,8 @@ def generate_strategy(
         farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
         kegs / jars: 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工（见 processing.py），
             加工净增计入资金；第 28 天还没做完的带到下一季。
+        players / roles: 联机人数（1-4）和分工（"P1:种田, P2:下矿" 或 {"P1": "种田"}）。多人时 daily_goals
+            每天按玩家写成对象，工具按玩家校验，体力阈值按人数放大（见 coop.py）。
         location: 种植地点，"pelican_town"（默认）或 "ginger_island"。姜岛农场和温室一样不受季节限制、换季不枯死，
             收益表按每 28 天稳态计算，第 28 天不要求清理农场。
         route: "community_center" 时走社区中心献祭路线：收集包要用的作物先留下、不卖（从收入里扣掉售价），
@@ -478,6 +488,8 @@ def generate_strategy(
     herds += tuple(Herd(a, n, new=True) for a, n in parse_animals(animals, data.animals).items())
     route = resolve_route(route)
     location = resolve_location(location)
+    players = check_players(players)
+    roles = parse_roles(roles, players)
     done = set(prior_state.bundle_done) if prior_state else set()
     bundle_needs = tuple(season_needs(crop_needs(data.bundles, data.crops), season_key, year, done)) if route else ()
     done_labels = [f"{n.label}" for n in crop_needs(data.bundles, data.crops)
@@ -517,7 +529,7 @@ def generate_strategy(
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
-                          machines, greenhouse, herds, bundle_needs, location)
+                          machines, greenhouse, herds, bundle_needs, location, players, roles)
     draft = _draft(client, messages, max_retries)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)
@@ -588,6 +600,8 @@ def generate_strategy(
         problems=evaluation.problems,
         initial_problems=initial_problems,
         revisions=revisions,
+        players=players,
+        roles=roles,
     )
     result.markdown = render_markdown(result, data)
     return result

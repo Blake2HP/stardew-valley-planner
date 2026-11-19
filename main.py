@@ -46,6 +46,10 @@ def main() -> None:
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
     parser.add_argument("--kegs", type=int, default=0, help="小桶数量；给出时按机器数量和加工时间模拟加工，计入资金")
     parser.add_argument("--jars", type=int, default=0, help="罐头瓶数量")
+    parser.add_argument("--players", type=int, default=1, choices=range(1, 5), metavar="1-4",
+                        help="联机人数 1-4（默认 1 = 单人）；多人时日程按玩家 P1-P4 分开写，P1 为房主")
+    parser.add_argument("--roles", default=None,
+                        help="联机分工，如 \"P1:种田, P2:下矿, P3:钓鱼\"；编号不能超过 --players")
     parser.add_argument("--location", default="pelican_town", choices=["pelican_town", "ginger_island"],
                         help="种植地点：ginger_island = 姜岛农场，任何作物任何季节都能种、换季不枯死")
     parser.add_argument("--route", default=None, choices=["community_center"],
@@ -103,7 +107,7 @@ def main() -> None:
         farming_level=args.farming_level, processing_share=args.processing_share,
         revise_rounds=args.revise_rounds, farm_type=args.farm_type, kegs=args.kegs, jars=args.jars,
         greenhouse=args.greenhouse, bee_houses=args.bee_houses, animals=args.animals,
-        route=args.route, location=args.location,
+        route=args.route, location=args.location, players=args.players, roles=args.roles,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)
