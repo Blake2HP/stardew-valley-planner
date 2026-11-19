@@ -187,3 +187,46 @@ def test_client_config_error_returns_500_and_frees_slot(indexed_store, monkeypat
         second = c.post("/api/generate", json=BODY)
     assert first.status_code == 500 and "服务端模型配置有误" in first.json()["detail"]
     assert second.status_code == 500                                        # 名额已释放，不是 503
+
+
+def test_options_include_coop(indexed_store):
+    with make_client(indexed_store) as c:
+        o = c.get("/api/options").json()
+    assert o["max_players"] == 4 and "下矿" in o["roles"]
+
+
+def test_generate_coop(indexed_store):
+    body = {**BODY, "players": 2, "roles": {"P1": "种田", "P2": "下矿"}}
+    with make_client(indexed_store) as c:
+        r = c.post("/api/generate", json=body)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["players"] == 2 and data["roles"] == {"P1": "种田", "P2": "下矿"}
+    assert "\n  - **P1**:" in data["markdown"] and "\n  - **P2**:" in data["markdown"]
+    assert "<ul>\n<li><strong>P1</strong>" in data["html"]  # 网页里每个玩家是当天下面的子列表
+
+
+def test_coop_empty_roles_are_ignored(indexed_store):
+    with make_client(indexed_store) as c:
+        r = c.post("/api/generate", json={**BODY, "players": 3, "roles": {"P1": "", "P2": "  "}})
+    assert r.status_code == 200 and r.json()["roles"] == {}
+
+
+@pytest.mark.parametrize(
+    "patch, message",
+    [
+        ({"players": 2, "roles": {"P3": "钓鱼"}}, "超出了玩家人数"),
+        ({"players": 2, "roles": {"X1": "钓鱼"}}, "超出了玩家人数"),
+        ({"players": 2, "roles": {"P1": "种" * 31}}, "最多 30 个字"),
+    ],
+)
+def test_coop_bad_roles(indexed_store, patch, message):
+    with make_client(indexed_store) as c:
+        r = c.post("/api/generate", json={**BODY, **patch})
+    assert r.status_code == 400 and message in r.json()["detail"]
+
+
+@pytest.mark.parametrize("players", [0, 5])
+def test_coop_players_out_of_range(indexed_store, players):
+    with make_client(indexed_store) as c:
+        assert c.post("/api/generate", json={**BODY, "players": players}).status_code == 422

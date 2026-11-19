@@ -270,7 +270,7 @@ The tests cover planting detection (15 phrasings), season-change checks and edge
 
 ## Web demo
 
-`web/` is a minimal web version: pick a playstyle, pacing, seasons (several in a row are fine), professions, fertilizer and farming level on the left; the right side shows end-of-season gold cards and the full guide, which you can copy or download as Markdown. The backend is FastAPI calling `generate_strategy` / `generate_plan` directly, with no changes to the core code.
+`web/` is a minimal web version: pick a playstyle, pacing, seasons (several in a row are fine), co-op players and each player's role, professions, fertilizer and farming level on the left; the right side shows end-of-season gold cards and the full guide, which you can copy or download as Markdown. The backend is FastAPI calling `generate_strategy` / `generate_plan` directly, with no changes to the core code.
 
 <!-- Add a CLI screenshot or a web demo GIF here -->
 
@@ -332,7 +332,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] Add the remaining villagers (34 in total) and the universal like / neutral / dislike / hate lists; gift checks tell the four levels apart
 - [x] Simulate processing with machine counts and processing time (`--kegs` / `--jars`)
 - [x] Greenhouse planning (`--greenhouse`: no season limits, 120-tile cap, crops carry across seasons)
-- [x] 1-4 player co-op (`--players` / `--roles`: per-player schedules, role checks, energy scaled by players, per-player tools; co-op messages start with "⚠️ 联机校验：")
+- [x] 1-4 player co-op (`--players` / `--roles`, also in the web form: per-player schedules, role checks, energy scaled by players, per-player tools; co-op messages start with "⚠️ 联机校验：")
 - [x] Robin's construction timeline (the model outputs `constructions`; no orders on Tuesdays or festivals, festivals push the finish back, one building at a time, cost counted toward gold)
 - [x] Early-game energy (watering energy per day from the planting list; on heavy days food must be planned at least every 3 days, otherwise the model revises)
 - [x] Ginger Island farm (`--location ginger_island`: no season limits, crops survive the season change, steady-state per-28-days profit table)
