@@ -276,3 +276,21 @@ def advance(progress: Progress, units: dict, gifted, earned: int) -> Progress:
     befriended = progress.befriended + tuple(sorted(set(gifted) - set(progress.befriended)))
     return Progress(shipped, progress.friends, befriended, progress.earned + max(0, int(earned)),
                     progress.seasons_done + 1)
+
+
+def summary_lines(t: SeasonTargets) -> list[str]:
+    """攻略里“🏆 成就规划”一节的程序计算部分（Markdown 列表）。"""
+    out = []
+    if g := t.goal("ship_each_crop"):
+        need = "、".join(f"{c.crop.name} {c.need} 个" for c in t.crops) or "无"
+        extra = []
+        if t.optional:
+            extra.append("可选：" + "、".join(f"{c.crop.name}（{c.source}）" for c in t.optional))
+        if t.shipped_done:
+            extra.append("已运够：" + "、".join(t.shipped_done))
+        out.append(f"- **{t.title(g)}**：本季要收获并直接出货 {need}" + (f"（{'；'.join(extra)}）" if extra else ""))
+    if g := t.goal("friendship"):
+        out.append(f"- **{t.title(g)}**：还差 {t.friends_left} 人，本季至少给 {t.friend_target} 位新的村民送礼，每周至少送一次")
+    for g, gap in t.earnings:
+        out.append(f"- **{t.title(g)}**：还差 {gap:,}g（已赚取 {t.progress.earned:,}g）")
+    return out

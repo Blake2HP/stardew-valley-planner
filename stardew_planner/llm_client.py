@@ -133,7 +133,16 @@ class MockClient:
             payload = {**payload, "daily_goals": {
                 day: {"P1": goal, **{f"P{i}": self._COOP_TASKS[f"P{i}"] for i in range(2, n + 1)}}
                 for day, goal in payload["daily_goals"].items()}}
+        if "## 成就规划" in (system or ""):  # 选了成就：补上成就思路和成就节点
+            payload = {**payload, "macro_strategy": {**payload["macro_strategy"], "achievement_plan": self._ACHIEVEMENT_PLAN},
+                       "achievement_milestones": self._ACHIEVEMENT_MILESTONES}
         return json.dumps(payload, ensure_ascii=False)
+
+    _ACHIEVEMENT_PLAN = "按【🏆 成就规划目标】把要求的作物种进种植清单，每周挑一天给新的村民送最爱的礼物，收入优先投入种子。"
+    _ACHIEVEMENT_MILESTONES = [
+        {"day": 1, "achievement": "成就目标", "goal": "对照成就缺口安排本季的种植和送礼"},
+        {"day": 28, "achievement": "成就目标", "goal": "清点本季的出货和好感度进度"},
+    ]
 
 
 _PROVIDERS = {"anthropic": AnthropicClient, "mock": MockClient}

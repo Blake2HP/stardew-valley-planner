@@ -75,6 +75,7 @@ class StrategyResult:
     achievements: list = field(default_factory=list)     # 想完成的成就（achievements.Goal）
     achievement_progress: object = None                  # 本季开始时的成就进度（achievements.Progress）
     achievement_targets: object = None                   # 本季成就缺口（achievements.SeasonTargets）
+    achievement_milestones: list = field(default_factory=list)  # 模型给出的成就节点
     achievement_progress_end: object = None              # 本季结束时的成就进度，跨季规划时传给下一季
 
 
@@ -100,6 +101,7 @@ class ParsedStrategy:
     tool_upgrades: list = field(default_factory=list)    # 原样保留，校验见 tools.py
     constructions: list = field(default_factory=list)    # 原样保留，校验见 buildings.py
     player_goals: dict = field(default_factory=dict)     # 联机时每天按玩家的目标；goals 是合成后的字符串
+    achievement_milestones: list = field(default_factory=list)  # 成就节点 {"day", "achievement", "goal"}
 
 
 def _parse_plantings(raw, errors: list[str] | None) -> list[dict]:
@@ -182,7 +184,21 @@ def validate_payload(payload: dict, players: int = 1) -> ParsedStrategy:
 
     return ParsedStrategy(macro, _clean_milestones(milestones), goals, plantings,
                           _parse_other_income(payload.get("other_income")), payload.get("tool_upgrades") or [],
-                          payload.get("constructions") or [], player_goals)
+                          payload.get("constructions") or [], player_goals,
+                          _clean_achievement_milestones(payload.get("achievement_milestones")))
+
+
+def _clean_achievement_milestones(raw) -> list[dict]:
+    """成就节点：可选字段，写错的条目直接丢弃（缺了由成就校验提示），按 day 排序。"""
+    out = []
+    for item in raw if isinstance(raw, list) else []:
+        try:
+            day, goal = int(item["day"]), str(item["goal"]).strip()
+        except (TypeError, KeyError, ValueError):
+            continue
+        if 1 <= day <= SEASON_DAYS and goal:
+            out.append({"day": day, "achievement": str(item.get("achievement") or "").strip(), "goal": goal})
+    return sorted(out, key=lambda m: m["day"])
 
 
 def _clean_milestones(milestones) -> list[dict]:
@@ -218,7 +234,8 @@ def _lenient_parse(payload: dict, players: int = 1) -> ParsedStrategy:
     return ParsedStrategy(macro, _clean_milestones(payload.get("key_milestones")), goals,
                           _parse_plantings(payload.get("plantings"), None),
                           _parse_other_income(payload.get("other_income")), payload.get("tool_upgrades") or [],
-                          payload.get("constructions") or [], player_goals)
+                          payload.get("constructions") or [], player_goals,
+                          _clean_achievement_milestones(payload.get("achievement_milestones")))
 
 
 def _fallback_warnings(error: str | None, goals: dict[int, str], payload: dict, parsed: ParsedStrategy) -> list[str]:
@@ -589,7 +606,7 @@ def generate_strategy(
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
                           machines, greenhouse, herds, bundle_needs, location, players, roles)
-    system = build_system_prompt(players)
+    system = build_system_prompt(players, achievements=bool(goals_wanted))
     draft = _draft(client, messages, max_retries, system=system, players=players)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)
@@ -666,6 +683,7 @@ def generate_strategy(
         achievements=goals_wanted,
         achievement_progress=progress,
         achievement_targets=targets,
+        achievement_milestones=strategy.achievement_milestones,
         achievement_progress_end=_progress_after(progress, evaluation, carry_in=prior_state.carry if prior_state
                                                  else (), data=data) if goals_wanted else None,
     )

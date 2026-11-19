@@ -146,3 +146,49 @@ def test_progress_carries_across_seasons(data, indexed_store):
     assert end.shipped["花椰菜"] > 0 and end.earned > 0 and end.befriended
     assert summer.achievement_targets.seasons_left == 3
     assert summer.achievement_progress_end.seasons_done == 2
+
+
+# ---------------------------------------------------------------------------
+# 任务 3：achievement_milestones 与系统 Prompt
+# ---------------------------------------------------------------------------
+
+def test_system_prompt_rules():
+    from stardew_planner.prompts import SYSTEM_PROMPT, build_system_prompt
+    assert build_system_prompt() == SYSTEM_PROMPT                     # 不选成就：系统 Prompt 不变
+    rules_text = build_system_prompt(achievements=True)
+    assert "## 成就规划" in rules_text and "achievement_plan" in rules_text and "achievement_milestones" in rules_text
+    assert "## 联机模式" in build_system_prompt(2, achievements=True)  # 和联机规则可以同时出现
+
+
+def test_milestones_are_parsed_leniently():
+    from stardew_planner.generator import validate_payload
+    from stardew_planner.llm_client import MOCK_RESPONSE
+    payload = {**MOCK_RESPONSE, "achievement_milestones": [
+        {"day": 9, "achievement": "万人迷", "goal": "送海莉黄水仙"},
+        {"day": "3", "goal": "种 15 颗土豆"},
+        {"day": 40, "goal": "超出范围"}, {"goal": "没有日期"}, "随便写的",
+    ]}
+    parsed = validate_payload(payload)
+    assert parsed.achievement_milestones == [
+        {"day": 3, "achievement": "", "goal": "种 15 颗土豆"},
+        {"day": 9, "achievement": "万人迷", "goal": "送海莉黄水仙"},
+    ]
+    assert validate_payload(MOCK_RESPONSE).achievement_milestones == []  # 字段可选，不影响普通生成
+
+
+def test_strategy_renders_achievement_section(data, indexed_store):
+    client = RecordingClient()
+    result = generate_strategy("种田", "稳健", "spring", client=client, data=data, guide_store=indexed_store,
+                               achievements="多作种植,万人迷")
+    assert "## 成就规划" in client.system
+    assert result.macro_strategy["achievement_plan"] and len(result.achievement_milestones) == 2
+    md = result.markdown
+    assert "## 🏆 成就规划" in md and "**实现思路**" in md and "| 第 1 天 | 成就目标 |" in md
+    assert md.index("## 🏆 成就规划") < md.index("## 📅 每日核心目标")
+
+
+def test_plain_strategy_has_no_achievement_section(data, indexed_store):
+    client = RecordingClient()
+    result = generate_strategy("种田", "稳健", "spring", client=client, data=data, guide_store=indexed_store)
+    assert "成就" not in result.markdown and "## 成就规划" not in client.system
+    assert result.achievement_targets is None and result.achievement_milestones == []

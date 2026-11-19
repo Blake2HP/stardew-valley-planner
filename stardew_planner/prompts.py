@@ -149,10 +149,21 @@ REVISE_PROMPT_TEMPLATE = """\
 """
 
 
-def build_system_prompt(players: int = 1) -> str:
-    """单人时就是 SYSTEM_PROMPT；多人时在末尾追加联机规则（见 coop.py）。"""
+ACHIEVEMENT_RULES = """
+
+## 成就规划
+如果【数据参考】里有【🏆 成就规划目标】：
+- macro_strategy 里必须多一个字段 "achievement_plan"：专门写一段成就实现思路（本季怎么完成列出的硬性指标）；
+- 输出的 JSON 里必须多一个字段 "achievement_milestones"（数组，按 day 升序），记录本季为了成就达成的关键节点，例如
+  [{"day": 1, "achievement": "混合栽培", "goal": "种下 15 颗土豆"}, {"day": 7, "achievement": "万人迷", "goal": "本周给阿比盖尔送紫水晶"}]；
+- daily_goals 里要显式安排相关动作，例如“种 15 颗土豆（混合栽培）”“送海莉黄水仙（万人迷）”；混合栽培要求的作物必须写进 plantings，数量按预计收获个数达标；
+- 程序会按 plantings 和 daily_goals 校验这些指标，没达标会要求你修改。"""
+
+
+def build_system_prompt(players: int = 1, achievements: bool = False) -> str:
+    """单人时就是 SYSTEM_PROMPT；多人时在末尾追加联机规则（见 coop.py）；选了成就时再追加成就规划规则。"""
     from .coop import coop_system_rules  # 避免循环导入
-    return SYSTEM_PROMPT + coop_system_rules(players)
+    return SYSTEM_PROMPT + coop_system_rules(players) + (ACHIEVEMENT_RULES if achievements else "")
 
 
 def build_user_prompt(*, playstyle: str, pacing: str, season_zh: str, year: int, context: dict[str, str]) -> str:

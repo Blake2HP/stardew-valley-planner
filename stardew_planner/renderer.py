@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .achievements import PREFIX as ACHIEVEMENT_PREFIX, summary_lines
 from .analysis import rank_crops
 from .data_loader import SEASON_ZH, GameData
 from .farm_state import describe_finance, render_state_for_prompt, season_label
@@ -61,10 +62,30 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
         )
     out.append("")
 
+    # ---- 成就规划 ----
+    achievement_warnings = [w for w in result.season_warnings if w.startswith(ACHIEVEMENT_PREFIX)]
+    if result.achievement_targets is not None:
+        out += ["## 🏆 成就规划", ""]
+        out += summary_lines(result.achievement_targets)
+        out.append("")
+        if macro.get("achievement_plan"):
+            out += [f"**实现思路**：{macro['achievement_plan']}", ""]
+        if result.achievement_milestones:
+            out += ["| 日期 | 成就 | 节点 |", "|:---:|---|---|"]
+            out += [f"| 第 {m['day']} 天 | {_cell(m['achievement']) or '-'} | {_cell(m['goal'])} |"
+                    for m in result.achievement_milestones]
+            out.append("")
+        if achievement_warnings:
+            out += [f"> {w}  " for w in achievement_warnings]
+        else:
+            out.append("> ✅ 成就校验通过：种植清单和送礼安排满足本季的成就指标（按预计收获和日程核对）。")
+        out.append("")
+
     # ---- 跨季校验 ----
-    if result.season_warnings:
+    season_warnings = [w for w in result.season_warnings if not w.startswith(ACHIEVEMENT_PREFIX)]
+    if season_warnings:
         out += ["## ⚠️ 换季校验", ""]
-        out += [f"> {w}  " for w in result.season_warnings]
+        out += [f"> {w}  " for w in season_warnings]
         out.append("")
 
     # ---- 生日送礼 ----
