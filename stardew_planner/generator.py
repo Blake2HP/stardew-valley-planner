@@ -16,7 +16,7 @@ from .farm_state import (
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
-from .achievements import Progress, advance, describe_targets, parse_progress, resolve_goals, season_targets
+from .achievements import Progress, advance, check_achievements, describe_targets, parse_progress, resolve_goals, season_targets
 from .coop import (
     apply_season_end, check_division, check_players, describe_coop, merge_day, parse_player_goals, parse_roles, player_ids,
 )
@@ -320,6 +320,7 @@ class _Season:
     location: str = "pelican_town"
     players: int = 1           # 联机人数（见 coop.py）
     roles: dict = field(default_factory=dict)  # 联机分工 {"P1": "种田"}
+    achievements: object = None  # 本季成就缺口（achievements.SeasonTargets）；没选成就时为 None
 
 
 @dataclass
@@ -395,6 +396,11 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     problems += building_problems
     if s.players > 1:
         problems += check_division(strategy.player_goals, s.roles)
+    if s.achievements is not None:
+        gifts_by_day = {day: [npc.name for npc, _ in gift_tasks(goal, data)] for day, goal in goals.items()}
+        problems += check_achievements(s.achievements, season_harvest_units(plantings, carry_in),
+                                       {p.crop.name for p in plantings}, gifts_by_day, strategy.macro,
+                                       strategy.achievement_milestones)
     if data.energy_rules is not None:
         problems += check_energy(goals, plantings, carry_in, data.energy_rules, s.bonuses, s.players)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
@@ -605,7 +611,7 @@ def generate_strategy(
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
-                          machines, greenhouse, herds, bundle_needs, location, players, roles)
+                          machines, greenhouse, herds, bundle_needs, location, players, roles, targets)
     system = build_system_prompt(players, achievements=bool(goals_wanted))
     draft = _draft(client, messages, max_retries, system=system, players=players)
     attempts = draft.calls

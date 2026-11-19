@@ -294,3 +294,47 @@ def summary_lines(t: SeasonTargets) -> list[str]:
     for g, gap in t.earnings:
         out.append(f"- **{t.title(g)}**：还差 {gap:,}g（已赚取 {t.progress.earned:,}g）")
     return out
+
+
+# ---------------------------------------------------------------------------
+# 成就校验（问题交给 --revise-rounds 的自动修正）
+# ---------------------------------------------------------------------------
+
+WEEKS = ((1, 7), (8, 14), (15, 21), (22, 28))
+
+
+def _num(x: float) -> str:
+    return f"{x:.1f}".rstrip("0").rstrip(".")
+
+
+def check_achievements(t: SeasonTargets, units: dict, planted: set, gifts_by_day: dict, macro: dict,
+                       milestones: list) -> list[str]:
+    """units：本季每种作物的预计收获个数（farm_state.season_harvest_units）；planted：本季种了的作物名；
+    gifts_by_day：{日: [送礼的村民名]}（season_rules.gift_tasks 识别）。"""
+    problems = []
+    if g := t.goal("ship_each_crop"):
+        for c in t.crops:
+            got = units.get(c.crop.name, 0)
+            if got >= c.need:
+                continue
+            if c.crop.name not in planted:
+                problems.append(f"{PREFIX}目标包含“{g.label}”，但本季没有安排种植{c.crop.name}"
+                                f"（要收获并出货 {c.need} 个）。请修改种植清单！")
+            else:
+                problems.append(f"{PREFIX}目标包含“{g.label}”，但本季安排种植的{c.crop.name}预计只能收获 "
+                                f"{_num(got)} 个，不足 {c.need} 个。请修改种植清单！")
+    if (g := t.goal("friendship")) and t.friends_left > 0:
+        empty = [f"第 {a}-{b} 天" for a, b in WEEKS if not any(gifts_by_day.get(d) for d in range(a, b + 1))]
+        if empty:
+            problems.append(f"{PREFIX}目标包含“{g.label}”，但{'、'.join(empty)}没有安排送礼。"
+                            "请每周至少安排一天“送{村民}{礼物}”！")
+        new = sorted({n for names in gifts_by_day.values() for n in names} - set(t.progress.befriended))
+        if len(new) < t.friend_target:
+            who = f"（{'、'.join(new)}）" if new else ""
+            problems.append(f"{PREFIX}目标包含“{g.label}”，但本季只给 {len(new)} 位新的村民安排了送礼{who}，"
+                            f"至少需要 {t.friend_target} 位。请增加送礼对象！")
+    if not str(macro.get("achievement_plan") or "").strip():
+        problems.append(f"{PREFIX}macro_strategy 里没有 achievement_plan，请专门写一段成就实现思路")
+    if not milestones:
+        problems.append(f"{PREFIX}没有给出 achievement_milestones，请列出本季为了成就达成的关键节点")
+    return problems

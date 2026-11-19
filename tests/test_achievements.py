@@ -192,3 +192,82 @@ def test_plain_strategy_has_no_achievement_section(data, indexed_store):
     result = generate_strategy("种田", "稳健", "spring", client=client, data=data, guide_store=indexed_store)
     assert "成就" not in result.markdown and "## 成就规划" not in client.system
     assert result.achievement_targets is None and result.achievement_milestones == []
+
+
+# ---------------------------------------------------------------------------
+# 任务 4：成就校验与自动修正
+# ---------------------------------------------------------------------------
+
+def _targets(rules, data, spec="多作种植,万人迷", progress=None):
+    return season_targets(resolve_goals(spec, rules), progress or Progress(), data.crops, "spring", 1)
+
+
+FULL = {"achievement_plan": "思路"}
+MILESTONES = [{"day": 1, "achievement": "混合栽培", "goal": "种土豆"}]
+
+
+def test_polyculture_check(rules, data):
+    from stardew_planner.achievements import check_achievements
+    t = _targets(rules, data, "多作种植", parse_progress("花椰菜=15,青豆=15,甘蓝=15,草莓=15", rules, data.crops))
+    units = {"防风草": 15.0, "土豆": 12.5}
+    problems = check_achievements(t, units, {"防风草", "土豆"}, {}, FULL, MILESTONES)
+    assert problems == ["⚠️ 成就校验：目标包含“多作种植”，但本季安排种植的土豆预计只能收获 12.5 个，不足 15 个。请修改种植清单！"]
+    problems = check_achievements(t, {"土豆": 20}, {"土豆"}, {}, FULL, MILESTONES)
+    assert problems == ["⚠️ 成就校验：目标包含“多作种植”，但本季没有安排种植防风草（要收获并出货 15 个）。请修改种植清单！"]
+    assert check_achievements(t, {"防风草": 15, "土豆": 18.75}, {"防风草", "土豆"}, {}, FULL, MILESTONES) == []
+
+
+def test_popular_check(rules, data):
+    from stardew_planner.achievements import check_achievements
+    t = _targets(rules, data, "万人迷", Progress(befriended=("海莉",)))
+    gifts = {2: ["海莉"], 9: ["阿比盖尔"], 16: ["潘妮"]}
+    problems = check_achievements(t, {}, set(), gifts, FULL, MILESTONES)
+    assert problems == [
+        "⚠️ 成就校验：目标包含“万人迷”，但第 22-28 天没有安排送礼。请每周至少安排一天“送{村民}{礼物}”！",
+        "⚠️ 成就校验：目标包含“万人迷”，但本季只给 2 位新的村民安排了送礼（潘妮、阿比盖尔），至少需要 5 位。请增加送礼对象！",
+    ]
+    gifts = {2: ["阿比盖尔", "潘妮"], 9: ["莉亚"], 16: ["玛鲁"], 23: ["海莉", "艾米丽"]}
+    assert check_achievements(t, {}, set(), gifts, FULL, MILESTONES) == []
+    done = _targets(rules, data, "万人迷", Progress(friends=20))  # 已经达成：不再检查送礼
+    assert check_achievements(done, {}, set(), {}, FULL, MILESTONES) == []
+
+
+def test_plan_and_milestones_required(rules, data):
+    from stardew_planner.achievements import check_achievements
+    t = _targets(rules, data, "千万富翁")
+    assert check_achievements(t, {}, set(), {}, FULL, MILESTONES) == []  # 赚钱类只提示，不校验金额
+    problems = check_achievements(t, {}, set(), {}, {}, [])
+    assert [p.split("：")[1].split("，")[0] for p in problems] == [
+        "macro_strategy 里没有 achievement_plan", "没有给出 achievement_milestones"]
+
+
+def test_checks_reach_the_revise_loop(data, indexed_store):
+    import json
+
+    from stardew_planner.llm_client import MOCK_RESPONSE
+
+    class Revising(MockClient):
+        calls = []
+
+        def complete(self, system, messages):
+            self.calls.append(messages[-1]["content"])
+            payload = json.loads(super().complete(system, messages))
+            if len(self.calls) > 1:  # 修正版：第 1 周给阿比盖尔送紫水晶
+                payload["daily_goals"] = {**payload["daily_goals"], "3": "领取鱼竿，海滩钓鱼，送阿比盖尔紫水晶"}
+            return json.dumps(payload, ensure_ascii=False)
+
+    original = MOCK_RESPONSE["daily_goals"]["3"]
+    client = Revising()
+    result = generate_strategy("种田", "稳健", "spring", client=client, data=data, guide_store=indexed_store,
+                               achievements="多作种植,万人迷", revise_rounds=1)
+    assert any(p.startswith("⚠️ 成就校验：目标包含“多作种植”") for p in result.initial_problems)
+    assert "成就校验：目标包含“万人迷”，但第 1-7 天没有安排送礼" in client.calls[1]  # 反馈给模型
+    assert result.revisions[0]["accepted"]
+    assert not any("第 1-7 天没有安排送礼" in p for p in result.problems)
+    assert "第 1-7 天没有安排送礼" not in result.markdown and "成就校验" in result.markdown
+    assert MOCK_RESPONSE["daily_goals"]["3"] == original  # 没有改到共享的 mock 数据
+
+
+def test_plain_generation_has_no_achievement_checks(data, indexed_store):
+    result = generate_strategy("种田", "稳健", "spring", client=MockClient(), data=data, guide_store=indexed_store)
+    assert not any("成就校验" in p for p in result.problems + result.season_warnings)
