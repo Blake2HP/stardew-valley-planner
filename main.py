@@ -50,6 +50,12 @@ def main() -> None:
                         help="联机人数 1-4（默认 1 = 单人）；多人时日程按玩家 P1-P4 分开写，P1 为房主")
     parser.add_argument("--roles", default=None,
                         help="联机分工，如 \"P1:种田, P2:下矿, P3:钓鱼\"；编号不能超过 --players")
+    parser.add_argument("--achievements", default=None,
+                        help="想完成的 Steam 成就，逗号分隔，如 \"混合栽培,万人迷\"（data/achievements.json）；"
+                             "程序算出本季缺口写进 Prompt，并校验种植和送礼")
+    parser.add_argument("--achievement-progress", default=None,
+                        help="已有的成就进度，如 \"防风草=15,万人迷=12,千万富翁=50000\"："
+                             "作物 = 已运送个数，万人迷 = 已 5 心的人数，富翁 = 已累计赚取的金币；不给时从零算")
     parser.add_argument("--location", default="pelican_town", choices=["pelican_town", "ginger_island"],
                         help="种植地点：ginger_island = 姜岛农场，任何作物任何季节都能种、换季不枯死")
     parser.add_argument("--route", default=None, choices=["community_center"],
@@ -100,6 +106,15 @@ def main() -> None:
     except ValueError as e:
         parser.error(str(e))
 
+    try:  # 成就名和进度写错时直接报参数错误
+        from stardew_planner.achievements import load_achievement_rules, parse_progress, resolve_goals
+        from stardew_planner.data_loader import DEFAULT_DATA_DIR, load_crops
+        rules = load_achievement_rules()
+        resolve_goals(args.achievements, rules)
+        parse_progress(args.achievement_progress, rules, load_crops(DEFAULT_DATA_DIR / "crops.json"))
+    except ValueError as e:
+        parser.error(str(e))
+
     common = dict(
         provider=args.provider, model=args.model, start_gold=args.start_gold,
         professions=[p.key for p in bonuses.professions],
@@ -108,6 +123,7 @@ def main() -> None:
         revise_rounds=args.revise_rounds, farm_type=args.farm_type, kegs=args.kegs, jars=args.jars,
         greenhouse=args.greenhouse, bee_houses=args.bee_houses, animals=args.animals,
         route=args.route, location=args.location, players=args.players, roles=args.roles,
+        achievements=args.achievements, achievement_progress=args.achievement_progress,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

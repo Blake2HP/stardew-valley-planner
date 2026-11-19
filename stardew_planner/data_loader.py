@@ -231,6 +231,7 @@ class GameData:
     tool_rules: object = None                    # 工具升级规则（data/tools.json），tools.ToolRules
     energy_rules: object = None                  # 体力与浇水规则（data/energy.json），energy.EnergyRules
     building_rules: object = None                # 罗宾的农场建筑（data/buildings.json），buildings.BuildingRules
+    achievement_rules: object = None             # Steam 成就（data/achievements.json），achievements.AchievementRules
 
     def resolve_farm_type(self, name: str | None) -> str:
         """农场地图的 key；接受 key、中文名或英文名，不传为标准农场。"""
@@ -310,6 +311,11 @@ def load_building_rules(path: Path):
 def _load_energy(data_dir: Path):
     from .energy import load_energy_rules  # 避免循环导入
     return load_energy_rules(data_dir)
+
+
+def _load_achievements(data_dir: Path):
+    from .achievements import load_achievement_rules  # 避免循环导入
+    return load_achievement_rules(data_dir / "achievements.json")
 
 
 def load_tool_rules(path: Path):
@@ -401,6 +407,7 @@ def load_game_data(data_dir: str | Path = DEFAULT_DATA_DIR) -> GameData:
         tool_rules=load_tool_rules(data_dir / "tools.json"),
         energy_rules=_load_energy(data_dir),
         building_rules=load_building_rules(data_dir / "buildings.json"),
+        achievement_rules=_load_achievements(data_dir),
         hay_price=int(_read_json(data_dir / "animals.json").get("hay_price", 50)) if (data_dir / "animals.json").exists()
         else 50,
         calendar=load_calendar(data_dir / "calendar.json"),

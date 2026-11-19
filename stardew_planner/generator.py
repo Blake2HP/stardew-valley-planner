@@ -16,6 +16,7 @@ from .farm_state import (
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
+from .achievements import Progress, parse_progress, resolve_goals
 from .coop import (
     apply_season_end, check_division, check_players, describe_coop, merge_day, parse_player_goals, parse_roles, player_ids,
 )
@@ -70,6 +71,8 @@ class StrategyResult:
     roles: dict = field(default_factory=dict)                  # 联机分工
     player_goals: dict = field(default_factory=dict)           # 联机时每天按玩家的目标 {日: {"P1": ...}}
     revisions: list[dict] = field(default_factory=list)  # 每轮自动修正：问题数前后、是否采用
+    achievements: list = field(default_factory=list)     # 想完成的成就（achievements.Goal）
+    achievement_progress: object = None                  # 本季开始时的成就进度（achievements.Progress）
 
 
 # ---------------------------------------------------------------------------
@@ -460,6 +463,8 @@ def generate_strategy(
     location: str | None = None,
     players: int = 1,
     roles=None,
+    achievements=None,
+    achievement_progress=None,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -489,6 +494,9 @@ def generate_strategy(
             上季带来的动物（prior_state.animals）自动计入、已成年；产出、买动物和冬季干草计入资金。
         bee_houses: 室外蜂房的数量。每 4 天一罐，按室外开着的最值钱的花算花蜜（见 honey.py），计入资金；冬季不产。
         greenhouse: 温室已修好。模型可以把种植安排在温室（不受季节限制、可再生作物不会枯死，最多 120 格）。
+        achievements: 想完成的 Steam 成就，"混合栽培,万人迷" 或列表（见 data/achievements.json、achievements.py）。
+        achievement_progress: 已有的成就进度，"防风草=15,万人迷=12" 或 dict，或 generate_plan 传入的
+            achievements.Progress；不给时从零算。
         revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
             重新生成；只有问题变少才采用新版本。会多调用模型。
     """
@@ -518,6 +526,9 @@ def generate_strategy(
     location = resolve_location(location)
     players = check_players(players)
     roles = parse_roles(roles, players)
+    goals_wanted = resolve_goals(achievements, data.achievement_rules)
+    progress = achievement_progress if isinstance(achievement_progress, Progress) \
+        else parse_progress(achievement_progress, data.achievement_rules, data.crops)
     done = set(prior_state.bundle_done) if prior_state else set()
     bundle_needs = tuple(season_needs(crop_needs(data.bundles, data.crops), season_key, year, done)) if route else ()
     done_labels = [f"{n.label}" for n in crop_needs(data.bundles, data.crops)
@@ -634,6 +645,8 @@ def generate_strategy(
         players=players,
         roles=roles,
         player_goals=evaluation.player_goals,
+        achievements=goals_wanted,
+        achievement_progress=progress,
     )
     result.markdown = render_markdown(result, data)
     return result
