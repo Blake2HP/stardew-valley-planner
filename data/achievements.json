@@ -1,5 +1,5 @@
 {
-  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Achievements（全部 49 个成就的条件、Polyculture 的 28 种作物、Monoculture 的 33 种作物）、https://stardewvalleywiki.com/Friendship（每颗心 250 好感度、每天对话 +20、送最爱的礼物 +80、喜欢的 +45、每周最多 2 次礼物、一周送满 2 次礼物周日额外 +10），核对日期 2026-11-20。中文名和中文说明取自 zh.stardewvalleywiki.com/成就（“难忘的汤”按英文页的 Delight the Governor 写成“让州长满意”，“博览群书”按英文页注明只算能力书）。",
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Achievements（全部 49 个成就的条件、Polyculture 的 28 种作物、Monoculture 的 33 种作物）、https://stardewvalleywiki.com/Friendship（每颗心 250 好感度、每天对话 +20、送最爱的礼物 +80、喜欢的 +45、中立 +20、不喜欢 −20、讨厌 −40、生日当天 ×8、每周最多 2 次礼物（生日礼物不占次数）、一周送满 2 次礼物周日额外 +10、一天不对话 −2、可以结婚的村民送花束前最多 8 颗心并在 8 颗心停止衰减、其他村民 10 颗心停止衰减），核对日期 2026-11-20。中文名和中文说明取自 zh.stardewvalleywiki.com/成就（“难忘的汤”按英文页的 Delight the Governor 写成“让州长满意”，“博览群书”按英文页注明只算能力书）。",
   "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
   "_kinds": "earnings：累计赚取 target 金币；friendship：与 target 个人达到 hearts 颗心（每颗心 points_per_heart 好感度）；ship_each_crop：crops 里每种作物各运送 target 个；ship_one_crop：crops 里任选一种运送 target 个（作物用英文名，Ancient Fruit 不在 crops.json 里，程序忽略）；info：程序没有相应数据，只把条件写进 Prompt 作为长期目标，不校验。category 是网页上分组用的类别。aliases 是常见的非官方叫法。",
   "achievements": [
@@ -493,9 +493,14 @@
     "talk_daily": 20,
     "gift_love": 80,
     "gift_like": 45,
+    "gift_neutral": 20,
+    "gift_dislike": -20,
+    "gift_hate": -40,
+    "birthday_multiplier": 8,
     "gifts_per_week": 2,
     "full_week_bonus": 10,
-    "bouquet_cap_hearts": 8
-  },
-  "_friendship_note": "可以结婚的村民送花束之前好感度最多 8 颗心（wiki Friendship）。"
+    "decay_daily": 2,
+    "bouquet_cap_hearts": 8,
+    "max_hearts": 10
+  }
 }

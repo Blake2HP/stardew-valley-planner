@@ -17,8 +17,8 @@ from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
 from .achievements import (
-    Progress, advance, check_achievements, describe_targets, keep_for_shipping, parse_progress, resolve_goals,
-    season_targets,
+    Progress, advance, check_achievements, describe_targets, friendship_season, keep_for_shipping, parse_progress,
+    resolve_goals, season_targets,
 )
 from .coop import (
     apply_season_end, check_division, check_players, describe_coop, merge_day, parse_player_goals, parse_roles, player_ids,
@@ -406,7 +406,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         harvested = season_harvest_units(plantings, carry_in)
         problems += check_achievements(s.achievements, shipped_units(harvested, finance),
                                        {p.crop.name for p in plantings}, gifts_by_day, strategy.macro,
-                                       strategy.achievement_milestones, harvested, finance.bundle_units)
+                                       strategy.achievement_milestones, harvested, finance.bundle_units,
+                                       _friend_points(s.achievements.progress, goals, data, season_key))
     if data.energy_rules is not None:
         problems += check_energy(goals, plantings, carry_in, data.energy_rules, s.bonuses, s.players)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
@@ -458,10 +459,14 @@ def _bundle_counts(reservations) -> dict[str, int]:
     return out
 
 
-def _progress_after(progress: Progress, ev: _Evaluation, carry_in, data: GameData) -> Progress:
+def _friend_points(progress: Progress, goals: dict, data: GameData, season: str) -> dict:
+    """按本季日程估算季末每位村民的好感度（从前几季的估算开始）。"""
+    return friendship_season(goals, data, data.achievement_rules.friendship, season, progress.points)
+
+
+def _progress_after(progress: Progress, ev: _Evaluation, carry_in, data: GameData, season: str) -> Progress:
     units = shipped_units(season_harvest_units(ev.plantings, carry_in), ev.finance)  # 只有直接出货的才算运送
-    gifted = {npc.name for goal in ev.goals.values() for npc, _ in gift_tasks(goal, data)}
-    return advance(progress, units, gifted, _season_earned(ev.finance))
+    return advance(progress, units, _friend_points(progress, ev.goals, data, season), _season_earned(ev.finance))
 
 
 def resolve_location(location: str | None) -> str:
@@ -705,7 +710,7 @@ def generate_strategy(
         achievement_targets=targets,
         achievement_milestones=strategy.achievement_milestones,
         achievement_progress_end=_progress_after(progress, evaluation, carry_in=prior_state.carry if prior_state
-                                                 else (), data=data) if goals_wanted else None,
+                                                 else (), data=data, season=season_key) if goals_wanted else None,
     )
     result.markdown = render_markdown(result, data)
     return result

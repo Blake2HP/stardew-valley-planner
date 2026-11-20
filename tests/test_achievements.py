@@ -98,7 +98,7 @@ def test_spring_targets(rules, data):
     assert {c.crop.name for c in t.optional} == {"咖啡豆", "大黄"}   # 旅行货车、沙漠绿洲：可选
     assert t.later == ["大蒜（第 2 年起）"] and t.shipped_done == ["防风草"]
     (gap,) = t.friends
-    assert (gap.left, t.seasons_left, gap.per_season) == (20, 4, 5)
+    assert (gap.left, gap.left_points, t.seasons_left, gap.per_season) == (20, 25000, 4, 6250)  # 20 × 1250 / 4
     assert [(g.achievement.key, gap) for g, gap in t.earnings] == [("legend", 10_000_000)]
 
 
@@ -115,9 +115,11 @@ def test_year_two_and_fall_targets(rules, data):
 
 def test_friend_target_spreads_over_remaining_seasons(rules, data):
     goals = resolve_goals("万人迷", rules)
-    p = Progress(friends={"popular": 4}, befriended=("海莉", "艾米丽"), seasons_done=1)
+    p = Progress(friends={"popular": 4}, points={"海莉": 1300, "艾米丽": 600}, seasons_done=1)
     t = season_targets(goals, p, data.crops, "summer", 1)
-    assert (t.friend_gap.left, t.seasons_left, t.friend_gap.per_season) == (14, 3, 5)  # ⌈(20 − 4 − 2) / 3⌉ = 5
+    gap = t.friend_gap
+    # 用户给的 4 人 + 海莉已到 5 颗心 → 还差 15 人；计分 = 4 × 1250 + 1250（封顶）+ 600 = 6850
+    assert (gap.left, gap.left_points, t.seasons_left, gap.per_season) == (15, 18150, 3, 6050)
 
 
 def test_prompt_block(data, indexed_store):
@@ -127,7 +129,8 @@ def test_prompt_block(data, indexed_store):
     block = client.prompt.split("### 【🏆 成就规划目标】")[1].split("### 相关攻略片段")[0]
     assert "花椰菜 15 个" in block and "已经运够：防风草" in block and "可选" in block
     assert "多作种植（混合栽培：" in block and "万人迷（与 20 个人" in block
-    assert "本季至少要给 5 位新的村民送礼" in block and "5 颗心 = 5 × 250 = 1250 点" in block
+    assert "本季的日程至少要增加 6,250 点" in block and "5 颗心 = 5 × 250 = 1250 点" in block
+    assert "和{村民}聊天" in block and "没聊天就 −2" in block
 
 
 def test_no_achievements_prompt_unchanged(data, indexed_store):
@@ -144,7 +147,7 @@ def test_progress_carries_across_seasons(data, indexed_store):
     spring, summer = out.results
     end = spring.achievement_progress_end
     assert summer.achievement_progress == end and end.seasons_done == 1
-    assert end.shipped["花椰菜"] > 0 and end.earned > 0 and end.befriended
+    assert end.shipped["花椰菜"] > 0 and end.earned > 0 and end.points  # mock 的日程里有生日送礼
     assert summer.achievement_targets.seasons_left == 3
     assert summer.achievement_progress_end.seasons_done == 2
 
@@ -220,15 +223,18 @@ def test_polyculture_check(rules, data):
 
 def test_popular_check(rules, data):
     from stardew_planner.achievements import check_achievements
-    t = _targets(rules, data, "万人迷", Progress(befriended=("海莉",)))
+    t = _targets(rules, data, "万人迷", Progress(points={"海莉": 500}))
     gifts = {2: ["海莉"], 9: ["阿比盖尔"], 16: ["潘妮"]}
-    problems = check_achievements(t, {}, set(), gifts, FULL, MILESTONES)
+    end = {"海莉": 1500, "阿比盖尔": 1000, "潘妮": 300}  # 计分：1250（封顶）+ 1000 + 300 = 2550，比季初多 2050
+    problems = check_achievements(t, {}, set(), gifts, FULL, MILESTONES, friend_points=end)
     assert problems == [
         "⚠️ 成就校验：目标包含“万人迷”，但第 22-28 天没有安排送礼。请每周至少安排一天“送{村民}{礼物}”！",
-        "⚠️ 成就校验：目标包含“万人迷”，但本季只给 2 位新的村民安排了送礼（潘妮、阿比盖尔），至少需要 5 位。请增加送礼对象！",
-    ]
+        "⚠️ 成就校验：目标包含“万人迷”，但按日程估算本季好感度只增加 2,050 点（季末估算：海莉 6.0 颗心、"
+        "阿比盖尔 4.0 颗心、潘妮 1.2 颗心），至少需要 6,125 点。请多安排给目标村民送礼，并把“和{村民}聊天”写进日程！",
+    ]  # 至少需要 ⌈(25000 − 500) / 4⌉ = 6125 点
     gifts = {2: ["阿比盖尔", "潘妮"], 9: ["莉亚"], 16: ["玛鲁"], 23: ["海莉", "艾米丽"]}
-    assert check_achievements(t, {}, set(), gifts, FULL, MILESTONES) == []
+    end = {n: 1250 for n in ("海莉", "阿比盖尔", "潘妮", "莉亚", "玛鲁", "艾米丽")}
+    assert check_achievements(t, {}, set(), gifts, FULL, MILESTONES, friend_points=end) == []
     done = _targets(rules, data, "万人迷", Progress(friends={"popular": 20}))  # 已经达成：不再检查送礼
     assert check_achievements(done, {}, set(), {}, FULL, MILESTONES) == []
 
@@ -361,7 +367,7 @@ def test_several_friendship_goals(rules, data):
     goals = resolve_goals("新朋友,万人迷,深受喜爱的农夫", rules)
     t = season_targets(goals, Progress(friends={"a_new_friend": 1}), data.crops, "spring", 1)
     assert [(x.goal.achievement.key, x.left, x.per_season) for x in t.friends] == [
-        ("a_new_friend", 0, 0), ("popular", 20, 5), ("the_beloved_farmer", 8, 2)]
+        ("a_new_friend", 0, 0), ("popular", 20, 6250), ("the_beloved_farmer", 8, 5000)]
     assert t.friend_gap.goal.achievement.key == "popular"
     text = describe_targets(t, rules)
     assert "万人迷（与 20 个人" in text and "同时计入：深受喜爱的农夫" in text and "新朋友（与某人达到 5 颗心的等级）：按已有进度已经达成" in text
@@ -390,3 +396,40 @@ def test_list_achievements_cli():
                        capture_output=True, text=True, encoding="utf-8")
     assert r.returncode == 0
     assert "【赚钱】" in r.stdout and "✔ 万人迷（Popular）" in r.stdout and "    渔夫（Fisherman）" in r.stdout
+
+
+# ---------------------------------------------------------------------------
+# 好感度估算（wiki Friendship）
+# ---------------------------------------------------------------------------
+
+def test_friendship_birthday_talk_and_decay(rules, data):
+    from stardew_planner.achievements import friendship_season
+    goals = {1: "和海莉聊天，送海莉向日葵", 14: "送海莉向日葵"}  # 第 14 天是海莉生日
+    end = friendship_season(goals, data, rules.friendship, "spring", {})
+    # 第 1 天 聊天 20 + 最爱 80 = 100；第 2-13 天没聊天 −2 × 12 = 76；第 14 天生日 80 × 8 = 640、没聊天 −2 → 714；
+    # 第 15-28 天 −2 × 14 → 686
+    assert end == {"海莉": 686}
+
+
+def test_friendship_weekly_limit_and_bonus(rules, data):
+    from stardew_planner.achievements import friendship_season
+    goals = {d: "送阿比盖尔紫水晶" for d in (1, 2, 3)}
+    end = friendship_season(goals, data, rules.friendship, "spring", {})
+    # 第 1、2 天各 +80（第 3 天超过每周 2 次，不算），每天没聊天 −2；第 7 天送满 2 次 +10；之后每天 −2
+    assert end == {"阿比盖尔": 80 - 2 + 80 - 2 - 2 * 5 + 10 - 2 * 21}
+
+
+def test_friendship_caps(rules, data):
+    from stardew_planner.achievements import friendship_season
+    talk = {d: "和海莉、莱纳斯聊天" for d in range(1, 29)}
+    end = friendship_season(talk, data, rules.friendship, "spring", {"海莉": 1990, "莱纳斯": 2490})
+    assert end == {"海莉": 2000, "莱纳斯": 2500}  # 可以结婚的村民送花束前最多 8 颗心，其他最多 10 颗心
+    idle = friendship_season({}, data, rules.friendship, "spring", {"海莉": 2000, "莱纳斯": 30})
+    assert idle == {"海莉": 2000, "莱纳斯": 0}     # 到顶的不衰减；衰减不会低于 0
+
+
+def test_talk_detection(data):
+    from stardew_planner.achievements import talked_to
+    assert talked_to("和海莉、阿比盖尔聊天，钓鱼", data) == {"海莉", "阿比盖尔"}
+    assert talked_to("送海莉向日葵，钓鱼", data) == set()   # 送礼不算聊天
+    assert talked_to("钓鱼；跟潘妮打招呼", data) == {"潘妮"}
