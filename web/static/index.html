@@ -46,6 +46,11 @@
   .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 6px; }
   .roles label { margin: 0; font-weight: 400; font-size: 13px; display: flex; align-items: center; gap: 6px; }
   .roles label b { min-width: 22px; }
+  #achievements .group { margin-top: 10px; }
+  #achievements .group b { font-size: 13px; color: var(--muted); display: block; margin-bottom: 2px; }
+  #achievements label { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; font-size: 13px;
+                        margin: 2px 10px 2px 0; }
+  #achievements .ok { color: var(--green); font-size: 11px; }
   .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
   label.inline { display: flex; align-items: center; gap: 6px; font-weight: 600; }
   .checks label { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; margin: 0; }
@@ -187,6 +192,14 @@
         </div>
       </details>
 
+      <details id="achievementBox">
+        <summary>成就目标（可选）</summary>
+        <p class="hint" style="margin:8px 0 0">✔ 的成就由程序算本季缺口（出货和友谊类还会校验）；其他只写进 Prompt，作为长期目标。</p>
+        <div id="achievements"></div>
+        <label for="achievementProgress">已有进度 <span class="hint">可留空，从零算</span></label>
+        <input id="achievementProgress" type="text" maxlength="300" placeholder="如 防风草=15,万人迷=12,千万富翁=50000">
+      </details>
+
       <button class="primary" id="submit" type="submit">生成攻略</button>
       <div class="error" id="error"></div>
     </div>
@@ -270,6 +283,7 @@ async function loadOptions() {
   for (let n = 1; n <= options.max_players; n++) $("players").add(new Option(n === 1 ? "单人" : `${n} 人联机`, n));
   for (const r of options.roles) $("roleOptions").appendChild(new Option(r));
   $("players").addEventListener("change", renderRoles);
+  renderAchievements(options.achievements);
   setupPresets();
 }
 
@@ -288,6 +302,17 @@ function renderRoles() {
     box.appendChild(label);
   }
   $("rolesBox").hidden = n <= 1;
+}
+
+// 成就：按类别分组的复选框，悬停显示条件
+function renderAchievements(list) {
+  const box = $("achievements");
+  const groups = {};
+  for (const a of list) (groups[a.category] = groups[a.category] || []).push(a);
+  box.innerHTML = Object.entries(groups).map(([cat, items]) => `<div class="group"><b>${escapeText(cat)}</b>`
+    + items.map((a) => `<label title="${escapeText(a.description)}"><input type="checkbox" value="${escapeText(a.key)}">`
+      + ` ${escapeText(a.name)}${a.checked ? ' <span class="ok">✔</span>' : ""}</label>`).join("") + "</div>").join("");
+  $("achievementBox").hidden = list.length === 0;
 }
 
 function roleMap() {
@@ -321,7 +346,8 @@ function renderSummary(data) {
   });
   $("summary").innerHTML = cards.join("");
   const attempts = data.seasons.map((s) => s.attempts).join("、");
-  const coop = data.players > 1 ? `${data.players} 人联机 · ` : "";
+  const coop = (data.players > 1 ? `${data.players} 人联机 · ` : "")
+    + (data.achievements.length ? `成就：${data.achievements.join("、")} · ` : "");
   $("meta").textContent = `${coop}用时 ${data.elapsed_seconds} 秒 · 调用模型 ${attempts} 次 · ${data.provider}`;
 }
 
@@ -369,6 +395,8 @@ $("form").addEventListener("submit", async (e) => {
     greenhouse: $("greenhouse").checked,
     players: Number($("players").value) || 1,
     roles: roleMap(),
+    achievements: [...document.querySelectorAll("#achievements input:checked")].map((x) => x.value),
+    achievement_progress: $("achievementProgress").value.trim() || null,
   };
   setLoading(true);
   try {

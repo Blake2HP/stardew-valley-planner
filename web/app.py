@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 
 from stardew_planner import generate_plan, generate_strategy
 from stardew_planner.bonuses import load_bonus_rules, resolve_bonuses
+from stardew_planner.achievements import parse_progress, resolve_goals
 from stardew_planner.coop import MAX_PLAYERS, ROLE_WORDS, parse_roles
 from stardew_planner.data_loader import SEASON_ZH, get_guide_store, load_game_data
 from stardew_planner.generator import parse_seasons
@@ -86,6 +87,8 @@ class GenerateRequest(BaseModel):
     greenhouse: bool = False
     players: int = Field(default=1, ge=1, le=MAX_PLAYERS)
     roles: dict[str, str] = Field(default_factory=dict, max_length=MAX_PLAYERS)  # {"P1": "种田"}，空值忽略
+    achievements: list[str] = Field(default_factory=list, max_length=60)  # 成就 key 或名字
+    achievement_progress: str | None = Field(default=None, max_length=300)  # 如 "防风草=15,万人迷=12"
 
 
 class RateLimiter:
@@ -252,6 +255,9 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             "pacings": [p.as_dict() for p in presets.pacings],
             "max_players": MAX_PLAYERS,
             "roles": list(ROLE_WORDS),  # 常用分工（程序认得的关键词），也可以自己填
+            "achievements": [{"key": a.key, "name": a.name, "name_en": a.name_en, "description": a.description,
+                              "category": a.category, "checked": a.checked}
+                             for a in (data().achievement_rules.achievements if data().achievement_rules else ())],
         }
 
     @app.post("/api/generate")
@@ -264,6 +270,8 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             if any(len(v) > 30 for v in roles.values()):
                 raise ValueError("每个玩家的分工最多 30 个字")
             roles = parse_roles(roles, req.players)
+            goals = resolve_goals(req.achievements, data().achievement_rules)
+            parse_progress(req.achievement_progress, data().achievement_rules, data().crops)
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
         if len(plan) > settings.max_seasons:
@@ -288,6 +296,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                 farm_type=req.farm_type, kegs=req.kegs, jars=req.jars, greenhouse=req.greenhouse,
                 bee_houses=req.bee_houses, animals=req.animals or None,
                 route=req.route, location=req.location, players=req.players, roles=roles,
+                achievements=[g.achievement.name for g in goals], achievement_progress=req.achievement_progress or None,
             )
             if len(plan) == 1:
                 results = [generate_strategy(req.playstyle, req.pacing, plan[0][0], plan[0][1], **kwargs)]
@@ -316,6 +325,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             "provider": settings.provider,
             "players": req.players,
             "roles": roles,
+            "achievements": [g.achievement.name for g in goals],
             "elapsed_seconds": round(time.perf_counter() - started, 2),
             "failed": failed,  # 跨季规划中途失败时：哪一季、原因；已完成的季节照常返回
         }

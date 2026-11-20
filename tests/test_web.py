@@ -230,3 +230,33 @@ def test_coop_bad_roles(indexed_store, patch, message):
 def test_coop_players_out_of_range(indexed_store, players):
     with make_client(indexed_store) as c:
         assert c.post("/api/generate", json={**BODY, "players": players}).status_code == 422
+
+
+def test_options_include_achievements(indexed_store):
+    with make_client(indexed_store) as c:
+        o = c.get("/api/options").json()
+    by_key = {a["key"]: a for a in o["achievements"]}
+    assert len(by_key) == 49
+    assert by_key["popular"]["checked"] and not by_key["fisherman"]["checked"]
+    assert by_key["polyculture"]["category"] == "出货"
+
+
+def test_generate_with_achievements(indexed_store):
+    body = {**BODY, "achievements": ["polyculture", "万人迷", "fisherman"], "achievement_progress": "防风草=15"}
+    with make_client(indexed_store) as c:
+        r = c.post("/api/generate", json=body)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["achievements"] == ["混合栽培", "万人迷", "渔夫"]
+    assert "🏆 成就规划" in data["markdown"] and "已运够：防风草" in data["markdown"]
+    assert "目标包含“混合栽培”" in data["markdown"] and "polyculture" not in data["markdown"]  # 提示用中文名
+
+
+@pytest.mark.parametrize("patch, message", [
+    ({"achievements": ["钓鱼之王"]}, "未知的成就：钓鱼之王"),
+    ({"achievements": ["popular"], "achievement_progress": "防风草"}, "成就进度写法应为"),
+])
+def test_bad_achievements(indexed_store, patch, message):
+    with make_client(indexed_store) as c:
+        r = c.post("/api/generate", json={**BODY, **patch})
+    assert r.status_code == 400 and message in r.json()["detail"]
