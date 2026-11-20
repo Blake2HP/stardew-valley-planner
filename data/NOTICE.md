@@ -12,7 +12,7 @@
 | `farm.json` | [Gold](https://stardewvalleywiki.com/Gold)、[Getting Started](https://stardewvalleywiki.com/Getting_Started)、[The Farm](https://stardewvalleywiki.com/The_Farm) |
 | `farm.json`（姜岛部分） | [Ginger Island](https://stardewvalleywiki.com/Ginger_Island#The_Farm) 的耕地格数与种植规则，[Fish Shop](https://stardewvalleywiki.com/Fish_Shop#Willy%27s_Boat) 的修船材料与船票 |
 | `buildings.json` | [Carpenter's Shop](https://stardewvalleywiki.com/Carpenter%27s_Shop) 的农场建筑价格、材料、工期，以及周二休息、下单第二天开工、节日不施工的规则 |
-| `achievements.json` | [Achievements](https://stardewvalleywiki.com/Achievements) 的成就条件和混合栽培（Polyculture）的 28 种作物、[Friendship](https://stardewvalleywiki.com/Friendship) 的每颗心 250 好感度、对话与送礼的好感度；中文名取自 zh wiki“成就”页面 |
+| `achievements.json` | [Achievements](https://stardewvalleywiki.com/Achievements) 的全部 49 个成就条件、混合栽培（Polyculture）的 28 种作物和单一栽培（Monoculture）的 33 种作物、[Friendship](https://stardewvalleywiki.com/Friendship) 的每颗心 250 好感度、对话与送礼的好感度；中文名和中文说明取自 zh wiki“成就”页面；可以结婚的村民送花束前最多 8 颗心取自 Friendship |
 | `energy.json` | [Energy](https://stardewvalleywiki.com/Energy) 的最大体力、[Skills](https://stardewvalleywiki.com/Skills#Proficiency) 的喷壶体力消耗、[The Stardrop Saloon](https://stardewvalleywiki.com/The_Stardrop_Saloon) 的沙拉；压力阈值与补体力间隔是本项目的规划阈值 |
 | `tools.json` | [Blacksmith](https://stardewvalleywiki.com/Blacksmith#Upgrade_Tools) 的工具升级耗时、费用、材料与节日取货规则 |
 | `bundles.json` | [Bundles](https://stardewvalleywiki.com/Bundles) 的标准收集包（房间、格数、物品、数量与品质）；中文名取自 zh.stardewvalleywiki.com/收集包 |

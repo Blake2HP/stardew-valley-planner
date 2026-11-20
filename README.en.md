@@ -126,8 +126,9 @@ python main.py -p "Farming first, finish the Community Center" -c "Speedrun" -s 
 | `--kegs` / `--jars` | Number of kegs and preserves jars. When given, processing is simulated with machine counts and processing times: low-quality, high-gain crops go first, overflow moves to the other machine type, and the gain counts toward gold; goods still in a machine on day 28 carry into the next season | `0` (not simulated) |
 | `--bee-houses` | Number of outdoor bee houses. One jar every 4 days, priced by the most valuable flower blooming outdoors on the collection day (wild honey, 100g, with no flower), counted toward gold; none in winter, and greenhouse flowers don't count | `0` (not simulated) |
 | `--players` | Number of co-op players, 1-4 (P1 is the host). With more than one, the schedule is written per player and rendered as a nested list, the energy line scales with the player count, tools are checked per player and each upgrade is paid separately. Wallet shared; starting gold and seeds count the host only | `1` |
-| `--achievements` | Steam achievements to work toward, comma-separated, e.g. `"混合栽培,万人迷"` (多作种植 also works); choices are 百万富翁, 千万富翁, 混合栽培, 万人迷. This season's gap goes into the prompt, and plantings and gifts are checked | none |
-| `--achievement-progress` | Known progress, e.g. `"防风草=15,万人迷=12,千万富翁=50000"`: crop = already shipped, 万人迷 = people already at 5 hearts, the money achievements = gold earned so far | zero |
+| `--achievements` | Steam achievements to work toward, comma-separated, e.g. `"混合栽培,万人迷"` (多作种植 also works); all 49 achievements are available, see `--list-achievements`. The earnings tiers (新手 … 千万富翁), the friendship ones (新朋友 … 万人迷), Polyculture and Monoculture get a computed gap for the season, and the shipping and friendship ones are also checked; the rest (fishing, cooking, museum, …) have no planner data and only go into the prompt as long-term goals | none |
+| `--list-achievements` | List every achievement by category, marking which ones get a computed gap, then exit | - |
+| `--achievement-progress` | Known progress, e.g. `"防风草=15,万人迷=12,千万富翁=50000"`: crop = already shipped, a friendship achievement = people already at its heart level (e.g. `万人迷=12`, `最好的朋友=1`), an earnings achievement = gold earned so far | zero |
 | `--roles` | Co-op roles, e.g. `"P1:种田, P2:下矿, P3:钓鱼"`; ids can't exceed `--players`. The program checks that every player actually does their role at some point | none |
 | `--location` | Where to farm: `pelican_town` (the valley farm) or `ginger_island` (the island farm). Like the greenhouse, the island has no season limits and crops survive the season change; the profit table switches to a steady-state per-28-days view, day 28 needs no cleanup, and the field holds up to 777 tiles. It requires a finished Community Center (or Joja route) and Willy's repaired boat | `pelican_town` |
 | `--route` | Game route. `community_center`: the bundle route; crops needed for bundles (spring / summer / fall crops bundles, the Sunflower in the dye bundle, the Poppy in the chef's bundle, 10 Wheat for the fodder bundle, etc.) are kept instead of sold and their price is taken out of income; if the last season of the year to grow a crop ends without keeping it, a "⚠️ 献祭校验" (bundle check) problem is reported and sent back to the model | none |
@@ -242,7 +243,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── tools.json              Blacksmith tool upgrades: time, cost and materials
 │   ├── energy.json             max energy and watering cost
 │   ├── buildings.json          Robin's farm buildings: price, materials and build time
-│   ├── achievements.json       Steam achievement conditions (Polyculture's 28 crops, Popular's friendship rules)
+│   ├── achievements.json       all 49 Steam achievements (conditions, categories, Polyculture and Monoculture crops, friendship rules)
 │   ├── NOTICE.md               data sources and licensing
 │   └── guides/*.md             guide texts
 ├── tests/                      pytest tests
@@ -275,7 +276,7 @@ The tests cover planting detection (15 phrasings), season-change checks and edge
 
 ## Web demo
 
-`web/` is a minimal web version: pick a playstyle, pacing, seasons (several in a row are fine), co-op players and each player's role, professions, fertilizer and farming level on the left; the right side shows end-of-season gold cards and the full guide, which you can copy or download as Markdown. The backend is FastAPI calling `generate_strategy` / `generate_plan` directly, with no changes to the core code.
+`web/` is a minimal web version: pick a playstyle, pacing, seasons (several in a row are fine), co-op players and each player's role, achievements to work toward, professions, fertilizer and farming level on the left; the right side shows end-of-season gold cards and the full guide, which you can copy or download as Markdown. The backend is FastAPI calling `generate_strategy` / `generate_plan` directly, with no changes to the core code.
 
 <!-- Add a CLI screenshot or a web demo GIF here -->
 
@@ -340,7 +341,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] 1-4 player co-op (`--players` / `--roles`, also in the web form: per-player schedules, role checks, energy scaled by players, per-player tools; co-op messages start with "⚠️ 联机校验：")
 - [x] Robin's construction timeline (the model outputs `constructions`; no orders on Tuesdays or festivals, festivals push the finish back, one building at a time, cost counted toward gold)
 - [x] Early-game energy (watering energy per day from the planting list; on heavy days food must be planned at least every 3 days, otherwise the model revises)
-- [x] Steam achievements (`--achievements`: Polyculture, Popular, Millionaire / Legend; this season's gap goes into the prompt, and short plantings or gifts are sent back as "⚠️ 成就校验：")
+- [x] Steam achievements (`--achievements`, also in the web form: all 49; earnings, friendship, Polyculture and Monoculture get a computed gap, the rest go into the prompt as long-term goals; this season's gap goes into the prompt, and short plantings or gifts are sent back as "⚠️ 成就校验：")
 - [x] Ginger Island farm (`--location ginger_island`: no season limits, crops survive the season change, steady-state per-28-days profit table)
 - [x] Tool upgrade timeline (the model outputs `tool_upgrades`; no work needing the tool during the 2-day upgrade, pickup moves past festival closures, cost counted toward gold)
 - [x] Community Center route (`--route community_center`: bundle crops are kept and their price deducted; a bundle check fires when the last chance passes)
