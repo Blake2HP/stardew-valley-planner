@@ -16,7 +16,10 @@ from .farm_state import (
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
-from .achievements import Progress, advance, check_achievements, describe_targets, keep_for_shipping, parse_progress, resolve_goals, season_targets
+from .achievements import (
+    Progress, advance, check_achievements, describe_targets, keep_for_shipping, parse_progress, resolve_goals,
+    season_targets,
+)
 from .coop import (
     apply_season_end, check_division, check_players, describe_coop, merge_day, parse_player_goals, parse_roles, player_ids,
 )
@@ -374,7 +377,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         herds=s.herds, hay_price=data.hay_price,
         set_aside=reservations, bundle_done_in=s.prior_state.bundle_done if s.prior_state else (),
         fixed_costs=upgrade_costs(upgrades), building_costs=construction_costs(constructions),
-        ship_first=keep_for_shipping(s.achievements, _bundle_counts(reservations)) if s.achievements else None,
+        ship_first=keep_for_shipping(s.achievements, _bundle_counts(reservations),
+                                     season_harvest_units(plantings, carry_in)) if s.achievements else None,
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))

@@ -1,11 +1,15 @@
 """Steam 成就目标（数据见 data/achievements.json，wiki Achievements / Friendship）。
 
 用户用 --achievements 指定想完成的成就，--achievement-progress 补充已有进度（不给时从零算）：
-- 程序算出本季的“缺口”（混合栽培：本季能买到种子、还没运够的作物各要收获几个；万人迷：本季要新结交几位村民；
-  百万 / 千万富翁：还差多少钱），写进【数据参考】的【🏆 成就规划目标】；
-- 生成后校验：混合栽培按预计收获个数、万人迷按每周送礼和本季新结交人数，问题以“⚠️ 成就校验：”开头，
+- 程序算出本季的“缺口”，写进【数据参考】的【🏆 成就规划目标】：
+  - 混合栽培：本季能买到种子、还没运够的作物各要直接出货几个；
+  - 单一栽培：本季选一种作物，要直接出货几个（还差的个数平均分到今年剩下的季节）；
+  - 友谊类（新朋友……万人迷）：本季要新结交几位村民（还差的人数平均分到今年剩下的季节）；
+  - 赚钱类（新手……千万富翁）：还差多少钱，只提示；
+  - 其他成就（钓鱼、烹饪、博物馆……）：程序没有相应数据，只把条件写进 Prompt 作为长期目标，不校验；
+- 生成后校验：出货类按预计直接出货个数、友谊类按每周送礼和本季新结交人数，问题以“⚠️ 成就校验：”开头，
   交给 --revise-rounds 的自动修正；
-- 跨季连续规划时，进度按每季的预计收获、送礼和收入累计到下一季。
+- 跨季连续规划时，进度按每季的预计出货、送礼和收入累计到下一季。
 """
 
 from __future__ import annotations
@@ -18,7 +22,7 @@ from pathlib import Path
 from .data_loader import DEFAULT_DATA_DIR
 
 PREFIX = "⚠️ 成就校验："
-KINDS = ("earnings", "ship_each_crop", "friendship")
+KINDS = ("earnings", "friendship", "ship_each_crop", "ship_one_crop", "info")
 
 
 @dataclass(frozen=True)
@@ -26,17 +30,23 @@ class Achievement:
     key: str
     name: str          # 官方中文名（zh wiki）
     name_en: str
-    kind: str          # earnings / ship_each_crop / friendship
-    target: int        # 金币 / 每种作物的个数 / 人数
+    kind: str          # 见 KINDS
+    target: int = 0    # 金币 / 人数 / 每种作物的个数 / 一种作物的个数；info 为 0
     description: str = ""
     aliases: tuple[str, ...] = ()
-    crops: tuple[str, ...] = ()   # ship_each_crop：作物英文名
+    crops: tuple[str, ...] = ()   # 出货类：作物英文名
     hearts: int = 0               # friendship：几颗心
     points_per_heart: int = 250
+    category: str = ""            # 网页上分组用
 
     @property
     def names(self) -> tuple[str, ...]:
         return (self.name, *self.aliases)
+
+    @property
+    def checked(self) -> bool:
+        """程序能按数值校验（info 只写进 Prompt）。"""
+        return self.kind != "info"
 
 
 @dataclass(frozen=True)
@@ -46,6 +56,7 @@ class FriendshipRules:
     gift_like: int = 45
     gifts_per_week: int = 2
     full_week_bonus: int = 10
+    bouquet_cap_hearts: int = 8   # 可以结婚的村民送花束之前最多几颗心
 
 
 @dataclass(frozen=True)
@@ -70,7 +81,7 @@ class Goal:
 class Progress:
     """成就进度：用户给出的已有进度 + 本次跨季规划中前几季的累计。"""
     shipped: dict = field(default_factory=dict)   # 作物中文名 → 已运送个数
-    friends: int = 0                              # 已经 5 心以上的人数
+    friends: dict = field(default_factory=dict)   # 友谊类成就 key → 已经达到要求心数的人数
     befriended: tuple[str, ...] = ()              # 本次规划前几季已经开始送礼结交的村民
     earned: int = 0                               # 累计赚取的金币
     seasons_done: int = 0                         # 本次规划已经完成的季节数
@@ -87,14 +98,14 @@ def load_achievement_rules(path: str | Path = DEFAULT_DATA_DIR / "achievements.j
         if a["kind"] not in KINDS:
             raise ValueError(f"achievements.json：未知的成就类型 {a['kind']}（{a['name']}）")
         items.append(Achievement(
-            a["key"], a["name"], a["name_en"], a["kind"], int(a["target"]), a.get("description", ""),
+            a["key"], a["name"], a["name_en"], a["kind"], int(a.get("target", 0)), a.get("description", ""),
             tuple(a.get("aliases", ())), tuple(a.get("crops", ())), int(a.get("hearts", 0)),
-            int(a.get("points_per_heart", 250)),
+            int(a.get("points_per_heart", 250)), a.get("category", ""),
         ))
     f = raw.get("friendship") or {}
     return AchievementRules(tuple(items), FriendshipRules(
         int(f.get("talk_daily", 20)), int(f.get("gift_love", 80)), int(f.get("gift_like", 45)),
-        int(f.get("gifts_per_week", 2)), int(f.get("full_week_bonus", 10))))
+        int(f.get("gifts_per_week", 2)), int(f.get("full_week_bonus", 10)), int(f.get("bouquet_cap_hearts", 8))))
 
 
 def _split(spec) -> list[str]:
@@ -115,8 +126,8 @@ def resolve_goals(spec, rules: AchievementRules | None) -> list[Goal]:
     for name in names:
         a = rules.find(name)
         if a is None:
-            known = "、".join(f"{x.name}（{x.name_en}）" for x in rules.achievements)
-            raise ValueError(f"未知的成就：{name}（可选：{known}）")
+            known = "、".join(x.name for x in rules.achievements)
+            raise ValueError(f"未知的成就：{name}（可选：{known}；也可以写英文名）")
         if a.key not in seen:
             seen.add(a.key)
             goals.append(Goal(a, name))
@@ -126,7 +137,7 @@ def resolve_goals(spec, rules: AchievementRules | None) -> list[Goal]:
 def parse_progress(spec, rules: AchievementRules | None, crops) -> Progress:
     """已有进度："防风草=15,土豆=7,万人迷=12,千万富翁=50000"（或 dict）。
 
-    作物名 → 已运送个数（混合栽培）；友谊类成就名 → 已经达到要求心数的人数；赚钱类成就名 → 已累计赚取的金币。
+    作物名 → 已运送个数（出货类）；友谊类成就名 → 已经达到该成就要求心数的人数；赚钱类成就名 → 已累计赚取的金币。
     """
     if not spec:
         return Progress()
@@ -143,7 +154,7 @@ def parse_progress(spec, rules: AchievementRules | None, crops) -> Progress:
     for c in crops:
         for n in (c.name, c.name_en, c.name_en.lower()):
             by_name[n] = c
-    shipped, friends, earned = {}, 0, 0
+    shipped, friends, earned = {}, {}, 0
     for name, value in pairs:
         try:
             n = int(value)
@@ -157,7 +168,7 @@ def parse_progress(spec, rules: AchievementRules | None, crops) -> Progress:
         if crop is not None:
             shipped[crop.name] = n
         elif a is not None and a.kind == "friendship":
-            friends = n
+            friends[a.key] = n
         elif a is not None and a.kind == "earnings":
             earned = max(earned, n)
         else:
@@ -173,25 +184,38 @@ DIRECT_SOURCES = ("皮埃尔杂货店", "复活节商店")  # 本季能直接买
 SEASONS_PER_YEAR = 4
 
 
+def _ceil_div(a: int, b: int) -> int:
+    return -(-a // b)
+
+
 @dataclass(frozen=True)
 class CropGap:
     crop: object       # data_loader.Crop
-    need: int          # 本季还要收获并直接出货的个数
+    need: int          # 本季还要直接出货的个数
     source: str = ""
+
+
+@dataclass(frozen=True)
+class FriendGap:
+    goal: Goal
+    left: int          # 还差几个人（扣掉已有进度和本次规划前几季结交的）
+    per_season: int    # 本季要新结交的人数 = 还差的人数平均分到今年剩下的季节
 
 
 @dataclass
 class SeasonTargets:
     goals: list[Goal]
     progress: Progress
-    crops: list[CropGap] = field(default_factory=list)      # 混合栽培：本季必须收获的作物
+    seasons_left: int = SEASONS_PER_YEAR
+    crops: list[CropGap] = field(default_factory=list)      # 混合栽培：本季必须直接出货的作物
     optional: list[CropGap] = field(default_factory=list)   # 本季能种、但种子要去特殊渠道买的作物
     later: list[str] = field(default_factory=list)          # 本季作物，但今年还买不到种子
     shipped_done: list[str] = field(default_factory=list)   # 已经运够的作物
-    friends_left: int = 0       # 万人迷还差几个人（扣掉已有进度和本次规划前几季结交的）
-    friend_target: int = 0      # 本季要新结交的村民数 = 还差的人数平均分到今年剩下的季节
-    seasons_left: int = SEASONS_PER_YEAR
+    mono: list[CropGap] = field(default_factory=list)       # 单一栽培：本季可选的作物，选一种出货 need 个
+    mono_done: str = ""                                     # 单一栽培已经运够的作物
+    friends: list[FriendGap] = field(default_factory=list)
     earnings: list[tuple[Goal, int]] = field(default_factory=list)  # (成就, 还差多少金币)
+    info: list[Goal] = field(default_factory=list)          # 只写进 Prompt 的长期目标
 
     def title(self, g: Goal) -> str:
         """“多作种植（混合栽培：运送 15 份每种农作物）”；用户写的就是官方名时不重复。"""
@@ -201,9 +225,15 @@ class SeasonTargets:
     def goal(self, kind: str) -> Goal | None:
         return next((g for g in self.goals if g.achievement.kind == kind), None)
 
+    @property
+    def friend_gap(self) -> FriendGap | None:
+        """本季要求最高的友谊类成就（新结交人数最多；一样多时选还差得多的）。"""
+        open_gaps = [f for f in self.friends if f.left > 0]
+        return max(open_gaps, key=lambda f: (f.per_season, f.left), default=None)
+
 
 def season_targets(goals: list[Goal], progress: Progress, crops, season: str, year: int) -> SeasonTargets:
-    t = SeasonTargets(list(goals), progress)
+    t = SeasonTargets(list(goals), progress, max(1, SEASONS_PER_YEAR - progress.seasons_done))
     by_en = {c.name_en: c for c in crops}
     for g in goals:
         a = g.achievement
@@ -221,13 +251,33 @@ def season_targets(goals: list[Goal], progress: Progress, crops, season: str, ye
                     t.crops.append(CropGap(crop, need, crop.seed_source))
                 else:
                     t.optional.append(CropGap(crop, need, crop.seed_source.split("（")[0]))
+        elif a.kind == "ship_one_crop":
+            eligible = [by_en[n] for n in a.crops if n in by_en]
+            done = [c for c in eligible if progress.shipped.get(c.name, 0) >= a.target]
+            if done:
+                t.mono_done = done[0].name
+                continue
+            for crop in eligible:
+                if season in crop.seasons and crop.available_year <= year:
+                    left = a.target - int(progress.shipped.get(crop.name, 0))
+                    t.mono.append(CropGap(crop, _ceil_div(left, t.seasons_left), crop.seed_source.split("（")[0]))
+            t.mono.sort(key=lambda c: (c.need, c.crop.name))
         elif a.kind == "friendship":
-            t.friends_left = max(0, a.target - progress.friends - len(progress.befriended))
-            t.seasons_left = max(1, SEASONS_PER_YEAR - progress.seasons_done)
-            t.friend_target = -(-t.friends_left // t.seasons_left)  # 向上取整
+            left = max(0, a.target - progress.friends.get(a.key, 0) - len(progress.befriended))
+            t.friends.append(FriendGap(g, left, _ceil_div(left, t.seasons_left)))
         elif a.kind == "earnings":
             t.earnings.append((g, max(0, a.target - progress.earned)))
+        else:
+            t.info.append(g)
     return t
+
+
+def _mono_text(t: SeasonTargets) -> str:
+    """单一栽培的候选作物：按要出货的个数分组，“75 个：防风草、土豆……”。"""
+    groups: dict[int, list[str]] = {}
+    for c in t.mono:
+        groups.setdefault(c.need, []).append(c.crop.name)
+    return "；".join(f"{need} 个：{'、'.join(names)}" for need, names in sorted(groups.items()))
 
 
 def describe_targets(t: SeasonTargets, rules: AchievementRules) -> str:
@@ -249,32 +299,53 @@ def describe_targets(t: SeasonTargets, rules: AchievementRules) -> str:
             lines.append(f"  - 今年还买不到种子：{'、'.join(t.later)}")
         if t.shipped_done:
             lines.append(f"  - 已经运够：{'、'.join(t.shipped_done)}")
-    if g := t.goal("friendship"):
+    if g := t.goal("ship_one_crop"):
         a = g.achievement
+        if t.mono_done:
+            lines.append(f"- {t.title(g)}：{t.mono_done}已经运够 {a.target} 个，本季不用再安排。")
+        elif t.mono:
+            lines.append(f"- {t.title(g)}：本季集中种一种作物，直接出货至少这么多（还差的个数平均分到今年剩下的 "
+                         f"{t.seasons_left} 个季节，以后几季要继续种同一种）：{_mono_text(t)}。程序会先留出这些数量直接出货。")
+        else:
+            lines.append(f"- {t.title(g)}：本季没有可以计入的作物，本季不用安排。")
+    if gap := t.friend_gap:
         f = rules.friendship
+        a = gap.goal.achievement
         points = a.hearts * a.points_per_heart
+        others = [x for x in t.friends if x is not gap]
         lines.append(
-            f"- {t.title(g)}：还差 {t.friends_left} 人，今年还剩 {t.seasons_left} 个季节，"
-            f"本季至少要给 {t.friend_target} 位新的村民送礼（之前季节结交过的村民不算新的）。"
+            f"- {t.title(gap.goal)}：还差 {gap.left} 人，今年还剩 {t.seasons_left} 个季节，"
+            f"本季至少要给 {gap.per_season} 位新的村民送礼（之前季节结交过的村民不算新的）。"
             f"每颗心 {a.points_per_heart} 好感度，{a.hearts} 颗心 = {a.hearts} × {a.points_per_heart} = {points} 点；"
             f"每天对话 +{f.talk_daily}，送最爱的礼物 +{f.gift_love}、喜欢的 +{f.gift_like}，每周最多送 "
             f"{f.gifts_per_week} 次礼物，一周送满 {f.gifts_per_week} 次周日再 +{f.full_week_bonus}。"
             "每周（第 1-7、8-14、15-21、22-28 天）至少安排一天送礼，写成“送{村民}{礼物}”，礼物选该村民最爱或喜欢的。")
+        for x in others:
+            lines.append(f"  - 同时计入：{t.title(x.goal)}，还差 {x.left} 人" if x.left else
+                         f"  - {t.title(x.goal)}：按已有进度已经达成")
+        if any(x.goal.achievement.hearts > f.bouquet_cap_hearts for x in t.friends):
+            lines.append(f"  - 可以结婚的村民送花束之前最多 {f.bouquet_cap_hearts} 颗心，要到更高的心数先选不能结婚的村民。")
+    elif t.friends:
+        names = "、".join(x.goal.label for x in t.friends)
+        lines.append(f"- {names}：按已有进度已经达成，本季不用再安排。")
     for g, gap in t.earnings:
         lines.append(f"- {t.title(g)}：还差 {gap:,}g（已赚取 {t.progress.earned:,}g）。"
                      "出货、加工品和其他收入都算；请在策略里说明本季怎么提高收入（程序不强制校验金额）。")
+    if t.info:
+        names = "；".join(t.title(g) for g in t.info)
+        lines.append(f"- 长期目标（程序没有相关数据，只供参考、不校验）：{names}。请结合玩法风格，在日程里安排推进这些成就的活动。")
     lines.append("请在 macro_strategy.achievement_plan 里专门写一段成就实现思路，在 achievement_milestones 里列出关键节点，"
                  "并在 daily_goals 里显式安排相关动作（例如“种 15 颗土豆（混合栽培）”“送海莉黄水仙（万人迷）”）。")
     return "\n".join(lines)
 
 
 def advance(progress: Progress, units: dict, gifted, earned: int) -> Progress:
-    """一季结束后的进度：预计收获计入已运送、新送礼的村民计入已结交、收入计入已赚取。"""
+    """一季结束后的进度：预计出货计入已运送、新送礼的村民计入已结交、收入计入已赚取。"""
     shipped = dict(progress.shipped)
     for name, n in units.items():
         shipped[name] = shipped.get(name, 0) + int(n)
     befriended = progress.befriended + tuple(sorted(set(gifted) - set(progress.befriended)))
-    return Progress(shipped, progress.friends, befriended, progress.earned + max(0, int(earned)),
+    return Progress(shipped, dict(progress.friends), befriended, progress.earned + max(0, int(earned)),
                     progress.seasons_done + 1)
 
 
@@ -289,10 +360,18 @@ def summary_lines(t: SeasonTargets) -> list[str]:
         if t.shipped_done:
             extra.append("已运够：" + "、".join(t.shipped_done))
         out.append(f"- **{t.title(g)}**：本季要收获并直接出货 {need}" + (f"（{'；'.join(extra)}）" if extra else ""))
-    if g := t.goal("friendship"):
-        out.append(f"- **{t.title(g)}**：还差 {t.friends_left} 人，本季至少给 {t.friend_target} 位新的村民送礼，每周至少送一次")
+    if g := t.goal("ship_one_crop"):
+        text = (f"{t.mono_done}已经运够" if t.mono_done else
+                f"本季选一种作物直接出货（{_mono_text(t)}）" if t.mono else "本季没有可以计入的作物")
+        out.append(f"- **{t.title(g)}**：{text}")
+    for x in t.friends:
+        text = (f"还差 {x.left} 人，本季至少给 {x.per_season} 位新的村民送礼，每周至少送一次" if x.left
+                else "按已有进度已经达成")
+        out.append(f"- **{t.title(x.goal)}**：{text}")
     for g, gap in t.earnings:
         out.append(f"- **{t.title(g)}**：还差 {gap:,}g（已赚取 {t.progress.earned:,}g）")
+    if t.info:
+        out.append("- **长期目标**（程序不校验）：" + "；".join(t.title(g) for g in t.info))
     return out
 
 
@@ -307,9 +386,18 @@ def _num(x: float) -> str:
     return f"{x:.1f}".rstrip("0").rstrip(".")
 
 
-def keep_for_shipping(t: SeasonTargets, bundle_units: dict) -> dict[str, float]:
-    """加工前先留下的个数：混合栽培本季要直接出货的（含可选作物），加上同一作物留给收集包的。"""
-    return {c.crop.name: c.need + bundle_units.get(c.crop.name, 0) for c in t.crops + t.optional}
+def _mono_choice(t: SeasonTargets, harvested: dict) -> CropGap | None:
+    """单一栽培：本季预计收获最多的候选作物（模型选中的那一种）。"""
+    planted = [c for c in t.mono if harvested.get(c.crop.name, 0) > 0]
+    return max(planted, key=lambda c: harvested[c.crop.name], default=None)
+
+
+def keep_for_shipping(t: SeasonTargets, bundle_units: dict, harvested: dict | None = None) -> dict[str, float]:
+    """加工前先留下的个数：出货类成就本季要直接出货的，加上同一作物留给收集包的（一件出货同时计入两个成就）。"""
+    keep = {c.crop.name: float(c.need) for c in t.crops + t.optional}
+    if choice := _mono_choice(t, harvested or {}):
+        keep[choice.crop.name] = max(keep.get(choice.crop.name, 0), choice.need)
+    return {name: n + bundle_units.get(name, 0) for name, n in keep.items()}
 
 
 def check_achievements(t: SeasonTargets, units: dict, planted: set, gifts_by_day: dict, macro: dict,
@@ -317,7 +405,19 @@ def check_achievements(t: SeasonTargets, units: dict, planted: set, gifts_by_day
     """units：本季每种作物预计直接出货的个数（收获 − 加工 − 留给收集包，见 farm_state.shipped_units）；
     harvested / bundle_units：预计收获和留给收集包的个数，只用来说明差在哪里；planted：本季种了的作物名；
     gifts_by_day：{日: [送礼的村民名]}（season_rules.gift_tasks 识别）。"""
+    harvested = harvested or {}
     problems = []
+
+    def shortfall(name: str, got: float) -> str:
+        total = harvested.get(name, got)
+        kept = (bundle_units or {}).get(name, 0)
+        why = []
+        if kept:
+            why.append(f"{_num(kept)} 个留给收集包")
+        if total - kept - got > 1e-6:
+            why.append(f"{_num(total - kept - got)} 个交给机器加工")
+        return f"（预计收获 {_num(total)} 个，其中 {'、'.join(why)}）" if why else ""
+
     if g := t.goal("ship_each_crop"):
         for c in t.crops:
             got = units.get(c.crop.name, 0)
@@ -327,28 +427,47 @@ def check_achievements(t: SeasonTargets, units: dict, planted: set, gifts_by_day
                 problems.append(f"{PREFIX}目标包含“{g.label}”，但本季没有安排种植{c.crop.name}"
                                 f"（要收获并出货 {c.need} 个）。请修改种植清单！")
             else:
-                total = (harvested or {}).get(c.crop.name, got)
-                kept = (bundle_units or {}).get(c.crop.name, 0)
-                why = []
-                if kept:
-                    why.append(f"{_num(kept)} 个留给收集包")
-                if total - kept - got > 1e-6:
-                    why.append(f"{_num(total - kept - got)} 个交给机器加工")
-                detail = f"（预计收获 {_num(total)} 个，其中 {'、'.join(why)}）" if why else ""
                 problems.append(f"{PREFIX}目标包含“{g.label}”，但本季安排种植的{c.crop.name}预计只能直接出货 "
-                                f"{_num(got)} 个{detail}，不足 {c.need} 个。请修改种植清单！")
-    if (g := t.goal("friendship")) and t.friends_left > 0:
+                                f"{_num(got)} 个{shortfall(c.crop.name, got)}，不足 {c.need} 个。请修改种植清单！")
+    if (g := t.goal("ship_one_crop")) and t.mono and not t.mono_done:
+        if not any(units.get(c.crop.name, 0) >= c.need for c in t.mono):
+            choice = _mono_choice(t, harvested)
+            if choice is None:
+                problems.append(f"{PREFIX}目标包含“{g.label}”，但本季没有种可以计入的作物"
+                                f"（选一种集中种，直接出货至少 {t.mono[0].need} 个）。请修改种植清单！")
+            else:
+                got = units.get(choice.crop.name, 0)
+                problems.append(f"{PREFIX}目标包含“{g.label}”，但本季出货最多的{choice.crop.name}预计只能直接出货 "
+                                f"{_num(got)} 个{shortfall(choice.crop.name, got)}，不足 {choice.need} 个。"
+                                "请集中种一种作物！")
+    if gap := t.friend_gap:
+        g = gap.goal
         empty = [f"第 {a}-{b} 天" for a, b in WEEKS if not any(gifts_by_day.get(d) for d in range(a, b + 1))]
         if empty:
             problems.append(f"{PREFIX}目标包含“{g.label}”，但{'、'.join(empty)}没有安排送礼。"
                             "请每周至少安排一天“送{村民}{礼物}”！")
         new = sorted({n for names in gifts_by_day.values() for n in names} - set(t.progress.befriended))
-        if len(new) < t.friend_target:
+        if len(new) < gap.per_season:
             who = f"（{'、'.join(new)}）" if new else ""
             problems.append(f"{PREFIX}目标包含“{g.label}”，但本季只给 {len(new)} 位新的村民安排了送礼{who}，"
-                            f"至少需要 {t.friend_target} 位。请增加送礼对象！")
+                            f"至少需要 {gap.per_season} 位。请增加送礼对象！")
     if not str(macro.get("achievement_plan") or "").strip():
         problems.append(f"{PREFIX}macro_strategy 里没有 achievement_plan，请专门写一段成就实现思路")
     if not milestones:
         problems.append(f"{PREFIX}没有给出 achievement_milestones，请列出本季为了成就达成的关键节点")
     return problems
+
+
+def list_achievements(rules: AchievementRules | None) -> str:
+    """--list-achievements 的输出：按类别分组，✔ 表示程序会算缺口（赚钱类只提示，不校验金额）。"""
+    if rules is None:
+        return "没有成就数据（data/achievements.json）\n"
+    groups: dict[str, list[Achievement]] = {}
+    for a in rules.achievements:
+        groups.setdefault(a.category or "其他", []).append(a)
+    lines = ["全部成就（✔ = 程序按数据算本季缺口，出货和友谊类还会校验；其他只写进 Prompt 作为长期目标）：", ""]
+    for category, items in groups.items():
+        lines.append(f"【{category}】")
+        lines += [f"  {'✔' if a.checked else ' '} {a.name}（{a.name_en}）：{a.description}" for a in items]
+        lines.append("")
+    return "\n".join(lines)

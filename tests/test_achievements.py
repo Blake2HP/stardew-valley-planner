@@ -8,7 +8,7 @@ import pytest
 
 from stardew_planner import generate_strategy
 from stardew_planner.achievements import (
-    Progress, load_achievement_rules, parse_progress, resolve_goals, season_targets,
+    Progress, describe_targets, load_achievement_rules, parse_progress, resolve_goals, season_targets,
 )
 from stardew_planner.llm_client import MockClient
 
@@ -51,9 +51,9 @@ def test_resolve_goals(rules):
 
 def test_parse_progress(rules, data):
     p = parse_progress("防风草=15, Potato:7，万人迷=12；千万富翁=50000", rules, data.crops)
-    assert p.shipped == {"防风草": 15, "土豆": 7} and p.friends == 12 and p.earned == 50000
+    assert p.shipped == {"防风草": 15, "土豆": 7} and p.friends == {"popular": 12} and p.earned == 50000
     assert parse_progress(None, rules, data.crops) == Progress()
-    assert parse_progress({"万人迷": 3}, rules, data.crops).friends == 3
+    assert parse_progress({"万人迷": 3}, rules, data.crops).friends == {"popular": 3}
 
 
 @pytest.mark.parametrize("spec, message", [
@@ -97,7 +97,8 @@ def test_spring_targets(rules, data):
     assert {c.crop.name: c.need for c in t.crops} == {"花椰菜": 15, "青豆": 15, "甘蓝": 15, "土豆": 9, "草莓": 15}
     assert {c.crop.name for c in t.optional} == {"咖啡豆", "大黄"}   # 旅行货车、沙漠绿洲：可选
     assert t.later == ["大蒜（第 2 年起）"] and t.shipped_done == ["防风草"]
-    assert (t.friends_left, t.seasons_left, t.friend_target) == (20, 4, 5)
+    (gap,) = t.friends
+    assert (gap.left, t.seasons_left, gap.per_season) == (20, 4, 5)
     assert [(g.achievement.key, gap) for g, gap in t.earnings] == [("legend", 10_000_000)]
 
 
@@ -114,9 +115,9 @@ def test_year_two_and_fall_targets(rules, data):
 
 def test_friend_target_spreads_over_remaining_seasons(rules, data):
     goals = resolve_goals("万人迷", rules)
-    p = Progress(friends=4, befriended=("海莉", "艾米丽"), seasons_done=1)
+    p = Progress(friends={"popular": 4}, befriended=("海莉", "艾米丽"), seasons_done=1)
     t = season_targets(goals, p, data.crops, "summer", 1)
-    assert (t.friends_left, t.seasons_left, t.friend_target) == (14, 3, 5)  # ⌈(20 − 4 − 2) / 3⌉ = 5
+    assert (t.friend_gap.left, t.seasons_left, t.friend_gap.per_season) == (14, 3, 5)  # ⌈(20 − 4 − 2) / 3⌉ = 5
 
 
 def test_prompt_block(data, indexed_store):
@@ -228,7 +229,7 @@ def test_popular_check(rules, data):
     ]
     gifts = {2: ["阿比盖尔", "潘妮"], 9: ["莉亚"], 16: ["玛鲁"], 23: ["海莉", "艾米丽"]}
     assert check_achievements(t, {}, set(), gifts, FULL, MILESTONES) == []
-    done = _targets(rules, data, "万人迷", Progress(friends=20))  # 已经达成：不再检查送礼
+    done = _targets(rules, data, "万人迷", Progress(friends={"popular": 20}))  # 已经达成：不再检查送礼
     assert check_achievements(done, {}, set(), {}, FULL, MILESTONES) == []
 
 
@@ -307,3 +308,85 @@ def test_bundle_units_are_not_shipped(data, indexed_store):
     assert result.achievement_progress_end.shipped["防风草"] == 14
     assert ("⚠️ 成就校验：目标包含“多作种植”，但本季安排种植的防风草预计只能直接出货 14 个"
             "（预计收获 15 个，其中 1 个留给收集包），不足 15 个。请修改种植清单！") in result.problems
+
+
+# ---------------------------------------------------------------------------
+# 补全的成就：全部 49 个、单一栽培、多个友谊成就、只写进 Prompt 的成就
+# ---------------------------------------------------------------------------
+
+def test_all_achievements_loaded(rules, data):
+    from stardew_planner.achievements import KINDS
+    items = rules.achievements
+    assert len(items) == 49
+    assert len({a.key for a in items}) == 49 and len({a.name for a in items}) == 49
+    assert all(a.kind in KINDS and a.category and a.description for a in items)
+    kinds = {}
+    for a in items:
+        kinds.setdefault(a.kind, []).append(a.name)
+    assert kinds["earnings"] == ["新手", "牛仔", "农场主", "百万富翁", "千万富翁"]
+    assert kinds["friendship"] == ["新朋友", "最好的朋友", "深受喜爱的农夫", "拉帮结派", "网络交友", "万人迷"]
+    assert kinds["ship_one_crop"] == ["单一栽培"] and len(kinds["info"]) == 36
+    mono = rules.find("Monoculture")
+    known = {c.name_en for c in data.crops}
+    assert len(mono.crops) == 33 and set(mono.crops) - known == {"Ancient Fruit"}  # 上古水果不在 crops.json
+    assert rules.find("工匠").name_en == "Artisan" and rules.find("best friends").hearts == 10
+
+
+def test_monoculture_targets(rules, data):
+    goals = resolve_goals("单一栽培", rules)
+    t = season_targets(goals, Progress(), data.crops, "spring", 1)
+    names = {c.crop.name for c in t.mono}
+    assert {"防风草", "土豆", "郁金香", "蓝爵"} <= names and "大蒜" not in names  # 大蒜第 2 年起
+    assert {c.need for c in t.mono} == {75}                                         # ⌈300 / 4⌉
+    t = season_targets(goals, Progress(shipped={"土豆": 100}), data.crops, "spring", 1)
+    assert next(c.need for c in t.mono if c.crop.name == "土豆") == 50              # ⌈200 / 4⌉
+    done = season_targets(goals, Progress(shipped={"蓝莓": 300}), data.crops, "spring", 1)
+    assert done.mono_done == "蓝莓" and done.mono == []
+
+
+def test_monoculture_check(rules, data):
+    from stardew_planner.achievements import check_achievements, keep_for_shipping
+    t = season_targets(resolve_goals("单一栽培", rules), Progress(), data.crops, "spring", 1)
+    assert check_achievements(t, {"土豆": 80}, {"土豆"}, {}, FULL, MILESTONES) == []
+    assert check_achievements(t, {"土豆": 20}, {"土豆"}, {}, FULL, MILESTONES, {"土豆": 20, "防风草": 5}) == [
+        "⚠️ 成就校验：目标包含“单一栽培”，但本季出货最多的土豆预计只能直接出货 20 个，不足 75 个。请集中种一种作物！"]
+    assert check_achievements(t, {}, set(), {}, FULL, MILESTONES) == [
+        "⚠️ 成就校验：目标包含“单一栽培”，但本季没有种可以计入的作物（选一种集中种，直接出货至少 75 个）。请修改种植清单！"]
+    assert keep_for_shipping(t, {}, {"土豆": 90, "防风草": 15}) == {"土豆": 75}     # 只给收获最多的那种预留
+    both = season_targets(resolve_goals("单一栽培,混合栽培", rules), Progress(), data.crops, "spring", 1)
+    assert keep_for_shipping(both, {"土豆": 1}, {"土豆": 90})["土豆"] == 76          # 同一件出货两个成就都算
+
+
+def test_several_friendship_goals(rules, data):
+    goals = resolve_goals("新朋友,万人迷,深受喜爱的农夫", rules)
+    t = season_targets(goals, Progress(friends={"a_new_friend": 1}), data.crops, "spring", 1)
+    assert [(x.goal.achievement.key, x.left, x.per_season) for x in t.friends] == [
+        ("a_new_friend", 0, 0), ("popular", 20, 5), ("the_beloved_farmer", 8, 2)]
+    assert t.friend_gap.goal.achievement.key == "popular"
+    text = describe_targets(t, rules)
+    assert "万人迷（与 20 个人" in text and "同时计入：深受喜爱的农夫" in text and "新朋友（与某人达到 5 颗心的等级）：按已有进度已经达成" in text
+    assert "送花束之前最多 8 颗心" in text
+
+
+def test_info_goals_only_in_prompt(rules, data):
+    from stardew_planner.achievements import check_achievements
+    t = season_targets(resolve_goals("渔夫,当地传奇", rules), Progress(), data.crops, "summer", 1)
+    assert [g.achievement.key for g in t.info] == ["fisherman", "local_legend"]
+    text = describe_targets(t, rules)
+    assert "长期目标（程序没有相关数据，只供参考、不校验）：渔夫（抓住 10 种不同的鱼）；当地传奇" in text
+    assert check_achievements(t, {}, set(), {}, FULL, MILESTONES) == []
+
+
+def test_end_to_end_with_new_kinds(data, indexed_store):
+    result = generate_strategy("种田", "稳健", "spring", client=MockClient(), data=data, guide_store=indexed_store,
+                               achievements="单一栽培,网络交友,渔夫", revise_rounds=0)
+    md = result.markdown
+    assert "**单一栽培（运送 300 份一种农作物，可选 33 种）**" in md and "**长期目标**（程序不校验）：渔夫" in md
+    assert any("单一栽培" in p for p in result.problems)  # mock 防风草只有 15 个
+
+
+def test_list_achievements_cli():
+    r = subprocess.run([sys.executable, "main.py", "--list-achievements"], cwd=ROOT,
+                       capture_output=True, text=True, encoding="utf-8")
+    assert r.returncode == 0
+    assert "【赚钱】" in r.stdout and "✔ 万人迷（Popular）" in r.stdout and "    渔夫（Fisherman）" in r.stdout

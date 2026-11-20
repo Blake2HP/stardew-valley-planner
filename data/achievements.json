@@ -1,13 +1,41 @@
 {
-  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Achievements（成就条件、Polyculture 的 28 种作物）、https://stardewvalleywiki.com/Friendship（每颗心 250 好感度、每天对话 +20、送最爱的礼物 +80、喜欢的 +45、每周最多 2 次礼物、一周送满 2 次礼物周日额外 +10），核对日期 2026-11-19。中文名取自 zh.stardewvalleywiki.com/成就。",
+  "_source": "Stardew Valley Wiki（1.6）：https://stardewvalleywiki.com/Achievements（全部 49 个成就的条件、Polyculture 的 28 种作物、Monoculture 的 33 种作物）、https://stardewvalleywiki.com/Friendship（每颗心 250 好感度、每天对话 +20、送最爱的礼物 +80、喜欢的 +45、每周最多 2 次礼物、一周送满 2 次礼物周日额外 +10），核对日期 2026-11-20。中文名和中文说明取自 zh.stardewvalleywiki.com/成就（“难忘的汤”按英文页的 Delight the Governor 写成“让州长满意”，“博览群书”按英文页注明只算能力书）。",
   "_license": "本文件数值整理自 Stardew Valley Wiki（https://stardewvalleywiki.com），原内容按 CC BY-NC-SA 3.0 授权（https://creativecommons.org/licenses/by-nc-sa/3.0/），本文件同样按 CC BY-NC-SA 3.0 提供，不得用于商业用途。详见 data/NOTICE.md。",
-  "_kinds": "earnings：累计赚取 target 金币；ship_each_crop：crops 里每种作物各运送 target 个（作物用 crops.json 的英文名）；friendship：与 target 个人达到 hearts 颗心（每颗心 points_per_heart 好感度）。aliases 是常见的非官方叫法。",
+  "_kinds": "earnings：累计赚取 target 金币；friendship：与 target 个人达到 hearts 颗心（每颗心 points_per_heart 好感度）；ship_each_crop：crops 里每种作物各运送 target 个；ship_one_crop：crops 里任选一种运送 target 个（作物用英文名，Ancient Fruit 不在 crops.json 里，程序忽略）；info：程序没有相应数据，只把条件写进 Prompt 作为长期目标，不校验。category 是网页上分组用的类别。aliases 是常见的非官方叫法。",
   "achievements": [
+    {
+      "key": "greenhorn",
+      "name": "新手",
+      "name_en": "Greenhorn",
+      "kind": "earnings",
+      "category": "赚钱",
+      "target": 15000,
+      "description": "赚取 15,000g"
+    },
+    {
+      "key": "cowpoke",
+      "name": "牛仔",
+      "name_en": "Cowpoke",
+      "kind": "earnings",
+      "category": "赚钱",
+      "target": 50000,
+      "description": "赚取 50,000g"
+    },
+    {
+      "key": "homesteader",
+      "name": "农场主",
+      "name_en": "Homesteader",
+      "kind": "earnings",
+      "category": "赚钱",
+      "target": 250000,
+      "description": "赚取 250,000g"
+    },
     {
       "key": "millionaire",
       "name": "百万富翁",
       "name_en": "Millionaire",
       "kind": "earnings",
+      "category": "赚钱",
       "target": 1000000,
       "description": "赚取 1,000,000g"
     },
@@ -16,22 +44,72 @@
       "name": "千万富翁",
       "name_en": "Legend",
       "kind": "earnings",
+      "category": "赚钱",
       "target": 10000000,
       "description": "赚取 10,000,000g，隐藏成就"
     },
     {
-      "key": "polyculture",
-      "name": "混合栽培",
-      "name_en": "Polyculture",
-      "aliases": ["多作种植"],
-      "kind": "ship_each_crop",
-      "target": 15,
-      "description": "运送 15 份每种农作物，共 28 种",
-      "crops": [
-        "Cauliflower", "Coffee Bean", "Garlic", "Green Bean", "Kale", "Parsnip", "Potato", "Rhubarb", "Strawberry",
-        "Blueberry", "Corn", "Hops", "Hot Pepper", "Melon", "Radish", "Red Cabbage", "Starfruit", "Tomato", "Wheat",
-        "Amaranth", "Artichoke", "Beet", "Bok Choy", "Cranberries", "Eggplant", "Grape", "Pumpkin", "Yam"
-      ]
+      "key": "a_complete_collection",
+      "name": "全套收集",
+      "name_en": "A Complete Collection",
+      "kind": "info",
+      "category": "博物馆",
+      "description": "完成博物馆的收集"
+    },
+    {
+      "key": "a_new_friend",
+      "name": "新朋友",
+      "name_en": "A New Friend",
+      "kind": "friendship",
+      "category": "友谊",
+      "target": 1,
+      "description": "与某人达到 5 颗心的等级",
+      "hearts": 5,
+      "points_per_heart": 250
+    },
+    {
+      "key": "best_friends",
+      "name": "最好的朋友",
+      "name_en": "Best Friends",
+      "kind": "friendship",
+      "category": "友谊",
+      "target": 1,
+      "description": "与某人达到 10 颗心的等级",
+      "hearts": 10,
+      "points_per_heart": 250
+    },
+    {
+      "key": "the_beloved_farmer",
+      "name": "深受喜爱的农夫",
+      "name_en": "The Beloved Farmer",
+      "kind": "friendship",
+      "category": "友谊",
+      "target": 8,
+      "description": "与 8 个人达到 10 颗心的等级",
+      "hearts": 10,
+      "points_per_heart": 250
+    },
+    {
+      "key": "cliques",
+      "name": "拉帮结派",
+      "name_en": "Cliques",
+      "kind": "friendship",
+      "category": "友谊",
+      "target": 4,
+      "description": "与 4 个人达到 5 颗心的等级",
+      "hearts": 5,
+      "points_per_heart": 250
+    },
+    {
+      "key": "networking",
+      "name": "网络交友",
+      "name_en": "Networking",
+      "kind": "friendship",
+      "category": "友谊",
+      "target": 10,
+      "description": "与 10 个人达到 5 颗心的等级",
+      "hearts": 5,
+      "points_per_heart": 250
     },
     {
       "key": "popular",
@@ -41,7 +119,374 @@
       "target": 20,
       "hearts": 5,
       "points_per_heart": 250,
-      "description": "与 20 个人达到 5 颗心的等级"
+      "description": "与 20 个人达到 5 颗心的等级",
+      "category": "友谊"
+    },
+    {
+      "key": "cook",
+      "name": "厨子",
+      "name_en": "Cook",
+      "kind": "info",
+      "category": "烹饪",
+      "description": "烹饪 10 道不同的料理"
+    },
+    {
+      "key": "sous_chef",
+      "name": "副主厨师",
+      "name_en": "Sous Chef",
+      "kind": "info",
+      "category": "烹饪",
+      "description": "烹饪 25 道不同的料理"
+    },
+    {
+      "key": "gourmet_chef",
+      "name": "美食大厨",
+      "name_en": "Gourmet Chef",
+      "kind": "info",
+      "category": "烹饪",
+      "description": "烹饪每种配方"
+    },
+    {
+      "key": "moving_up",
+      "name": "节节高升",
+      "name_en": "Moving Up",
+      "kind": "info",
+      "category": "房屋",
+      "description": "升级你的房屋"
+    },
+    {
+      "key": "living_large",
+      "name": "富裕生活",
+      "name_en": "Living Large",
+      "kind": "info",
+      "category": "房屋",
+      "description": "将房屋升级至最大号（第 2 次升级，不含地窖）"
+    },
+    {
+      "key": "diy",
+      "name": "自己动手",
+      "name_en": "D.I.Y.",
+      "kind": "info",
+      "category": "制造",
+      "description": "制作 15 个不同的物品"
+    },
+    {
+      "key": "artisan",
+      "name": "工匠",
+      "name_en": "Artisan",
+      "kind": "info",
+      "category": "制造",
+      "description": "制作 30 个不同的物品"
+    },
+    {
+      "key": "craft_master",
+      "name": "制造大师",
+      "name_en": "Craft Master",
+      "kind": "info",
+      "category": "制造",
+      "description": "制作每种物品"
+    },
+    {
+      "key": "fisherman",
+      "name": "渔夫",
+      "name_en": "Fisherman",
+      "kind": "info",
+      "category": "钓鱼",
+      "description": "抓住 10 种不同的鱼"
+    },
+    {
+      "key": "ol_mariner",
+      "name": "老海员",
+      "name_en": "Ol' Mariner",
+      "kind": "info",
+      "category": "钓鱼",
+      "description": "抓住 24 种不同的鱼"
+    },
+    {
+      "key": "master_angler",
+      "name": "垂钓大师",
+      "name_en": "Master Angler",
+      "kind": "info",
+      "category": "钓鱼",
+      "description": "抓住每一种不同的鱼"
+    },
+    {
+      "key": "mother_catch",
+      "name": "捕鱼大师",
+      "name_en": "Mother Catch",
+      "kind": "info",
+      "category": "钓鱼",
+      "description": "抓住 100 条鱼"
+    },
+    {
+      "key": "treasure_trove",
+      "name": "无主宝藏",
+      "name_en": "Treasure Trove",
+      "kind": "info",
+      "category": "博物馆",
+      "description": "向博物馆捐赠 40 种不同的物品"
+    },
+    {
+      "key": "gofer",
+      "name": "听差",
+      "name_en": "Gofer",
+      "kind": "info",
+      "category": "任务",
+      "description": "完成 10 个“需要帮助”任务"
+    },
+    {
+      "key": "a_big_help",
+      "name": "帮了大忙",
+      "name_en": "A Big Help",
+      "kind": "info",
+      "category": "任务",
+      "description": "完成 40 个“需要帮助”任务"
+    },
+    {
+      "key": "polyculture",
+      "name": "混合栽培",
+      "name_en": "Polyculture",
+      "aliases": [
+        "多作种植"
+      ],
+      "kind": "ship_each_crop",
+      "target": 15,
+      "description": "运送 15 份每种农作物，共 28 种",
+      "crops": [
+        "Cauliflower",
+        "Coffee Bean",
+        "Garlic",
+        "Green Bean",
+        "Kale",
+        "Parsnip",
+        "Potato",
+        "Rhubarb",
+        "Strawberry",
+        "Blueberry",
+        "Corn",
+        "Hops",
+        "Hot Pepper",
+        "Melon",
+        "Radish",
+        "Red Cabbage",
+        "Starfruit",
+        "Tomato",
+        "Wheat",
+        "Amaranth",
+        "Artichoke",
+        "Beet",
+        "Bok Choy",
+        "Cranberries",
+        "Eggplant",
+        "Grape",
+        "Pumpkin",
+        "Yam"
+      ],
+      "category": "出货"
+    },
+    {
+      "key": "monoculture",
+      "name": "单一栽培",
+      "name_en": "Monoculture",
+      "kind": "ship_one_crop",
+      "category": "出货",
+      "target": 300,
+      "description": "运送 300 份一种农作物，可选 33 种",
+      "crops": [
+        "Cauliflower",
+        "Coffee Bean",
+        "Garlic",
+        "Green Bean",
+        "Kale",
+        "Parsnip",
+        "Potato",
+        "Rhubarb",
+        "Strawberry",
+        "Blueberry",
+        "Corn",
+        "Hops",
+        "Hot Pepper",
+        "Melon",
+        "Radish",
+        "Red Cabbage",
+        "Starfruit",
+        "Tomato",
+        "Wheat",
+        "Amaranth",
+        "Artichoke",
+        "Beet",
+        "Bok Choy",
+        "Cranberries",
+        "Eggplant",
+        "Grape",
+        "Pumpkin",
+        "Yam",
+        "Ancient Fruit",
+        "Blue Jazz",
+        "Fairy Rose",
+        "Summer Spangle",
+        "Tulip"
+      ]
+    },
+    {
+      "key": "full_shipment",
+      "name": "全部货物",
+      "name_en": "Full Shipment",
+      "kind": "info",
+      "category": "出货",
+      "description": "运送每一种物品"
+    },
+    {
+      "key": "prairie_king",
+      "name": "草原之王",
+      "name_en": "Prairie King",
+      "kind": "info",
+      "category": "小游戏",
+      "description": "通关“草原王者大冒险”"
+    },
+    {
+      "key": "the_bottom",
+      "name": "底部",
+      "name_en": "The Bottom",
+      "kind": "info",
+      "category": "探索",
+      "description": "到达矿井的最底层"
+    },
+    {
+      "key": "local_legend",
+      "name": "当地传奇",
+      "name_en": "Local Legend",
+      "kind": "info",
+      "category": "社区",
+      "description": "重建鹈鹕镇的社区中心"
+    },
+    {
+      "key": "joja_member",
+      "name": "Joja公司年度会员",
+      "name_en": "Joja Co. Member Of The Year",
+      "kind": "info",
+      "category": "社区",
+      "description": "成为 Joja 公司的会员并购买所有社区发展福利"
+    },
+    {
+      "key": "mystery_of_the_stardrops",
+      "name": "星之果实的神秘",
+      "name_en": "Mystery Of The Stardrops",
+      "kind": "info",
+      "category": "探索",
+      "description": "找到所有星之果实"
+    },
+    {
+      "key": "full_house",
+      "name": "浪漫满屋",
+      "name_en": "Full House",
+      "kind": "info",
+      "category": "家庭",
+      "description": "结婚并养育 2 个孩子"
+    },
+    {
+      "key": "singular_talent",
+      "name": "非凡天赋",
+      "name_en": "Singular Talent",
+      "kind": "info",
+      "category": "技能",
+      "description": "任意一种技能达到 10 级"
+    },
+    {
+      "key": "master_of_the_five_ways",
+      "name": "5种技能大师",
+      "name_en": "Master Of The Five Ways",
+      "kind": "info",
+      "category": "技能",
+      "description": "每种技能都达到 10 级"
+    },
+    {
+      "key": "protector_of_the_valley",
+      "name": "城镇守护者",
+      "name_en": "Protector Of The Valley",
+      "kind": "info",
+      "category": "探索",
+      "description": "完成探险家公会猎人会长的全部任务"
+    },
+    {
+      "key": "fectors_challenge",
+      "name": "因子挑战",
+      "name_en": "Fector's Challenge",
+      "kind": "info",
+      "category": "小游戏",
+      "description": "一命通关“草原王者大冒险”，隐藏成就"
+    },
+    {
+      "key": "a_distant_shore",
+      "name": "遥远的海岸",
+      "name_en": "A Distant Shore",
+      "kind": "info",
+      "category": "探索",
+      "description": "到达姜岛"
+    },
+    {
+      "key": "well_read",
+      "name": "博览群书",
+      "name_en": "Well-Read",
+      "kind": "info",
+      "category": "其他",
+      "description": "阅读每一本能力书"
+    },
+    {
+      "key": "two_thumbs_up",
+      "name": "意犹未尽",
+      "name_en": "Two Thumbs Up",
+      "kind": "info",
+      "category": "其他",
+      "description": "看一场电影"
+    },
+    {
+      "key": "blue_ribbon",
+      "name": "冠军",
+      "name_en": "Blue Ribbon",
+      "kind": "info",
+      "category": "其他",
+      "description": "在星露谷展览会中获得第一名"
+    },
+    {
+      "key": "an_unforgettable_soup",
+      "name": "难忘的汤",
+      "name_en": "An Unforgettable Soup",
+      "kind": "info",
+      "category": "其他",
+      "description": "在夏威夷宴会中让州长满意"
+    },
+    {
+      "key": "good_neighbors",
+      "name": "热心邻居",
+      "name_en": "Good Neighbors",
+      "kind": "info",
+      "category": "其他",
+      "description": "帮助你森林中的邻居组建它的家庭"
+    },
+    {
+      "key": "danger_in_the_deep",
+      "name": "深处的危险",
+      "name_en": "Danger In The Deep",
+      "kind": "info",
+      "category": "探索",
+      "description": "到达危险矿井的最底部"
+    },
+    {
+      "key": "infinite_power",
+      "name": "无限力量",
+      "name_en": "Infinite Power",
+      "kind": "info",
+      "category": "探索",
+      "description": "获取无限之刃"
+    },
+    {
+      "key": "perfection",
+      "name": "完美",
+      "name_en": "Perfection",
+      "kind": "info",
+      "category": "其他",
+      "description": "到达顶峰"
     }
   ],
   "friendship": {
@@ -49,6 +494,8 @@
     "gift_love": 80,
     "gift_like": 45,
     "gifts_per_week": 2,
-    "full_week_bonus": 10
-  }
+    "full_week_bonus": 10,
+    "bouquet_cap_hearts": 8
+  },
+  "_friendship_note": "可以结婚的村民送花束之前好感度最多 8 颗心（wiki Friendship）。"
 }

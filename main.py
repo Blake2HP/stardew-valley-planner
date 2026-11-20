@@ -38,6 +38,8 @@ def main() -> None:
     parser.add_argument("-c", "--pacing", default="休闲慢节奏", help="节奏偏好，可以自己写；预设见 --list-playstyles")
     parser.add_argument("--list-playstyles", action="store_true",
                         help="列出预设的玩法风格和节奏偏好，以及各自的优劣势，然后退出")
+    parser.add_argument("--list-achievements", action="store_true",
+                        help="按类别列出全部 49 个 Steam 成就，注明哪些由程序算缺口，然后退出")
     parser.add_argument("-s", "--season", default="spring",
                         help="spring/summer/fall/winter 或 春季/夏季…；逗号分隔多个连续季节做跨季规划，如 spring,summer")
     parser.add_argument("-y", "--year", type=int, default=1, help="游戏年份；第 1 年不计入第 2 年起才出售种子的作物")
@@ -52,7 +54,7 @@ def main() -> None:
                         help="联机分工，如 \"P1:种田, P2:下矿, P3:钓鱼\"；编号不能超过 --players")
     parser.add_argument("--achievements", default=None,
                         help="想完成的 Steam 成就，逗号分隔，如 \"混合栽培,万人迷\"（data/achievements.json）；"
-                             "程序算出本季缺口写进 Prompt，并校验种植和送礼")
+                             "用 --list-achievements 查看全部；赚钱、友谊、出货类由程序算缺口并校验，其他只写进 Prompt")
     parser.add_argument("--achievement-progress", default=None,
                         help="已有的成就进度，如 \"防风草=15,万人迷=12,千万富翁=50000\"："
                              "作物 = 已运送个数，万人迷 = 已 5 心的人数，富翁 = 已累计赚取的金币；不给时从零算")
@@ -85,6 +87,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.list_playstyles:
         print(describe_presets(load_presets()), end="")
+        return
+    if args.list_achievements:
+        from stardew_planner.achievements import list_achievements, load_achievement_rules
+        print(list_achievements(load_achievement_rules()), end="")
         return
     if args.year < 1:
         parser.error("年份必须 ≥ 1")
