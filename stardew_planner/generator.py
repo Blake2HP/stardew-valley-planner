@@ -10,13 +10,13 @@ from .bonuses import NO_BONUSES, Bonuses, fertilizer_availability_note, resolve_
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .farm_state import (
     FarmState, OtherIncome, Planting, SeasonFinance, compute_finance, extract_farm_state,
-    ISLAND, LOCATIONS, bus_warnings, following_season, greenhouse_warnings, season_harvest_units, late_planting_warnings, render_state_for_prompt,
-    resolve_plantings,
+    ISLAND, LOCATIONS, bus_warnings, following_season, greenhouse_warnings, late_planting_warnings,
+    render_state_for_prompt, resolve_plantings, season_harvest_units, shipped_units,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
-from .achievements import Progress, advance, check_achievements, describe_targets, parse_progress, resolve_goals, season_targets
+from .achievements import Progress, advance, check_achievements, describe_targets, keep_for_shipping, parse_progress, resolve_goals, season_targets
 from .coop import (
     apply_season_end, check_division, check_players, describe_coop, merge_day, parse_player_goals, parse_roles, player_ids,
 )
@@ -374,6 +374,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         herds=s.herds, hay_price=data.hay_price,
         set_aside=reservations, bundle_done_in=s.prior_state.bundle_done if s.prior_state else (),
         fixed_costs=upgrade_costs(upgrades), building_costs=construction_costs(constructions),
+        ship_first=keep_for_shipping(s.achievements, _bundle_counts(reservations)) if s.achievements else None,
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -398,9 +399,10 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         problems += check_division(strategy.player_goals, s.roles)
     if s.achievements is not None:
         gifts_by_day = {day: [npc.name for npc, _ in gift_tasks(goal, data)] for day, goal in goals.items()}
-        problems += check_achievements(s.achievements, season_harvest_units(plantings, carry_in),
+        harvested = season_harvest_units(plantings, carry_in)
+        problems += check_achievements(s.achievements, shipped_units(harvested, finance),
                                        {p.crop.name for p in plantings}, gifts_by_day, strategy.macro,
-                                       strategy.achievement_milestones)
+                                       strategy.achievement_milestones, harvested, finance.bundle_units)
     if data.energy_rules is not None:
         problems += check_energy(goals, plantings, carry_in, data.energy_rules, s.bonuses, s.players)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
@@ -444,8 +446,16 @@ def _season_earned(f: SeasonFinance) -> int:
     return f.crop_revenue + f.processing_net + f.honey_income + max(0, f.livestock_net) + f.other_total
 
 
+def _bundle_counts(reservations) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for r in reservations:
+        if r.reserved:
+            out[r.need.crop.name] = out.get(r.need.crop.name, 0) + r.need.count
+    return out
+
+
 def _progress_after(progress: Progress, ev: _Evaluation, carry_in, data: GameData) -> Progress:
-    units = season_harvest_units(ev.plantings, carry_in)
+    units = shipped_units(season_harvest_units(ev.plantings, carry_in), ev.finance)  # 只有直接出货的才算运送
     gifted = {npc.name for goal in ev.goals.values() for npc, _ in gift_tasks(goal, data)}
     return advance(progress, units, gifted, _season_earned(ev.finance))
 

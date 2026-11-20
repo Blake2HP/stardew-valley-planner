@@ -211,7 +211,7 @@ def test_polyculture_check(rules, data):
     t = _targets(rules, data, "多作种植", parse_progress("花椰菜=15,青豆=15,甘蓝=15,草莓=15", rules, data.crops))
     units = {"防风草": 15.0, "土豆": 12.5}
     problems = check_achievements(t, units, {"防风草", "土豆"}, {}, FULL, MILESTONES)
-    assert problems == ["⚠️ 成就校验：目标包含“多作种植”，但本季安排种植的土豆预计只能收获 12.5 个，不足 15 个。请修改种植清单！"]
+    assert problems == ["⚠️ 成就校验：目标包含“多作种植”，但本季安排种植的土豆预计只能直接出货 12.5 个，不足 15 个。请修改种植清单！"]
     problems = check_achievements(t, {"土豆": 20}, {"土豆"}, {}, FULL, MILESTONES)
     assert problems == ["⚠️ 成就校验：目标包含“多作种植”，但本季没有安排种植防风草（要收获并出货 15 个）。请修改种植清单！"]
     assert check_achievements(t, {"防风草": 15, "土豆": 18.75}, {"防风草", "土豆"}, {}, FULL, MILESTONES) == []
@@ -271,3 +271,39 @@ def test_checks_reach_the_revise_loop(data, indexed_store):
 def test_plain_generation_has_no_achievement_checks(data, indexed_store):
     result = generate_strategy("种田", "稳健", "spring", client=MockClient(), data=data, guide_store=indexed_store)
     assert not any("成就校验" in p for p in result.problems + result.season_warnings)
+
+
+# ---------------------------------------------------------------------------
+# 混合栽培只算直接出货：加工前先留够，留给收集包的不算
+# ---------------------------------------------------------------------------
+
+def test_processing_keeps_shipping_amount(data):
+    from stardew_planner.bonuses import NO_BONUSES
+    from stardew_planner.processing import simulate_processing
+    potato = next(c for c in data.crops if c.name == "土豆")
+    harvests = [(7, potato, 20), (14, potato, 20)]  # 每次 20 格 × 1.25 = 25 个
+    free = simulate_processing(harvests, data.artisan_rules_for, {"小桶": 100}, NO_BONUSES)
+    kept = simulate_processing(harvests, data.artisan_rules_for, {"小桶": 100}, NO_BONUSES, keep={"土豆": 15})
+    assert free.held_units["土豆"] == pytest.approx(50)
+    assert kept.held_units["土豆"] == pytest.approx(35)   # 先留 15 个直接卖，其余照常加工
+    assert kept.net < free.net                            # 少加工 15 个，加工净增变少
+
+
+def test_shipping_counts_exclude_processing(data, indexed_store):
+    goal = dict(client=MockClient(), data=data, guide_store=indexed_store, kegs=200, revise_rounds=0)
+    plain = generate_strategy("种田", "稳健", "spring", **goal)
+    assert plain.finance.processed_units.get("防风草", 0) > 0          # 不选成就：小桶照常吃掉防风草
+    result = generate_strategy("种田", "稳健", "spring", achievements="多作种植", **goal)
+    f = result.finance
+    assert f.processed_units.get("防风草", 0) == pytest.approx(0)       # 15 格防风草全部留着直接出货
+    assert result.achievement_progress_end.shipped["防风草"] == 15
+    assert not any("防风草" in p for p in result.problems if p.startswith("⚠️ 成就校验"))
+
+
+def test_bundle_units_are_not_shipped(data, indexed_store):
+    result = generate_strategy("种田", "稳健", "spring", client=MockClient(), data=data, guide_store=indexed_store,
+                               achievements="多作种植", route="community_center", revise_rounds=0)
+    assert result.finance.bundle_units.get("防风草") == 1
+    assert result.achievement_progress_end.shipped["防风草"] == 14
+    assert ("⚠️ 成就校验：目标包含“多作种植”，但本季安排种植的防风草预计只能直接出货 14 个"
+            "（预计收获 15 个，其中 1 个留给收集包），不足 15 个。请修改种植清单！") in result.problems

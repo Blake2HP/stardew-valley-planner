@@ -239,7 +239,7 @@ def describe_targets(t: SeasonTargets, rules: AchievementRules) -> str:
         if t.crops:
             need = "、".join(f"{c.crop.name} {c.need} 个" for c in t.crops)
             lines.append(f"{head}本季必须种下并收获、直接出货：{need}。按预计收获个数计算（多次收获的作物不用种 "
-                         f"{a.target} 格）；这些收获要留出这个数量直接出货，不要全部拿去加工或留作献祭。")
+                         f"{a.target} 格）；程序会先留出这些数量直接出货，剩下的才交给机器加工；留给收集包的不算出货，要多种一些。")
         else:
             lines.append(f"{head}本季没有必须种的作物。")
         if t.optional:
@@ -307,9 +307,15 @@ def _num(x: float) -> str:
     return f"{x:.1f}".rstrip("0").rstrip(".")
 
 
+def keep_for_shipping(t: SeasonTargets, bundle_units: dict) -> dict[str, float]:
+    """加工前先留下的个数：混合栽培本季要直接出货的（含可选作物），加上同一作物留给收集包的。"""
+    return {c.crop.name: c.need + bundle_units.get(c.crop.name, 0) for c in t.crops + t.optional}
+
+
 def check_achievements(t: SeasonTargets, units: dict, planted: set, gifts_by_day: dict, macro: dict,
-                       milestones: list) -> list[str]:
-    """units：本季每种作物的预计收获个数（farm_state.season_harvest_units）；planted：本季种了的作物名；
+                       milestones: list, harvested: dict | None = None, bundle_units: dict | None = None) -> list[str]:
+    """units：本季每种作物预计直接出货的个数（收获 − 加工 − 留给收集包，见 farm_state.shipped_units）；
+    harvested / bundle_units：预计收获和留给收集包的个数，只用来说明差在哪里；planted：本季种了的作物名；
     gifts_by_day：{日: [送礼的村民名]}（season_rules.gift_tasks 识别）。"""
     problems = []
     if g := t.goal("ship_each_crop"):
@@ -321,8 +327,16 @@ def check_achievements(t: SeasonTargets, units: dict, planted: set, gifts_by_day
                 problems.append(f"{PREFIX}目标包含“{g.label}”，但本季没有安排种植{c.crop.name}"
                                 f"（要收获并出货 {c.need} 个）。请修改种植清单！")
             else:
-                problems.append(f"{PREFIX}目标包含“{g.label}”，但本季安排种植的{c.crop.name}预计只能收获 "
-                                f"{_num(got)} 个，不足 {c.need} 个。请修改种植清单！")
+                total = (harvested or {}).get(c.crop.name, got)
+                kept = (bundle_units or {}).get(c.crop.name, 0)
+                why = []
+                if kept:
+                    why.append(f"{_num(kept)} 个留给收集包")
+                if total - kept - got > 1e-6:
+                    why.append(f"{_num(total - kept - got)} 个交给机器加工")
+                detail = f"（预计收获 {_num(total)} 个，其中 {'、'.join(why)}）" if why else ""
+                problems.append(f"{PREFIX}目标包含“{g.label}”，但本季安排种植的{c.crop.name}预计只能直接出货 "
+                                f"{_num(got)} 个{detail}，不足 {c.need} 个。请修改种植清单！")
     if (g := t.goal("friendship")) and t.friends_left > 0:
         empty = [f"第 {a}-{b} 天" for a, b in WEEKS if not any(gifts_by_day.get(d) for d in range(a, b + 1))]
         if empty:

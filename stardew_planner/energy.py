@@ -125,7 +125,8 @@ def describe_energy(rules: EnergyRules | None, bonuses: Bonuses = NO_BONUSES, pl
     cost = rules.cost_per_tile(level)
     limit = rules.heavy_threshold * players
     tiles = int(limit // cost) if cost else 0
-    who = f"每人开局最大体力 {rules.max_energy} 点（{players} 人联机，各自一条）" if players > 1         else f"开局最大体力 {rules.max_energy} 点"
+    who = (f"每人开局最大体力 {rules.max_energy} 点（{players} 人联机，各自一条）" if players > 1
+           else f"开局最大体力 {rules.max_energy} 点")
     return (f"{who}；喷壶每浇一格消耗 2 − 0.1 × 耕种等级 = {cost:g} 点（耕种等级 {level}）。"
             f"程序按种植清单算每天要手浇的格数（不算洒水器和下雨天）：浇水超过 {limit:g} 点"
             f"（约 {tiles} 格）的日子，每 {rules.replenish_every_days} 天内至少要安排一次补体力，"

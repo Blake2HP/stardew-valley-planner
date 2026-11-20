@@ -145,6 +145,8 @@ class SeasonFinance:
     tool_cost: int = 0        # 工具升级费用（交送时支付）
     building_cost: int = 0    # 农场建筑费用（找罗宾下单时支付）
     herds_out: tuple[tuple[str, int], ...] = ()  # 季末拥有的动物（名字, 数量），带到下一季
+    processed_units: dict = field(default_factory=dict)  # 每种作物交给机器加工的个数（没有直接出货）
+    bundle_units: dict = field(default_factory=dict)     # 每种作物留给收集包的个数（没有出货）
 
     @property
     def crop_net(self) -> int:
@@ -326,6 +328,7 @@ def compute_finance(
     bundle_done_in: tuple[tuple[str, str], ...] = (),
     fixed_costs: list[tuple[int, int, str]] = (),
     building_costs: list[tuple[int, int, str]] = (),
+    ship_first: dict[str, float] | None = None,
 ) -> SeasonFinance:
     """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。
 
@@ -337,6 +340,7 @@ def compute_finance(
     herds 是本季的动物（见 livestock.py），需要同时给出 season；不给时不计畜牧。
     set_aside 是留给社区中心收集包的作物（bundles.Reservation），留下的按售价从收入里扣掉。
     fixed_costs 是其他固定支出 (日, 金币, 说明)，例如工具升级费；building_costs 是农场建筑费用，格式相同。
+    ship_first 是每种作物先留下、不交给机器加工的个数（混合栽培要直接出货的，加上留给收集包的）。
     """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
@@ -414,7 +418,10 @@ def compute_finance(
     processing = None
     if (any(machines.values()) and rules_for is not None) or goods_in:
         processing = simulate_processing(harvest_events, rules_for or (lambda crop: []), machines,
-                                         bonuses, tuple(goods_in))
+                                         bonuses, tuple(goods_in), keep=ship_first)
+        if ship_first:
+            kept = "、".join(f"{name} {n:g} 个" for name, n in ship_first.items())
+            lines.append(f"成就预留：{kept}先直接出货、不交给机器加工（混合栽培）")
         lines += processing.lines
 
     honey_result = None
@@ -475,6 +482,8 @@ def compute_finance(
         bundle_done=tuple(dict.fromkeys(done)),
         tool_cost=tool_cost,
         building_cost=building_cost,
+        processed_units=dict(processing.held_units) if processing else {},
+        bundle_units=_bundle_units(set_aside),
     )
 
     # 逐日现金流（只算种植收支）：找出第一次买不起种子或肥料的日子
@@ -497,6 +506,23 @@ def compute_finance(
                     f"（未计入钓鱼、挖矿等其他收入，请确认届时有足够现金）")
                 break
     return finance
+
+
+def _bundle_units(set_aside) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for r in set_aside:
+        if r.reserved:
+            out[r.need.crop.name] = out.get(r.need.crop.name, 0) + r.need.count
+    return out
+
+
+def shipped_units(harvested: dict[str, float], finance: "SeasonFinance") -> dict[str, float]:
+    """直接出货的个数 = 预计收获 − 交给机器加工的 − 留给收集包的（混合栽培、单一栽培只算出货）。"""
+    out = {}
+    for name, n in harvested.items():
+        left = n - finance.processed_units.get(name, 0) - finance.bundle_units.get(name, 0)
+        out[name] = max(0.0, left)
+    return out
 
 
 def season_harvest_units(plantings: list[Planting], carry_in: tuple[CarryCrop, ...] = ()) -> dict[str, float]:

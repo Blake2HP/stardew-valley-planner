@@ -40,6 +40,7 @@ class ProcessingResult:
     carried_value_in: float = 0.0      # 其中来自上季、本季完成的部分
     goods_out: list[GoodsInProcess] = field(default_factory=list)
     lines: list[str] = field(default_factory=list)
+    held_units: dict[str, float] = field(default_factory=dict)  # 每种作物交给机器加工的个数（没有直接卖）
 
     @property
     def net(self) -> float:
@@ -94,8 +95,13 @@ def simulate_processing(
     machines: dict[str, int],
     bonuses: Bonuses,
     goods_in: tuple[GoodsInProcess, ...] = (),
+    keep: dict[str, float] | None = None,
 ) -> ProcessingResult:
-    """harvests：本季每次收获 (日, 作物, 格数)；rules_for(crop) 返回可用的加工规则；machines：机器名 → 台数。"""
+    """harvests：本季每次收获 (日, 作物, 格数)；rules_for(crop) 返回可用的加工规则；machines：机器名 → 台数。
+
+    keep：每种作物先留下不加工的个数（作物名 → 个数），例如混合栽培要直接出货的数量；
+    从最早的收获、最高的品质开始留（直接卖最值钱，低星的照样优先加工）。
+    """
     result = ProcessingResult()
     # 机器里的货品：(件数, 完成日, 品名, 单价, 是否上季带来)
     running: dict[str, list[tuple[float, int, str, float, bool]]] = {m: [] for m in machines}
@@ -106,12 +112,21 @@ def simulate_processing(
             (g.units, g.finish_day, g.product, g.value / g.units if g.units else 0.0, True))
 
     arrivals: dict[int, list[tuple[float, list[_Batch]]]] = {}  # 日 → [(件数, 候选机器)]
-    for day, crop, tiles in harvests:
+    keep_left = dict(keep or {})
+    for day, crop, tiles in sorted(harvests, key=lambda h: h[0]):
         rules = rules_for(crop)
-        for quality, per_tile in _units_by_quality(crop, bonuses).items():
+        by_quality = _units_by_quality(crop, bonuses)
+        for quality in reversed(QUALITIES):  # 先用高星的作物凑够要留下的个数
+            if quality not in by_quality:
+                continue
+            units = by_quality[quality] * tiles
+            kept = min(units, keep_left.get(crop.name, 0.0))
+            if kept > 0:
+                keep_left[crop.name] -= kept
+                units -= kept
             options = _candidates(crop, quality, rules, machines, bonuses)
-            if options:
-                arrivals.setdefault(day, []).append((per_tile * tiles, options))
+            if options and units > 1e-9:
+                arrivals.setdefault(day, []).append((units, options))
 
     def add_cash(day: int, amount: float):
         result.cash_by_day[day] = result.cash_by_day.get(day, 0.0) + amount
@@ -151,6 +166,7 @@ def simulate_processing(
                                                     batch.artisan, batch.days, batch.per))
                 add_cash(day, -take * batch.direct)
                 result.held_value += take * batch.direct
+                result.held_units[batch.crop] = result.held_units.get(batch.crop, 0.0) + take
                 remaining -= take
 
         # 3) 开工：空闲的机器先做“每天多赚最多”的
@@ -171,6 +187,7 @@ def simulate_processing(
         for batch in queue:
             add_cash(SEASON_DAYS, batch.units * batch.direct)
             result.held_value -= batch.units * batch.direct
+            result.held_units[batch.crop] -= batch.units  # 没开工的最后还是直接卖了
     for machine, jobs in running.items():
         for units, finish, product, price, _ in jobs:
             result.goods_out.append(GoodsInProcess(product, machine, units, units * price, finish - SEASON_DAYS))
