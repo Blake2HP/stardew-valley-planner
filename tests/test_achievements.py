@@ -358,9 +358,9 @@ def test_monoculture_check(rules, data):
         "⚠️ 成就校验：目标包含“单一栽培”，但本季出货最多的土豆预计只能直接出货 20 个，不足 75 个。请集中种一种作物！"]
     assert check_achievements(t, {}, set(), {}, FULL, MILESTONES) == [
         "⚠️ 成就校验：目标包含“单一栽培”，但本季没有种可以计入的作物（选一种集中种，直接出货至少 75 个）。请修改种植清单！"]
-    assert keep_for_shipping(t, {}, {"土豆": 90, "防风草": 15}) == {"土豆": 75}     # 只给收获最多的那种预留
+    assert keep_for_shipping(t, {"土豆": 90, "防风草": 15}) == {"土豆": 75}     # 只给收获最多的那种预留
     both = season_targets(resolve_goals("单一栽培,混合栽培", rules), Progress(), data.crops, "spring", 1)
-    assert keep_for_shipping(both, {"土豆": 1}, {"土豆": 90})["土豆"] == 76          # 同一件出货两个成就都算
+    assert keep_for_shipping(both, {"土豆": 90})["土豆"] == 75          # 同一件出货两个成就都算
 
 
 def test_several_friendship_goals(rules, data):

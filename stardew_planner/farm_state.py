@@ -340,7 +340,7 @@ def compute_finance(
     herds 是本季的动物（见 livestock.py），需要同时给出 season；不给时不计畜牧。
     set_aside 是留给社区中心收集包的作物（bundles.Reservation），留下的按售价从收入里扣掉。
     fixed_costs 是其他固定支出 (日, 金币, 说明)，例如工具升级费；building_costs 是农场建筑费用，格式相同。
-    ship_first 是每种作物先留下、不交给机器加工的个数（混合栽培要直接出货的，加上留给收集包的）。
+    ship_first 是出货类成就要先留下、不交给机器加工的个数；set_aside 里留给收集包的也会先留下，不用再算进来。
     """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
@@ -417,11 +417,18 @@ def compute_finance(
     bee_houses = machines.pop(BEE_HOUSE, 0)
     processing = None
     if (any(machines.values()) and rules_for is not None) or goods_in:
+        bundle_keep = _bundle_units(set_aside)
+        keep = dict(ship_first or {})
+        for name, n in bundle_keep.items():
+            keep[name] = keep.get(name, 0) + n
         processing = simulate_processing(harvest_events, rules_for or (lambda crop: []), machines,
-                                         bonuses, tuple(goods_in), keep=ship_first)
+                                         bonuses, tuple(goods_in), keep=keep or None)
         if ship_first:
             kept = "、".join(f"{name} {n:g} 个" for name, n in ship_first.items())
             lines.append(f"成就预留：{kept}先直接出货、不交给机器加工（混合栽培）")
+        if bundle_keep:
+            kept = "、".join(f"{name} {n:g} 个" for name, n in bundle_keep.items())
+            lines.append(f"收集包预留：{kept}先留下献祭、不交给机器加工")
         lines += processing.lines
 
     honey_result = None

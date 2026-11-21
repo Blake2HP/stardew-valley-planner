@@ -377,8 +377,8 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         herds=s.herds, hay_price=data.hay_price,
         set_aside=reservations, bundle_done_in=s.prior_state.bundle_done if s.prior_state else (),
         fixed_costs=upgrade_costs(upgrades), building_costs=construction_costs(constructions),
-        ship_first=keep_for_shipping(s.achievements, _bundle_counts(reservations),
-                                     season_harvest_units(plantings, carry_in)) if s.achievements else None,
+        ship_first=keep_for_shipping(s.achievements, season_harvest_units(plantings, carry_in))
+        if s.achievements else None,
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -449,14 +449,6 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
 def _season_earned(f: SeasonFinance) -> int:
     """本季赚取的金币（富翁类成就）：出货 + 加工净增 + 蜂蜜 + 畜牧净收入 + 模型估算的其他收入。"""
     return f.crop_revenue + f.processing_net + f.honey_income + max(0, f.livestock_net) + f.other_total
-
-
-def _bundle_counts(reservations) -> dict[str, int]:
-    out: dict[str, int] = {}
-    for r in reservations:
-        if r.reserved:
-            out[r.need.crop.name] = out.get(r.need.crop.name, 0) + r.need.count
-    return out
 
 
 def _friend_points(progress: Progress, goals: dict, data: GameData, season: str) -> dict:

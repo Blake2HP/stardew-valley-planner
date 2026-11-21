@@ -88,6 +88,17 @@ def test_finance_deducts_reserved_value(data):
     assert ("Spring Crops Bundle", "Parsnip") in kept.bundle_done
 
 
+def test_reserved_crops_are_not_processed(data):
+    """没选成就时，留给收集包的作物也要先留下，不能被机器加工掉（否则同一个作物既卖了加工品又献祭了）。"""
+    plantings, res = spring_reservations(data, [(1, "防风草", 5), (1, "花椰菜", 2), (1, "土豆", 2)])
+    args = dict(start_gold=2000, machines={"小桶": 100}, rules_for=data.artisan_rules_for)
+    free = compute_finance(plantings, **args)
+    kept = compute_finance(plantings, set_aside=res, **args)
+    for name in ("防风草", "花椰菜", "土豆"):
+        assert kept.processed_units[name] == pytest.approx(free.processed_units[name] - 1)
+    assert "收集包预留：防风草 1 个、花椰菜 1 个、土豆 1 个先留下献祭、不交给机器加工" in kept.lines
+
+
 def test_route_names():
     assert resolve_route(None) is None and resolve_route("社区中心") == "community_center"
     with pytest.raises(ValueError, match="不支持的路线"):

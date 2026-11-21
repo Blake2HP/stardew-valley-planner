@@ -485,12 +485,15 @@ def _mono_choice(t: SeasonTargets, harvested: dict) -> CropGap | None:
     return max(planted, key=lambda c: harvested[c.crop.name], default=None)
 
 
-def keep_for_shipping(t: SeasonTargets, bundle_units: dict, harvested: dict | None = None) -> dict[str, float]:
-    """加工前先留下的个数：出货类成就本季要直接出货的，加上同一作物留给收集包的（一件出货同时计入两个成就）。"""
+def keep_for_shipping(t: SeasonTargets, harvested: dict | None = None) -> dict[str, float]:
+    """加工前先留下的个数：出货类成就本季要直接出货的（一件出货同时计入两个成就）。
+
+    留给收集包的由 compute_finance 按 set_aside 另外留下，不在这里算。
+    """
     keep = {c.crop.name: float(c.need) for c in t.crops + t.optional}
     if choice := _mono_choice(t, harvested or {}):
         keep[choice.crop.name] = max(keep.get(choice.crop.name, 0), choice.need)
-    return {name: n + bundle_units.get(name, 0) for name, n in keep.items()}
+    return keep
 
 
 def check_achievements(t: SeasonTargets, units: dict, planted: set, gifts_by_day: dict, macro: dict,
