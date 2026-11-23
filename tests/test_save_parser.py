@@ -143,6 +143,7 @@ def cli(argv, save):
     import main
     parser = main.build_parser()
     args = parser.parse_args(argv)
+    args.in_ground = None
     notes = main.apply_save(args, save, main.explicit_dests(parser, argv))
     return args, notes
 
@@ -193,3 +194,71 @@ def test_cli_bad_save(capsys, tmp_path):
     with pytest.raises(SystemExit):
         main.main(["--save", str(bad), "--provider", "mock"])
     assert "存档导入失败" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# 地里的作物
+# ---------------------------------------------------------------------------
+
+def crop_xml(phases, phase, day, grown=False):
+    import xml.etree.ElementTree as ET
+    ints = "".join(f"<int>{p}</int>" for p in phases)
+    return ET.fromstring(f"<crop><phaseDays>{ints}</phaseDays><currentPhase>{phase}</currentPhase>"
+                         f"<dayOfCurrentPhase>{day}</dayOfCurrentPhase><fullyGrown>{str(grown).lower()}</fullyGrown></crop>")
+
+
+@pytest.mark.parametrize("phases, phase, day, grown, left", [
+    ([1, 1, 1, 1, 99999], 0, 0, False, 4),     # 防风草刚种下：4 天后成熟
+    ([1, 1, 1, 1, 99999], 2, 0, False, 2),
+    ([1, 3, 3, 3, 3, 99999], 2, 1, False, 8),  # 当前阶段还剩 2 天 + 后面 3 + 3
+    ([1, 3, 3, 3, 3, 99999], 5, 0, False, 0),  # 已成熟
+    ([1, 3, 3, 3, 3, 99999], 5, 2, True, 2),   # 可再生作物收过一次，还要 2 天
+])
+def test_days_to_harvest(phases, phase, day, grown, left):
+    from stardew_planner.save_parser import days_to_harvest
+    assert days_to_harvest(crop_xml(phases, phase, day, grown)) == left
+
+
+def test_in_ground_from_save(save):
+    assert save.in_ground == [
+        {"crop": "萝卜", "tiles": 1, "ready_day": 12, "place": "field"},       # 已成熟：今天收
+        {"crop": "蓝莓", "tiles": 1, "ready_day": 14, "place": "field"},
+        {"crop": "蓝莓", "tiles": 2, "ready_day": 20, "place": "field"},
+        {"crop": "防风草", "tiles": 1, "ready_day": 20, "place": "greenhouse"},
+    ]                                                                         # 枯死的、空地、杂草都不算
+    assert any("1 格作物不在 data/crops.json" in w for w in save.warnings)
+    assert any("地里的作物：萝卜 1 格（已成熟）" in line for line in save.summary_lines())
+
+
+def test_in_ground_counts_toward_money(save, data):
+    result = generate_strategy("种田", "稳健", client=MockClient(), data=data, revise_rounds=0,
+                               **save.generator_kwargs())
+    text = "\n".join(result.finance.lines)
+    assert "蓝莓（地里已有）：4 次 × 1 格" in text and "（第 14、18、22、26 天）" in text   # 蓝莓每 4 天再生
+    assert "防风草（地里已有）：1 次" in text
+    assert result.finance.seed_cost == 0                                       # 已经种下的不再买种子
+
+
+def test_in_ground_in_prompt_and_too_late(data):
+    client = MockClient()
+    seen = []
+    client_complete = client.complete
+    client.complete = lambda system, messages: seen.append(messages[0]["content"]) or client_complete(system, messages)
+    result = generate_strategy("种田", "稳健", "spring", client=client, data=data, start_day=20, revise_rounds=0,
+                               in_ground=[{"crop": "花椰菜", "tiles": 3, "ready_day": 30}])
+    assert "地里已经种着（已付过种子钱" in seen[0] and "花椰菜 ×3 格" in seen[0]
+    assert any("换季前来不及收获" in w for w in result.season_warnings)
+
+
+@pytest.mark.parametrize("item", [{"crop": "香蕉", "tiles": 1, "ready_day": 3}, {"crop": "蓝莓", "tiles": 0, "ready_day": 3},
+                                  {"crop": "蓝莓", "tiles": 1, "ready_day": 3, "place": "屋顶"}])
+def test_bad_in_ground(data, item):
+    with pytest.raises(ValueError, match="地里已有的作物"):
+        generate_strategy("种田", "稳健", "summer", client=MockClient(), data=data, in_ground=[item])
+
+
+def test_cli_drops_in_ground_for_other_season(save):
+    args, _ = cli(["--save", "x"], save)
+    assert args.in_ground and args.in_ground[0]["crop"] == "萝卜"
+    args, notes = cli(["--save", "x", "-s", "fall", "--start-day", "3"], save)
+    assert args.in_ground is None and any("地里的作物不导入" in n for n in notes)

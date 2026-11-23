@@ -91,6 +91,8 @@ def check_energy(goals: dict[int, str], plantings, carry_in, rules: EnergyRules,
     """
     tiles = watered_tiles(plantings, carry_in)
     heavy = heavy_days(tiles, rules, bonuses, players)
+    if goals:  # 季中开始规划：今天之前的日子已经过去，不检查
+        heavy = {d: v for d, v in heavy.items() if d >= min(goals)}
     if not heavy:
         return []
     cost = rules.cost_per_tile(bonuses.effective_farming_level)

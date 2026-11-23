@@ -320,3 +320,14 @@ def test_bad_owned_animals(indexed_store):
     with make_client(indexed_store) as c:
         r = c.post("/api/generate", json={**BODY, "owned_animals": "恐龙:1"})
     assert r.status_code == 400
+
+
+def test_imported_crops_in_ground_are_sent(indexed_store):
+    with make_client(indexed_store) as c:
+        d = c.post("/api/import-save", content=SAVE_FIXTURE.read_bytes()).json()["defaults"]
+        assert d["in_ground"][0] == {"crop": "萝卜", "tiles": 1, "ready_day": 12, "place": "field"}
+        r = c.post("/api/generate", json={**BODY, **d})
+        assert r.status_code == 200 and "蓝莓（地里已有）" in r.json()["markdown"]
+        bad = c.post("/api/generate", json={**BODY, "in_ground": [{"crop": "蓝莓", "tiles": 1, "ready_day": 3,
+                                                                     "place": "roof"}]})
+        assert bad.status_code == 422

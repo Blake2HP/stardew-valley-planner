@@ -43,7 +43,16 @@
         <item><key><Vector2><X>14</X><Y>10</Y></Vector2></key><value><Object><name>Bee House</name><bigCraftable>true</bigCraftable></Object></value></item>
         <item><key><Vector2><X>15</X><Y>10</Y></Vector2></key><value><Object><name>Stone</name></Object></value></item>
       </objects>
-      <terrainFeatures />
+      <terrainFeatures>
+        <item><key><Vector2><X>20</X><Y>20</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop><phaseDays><int>1</int><int>3</int><int>3</int><int>3</int><int>3</int><int>99999</int></phaseDays><currentPhase>2</currentPhase><dayOfCurrentPhase>1</dayOfCurrentPhase><indexOfHarvest>258</indexOfHarvest><fullyGrown>false</fullyGrown><dead>false</dead><forageCrop>false</forageCrop></crop></TerrainFeature></value></item>
+        <item><key><Vector2><X>21</X><Y>20</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop><phaseDays><int>1</int><int>3</int><int>3</int><int>3</int><int>3</int><int>99999</int></phaseDays><currentPhase>2</currentPhase><dayOfCurrentPhase>1</dayOfCurrentPhase><indexOfHarvest>258</indexOfHarvest><fullyGrown>false</fullyGrown><dead>false</dead><forageCrop>false</forageCrop></crop></TerrainFeature></value></item>
+        <item><key><Vector2><X>22</X><Y>20</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop><phaseDays><int>1</int><int>3</int><int>3</int><int>3</int><int>3</int><int>99999</int></phaseDays><currentPhase>5</currentPhase><dayOfCurrentPhase>2</dayOfCurrentPhase><indexOfHarvest>258</indexOfHarvest><fullyGrown>true</fullyGrown><dead>false</dead></crop></TerrainFeature></value></item>
+        <item><key><Vector2><X>23</X><Y>20</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop><phaseDays><int>1</int><int>2</int><int>2</int><int>2</int><int>99999</int></phaseDays><currentPhase>4</currentPhase><dayOfCurrentPhase>0</dayOfCurrentPhase><indexOfHarvest>264</indexOfHarvest><fullyGrown>false</fullyGrown><dead>false</dead></crop></TerrainFeature></value></item>
+        <item><key><Vector2><X>24</X><Y>20</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop><phaseDays><int>1</int><int>99999</int></phaseDays><currentPhase>0</currentPhase><dayOfCurrentPhase>0</dayOfCurrentPhase><indexOfHarvest>264</indexOfHarvest><dead>true</dead></crop></TerrainFeature></value></item>
+        <item><key><Vector2><X>25</X><Y>20</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop><phaseDays><int>1</int><int>99999</int></phaseDays><currentPhase>0</currentPhase><dayOfCurrentPhase>0</dayOfCurrentPhase><indexOfHarvest>Cornucopia_Banana</indexOfHarvest></crop></TerrainFeature></value></item>
+        <item><key><Vector2><X>26</X><Y>20</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt" /></value></item>
+        <item><key><Vector2><X>27</X><Y>20</Y></Vector2></key><value><TerrainFeature xsi:type="Grass"><numberOfWeeds>4</numberOfWeeds></TerrainFeature></value></item>
+      </terrainFeatures>
       <animals>
         <item><key><long>1</long></key><value><FarmAnimal><type>Brown Cow</type></FarmAnimal></value></item>
       </animals>
@@ -67,6 +76,12 @@
           </indoors>
         </Building>
       </buildings>
+    </GameLocation>
+    <GameLocation>
+      <name>Greenhouse</name>
+      <terrainFeatures>
+        <item><key><Vector2><X>5</X><Y>5</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop><phaseDays><int>1</int><int>2</int><int>2</int><int>2</int><int>2</int><int>99999</int></phaseDays><currentPhase>1</currentPhase><dayOfCurrentPhase>0</dayOfCurrentPhase><indexOfHarvest>24</indexOfHarvest><dead>false</dead></crop></TerrainFeature></value></item>
+      </terrainFeatures>
     </GameLocation>
     <GameLocation xsi:type="Town">
       <name>Town</name>

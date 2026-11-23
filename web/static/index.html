@@ -338,7 +338,10 @@ function roleMap() {
 // ---- 导入存档：上传 → 服务器只解析、返回默认值 → 回填表单 ----
 const MAX_SAVE_MB = 20;
 
+let imported = null;  // 存档里地里的作物，只在季节和年份没改时随请求发送
+
 function fillForm(d) {
+  imported = d.in_ground && d.in_ground.length ? { season: d.seasons && d.seasons[0], year: d.year, crops: d.in_ground } : null;
   const set = (id, v) => { if (v !== undefined && v !== null) $(id).value = v; };
   if (d.seasons) { $("startSeason").value = d.seasons[0]; $("seasonCount").value = 1; }
   set("year", d.year); set("startDay", d.start_day); set("startGold", d.start_gold);
@@ -445,6 +448,8 @@ $("form").addEventListener("submit", async (e) => {
     bee_houses: Number($("beeHouses").value) || 0,
     animals: $("animals").value.trim() || null,
     owned_animals: $("ownedAnimals").value.trim() || null,
+    in_ground: imported && imported.season === $("startSeason").value && imported.year === (Number($("year").value) || 1)
+      ? imported.crops : [],
     route: $("route").value || null,
     location: $("location").value,
     greenhouse: $("greenhouse").checked,

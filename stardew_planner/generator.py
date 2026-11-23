@@ -10,7 +10,7 @@ from .bonuses import NO_BONUSES, Bonuses, fertilizer_availability_note, resolve_
 from .data_loader import SEASON_ZH, GameData, GuideStore, load_game_data, normalize_season, search_guides
 from .farm_state import (
     FarmState, OtherIncome, Planting, SeasonFinance, compute_finance, extract_farm_state,
-    ISLAND, LOCATIONS, bus_warnings, following_season, greenhouse_warnings, late_planting_warnings,
+    ISLAND, LOCATIONS, describe_in_ground, in_ground_crops, bus_warnings, following_season, greenhouse_warnings, late_planting_warnings,
     render_state_for_prompt, resolve_plantings, season_harvest_units, shipped_units,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
@@ -329,6 +329,12 @@ class _Season:
     roles: dict = field(default_factory=dict)  # 联机分工 {"P1": "种田"}
     achievements: object = None  # 本季成就缺口（achievements.SeasonTargets）；没选成就时为 None
     start_day: int = 1           # 季中开始规划的日子
+    in_ground: tuple = ()        # 本季开始时地里已经种着的作物（farm_state.CarryCrop，例如从存档导入）
+
+    @property
+    def carry_in(self) -> tuple:
+        """本季开始时就在地里的作物：上季延续的，或者地里已有的。"""
+        return self.prior_state.carry if self.prior_state else self.in_ground
 
 
 @dataclass
@@ -346,7 +352,7 @@ class _Evaluation:
 def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     """程序校验一份草稿：种植清单 → 资金 → 季末状态 → 各项规则。"""
     strategy, data, season_key = d.parsed, s.data, s.season
-    carry_in = s.prior_state.carry if s.prior_state else ()
+    carry_in = s.carry_in
     goals = dict(strategy.goals)
 
     notes: list[str] = []
@@ -400,7 +406,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
 
-    carried = s.prior_state.carried_names if s.prior_state else ()
+    carried = tuple(dict.fromkeys(c.crop.name for c in carry_in))
     goal_checks = check_plantings(goals, data, season_key, s.bonuses, s.year, carried, s.greenhouse, island)
     reported = {(w.day, w.crop) for w in goal_checks}
     problems = past_problems + [f"⚠️ {w}" for w in goal_checks] + planting_warnings
@@ -534,6 +540,7 @@ def generate_strategy(
     achievement_progress=None,
     start_day: int = 1,
     owned_animals=None,
+    in_ground=None,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -559,6 +566,8 @@ def generate_strategy(
             收益表按每 28 天稳态计算，第 28 天不要求清理农场。
         route: "community_center" 时走社区中心献祭路线：收集包要用的作物先留下、不卖（从收入里扣掉售价），
             今年最后能种某种作物的季节还没留下时报“献祭校验”，交给模型修正（见 bundles.py）。
+        in_ground: 地里已经种着的作物（例如从存档导入）：[{"crop": "蓝莓", "tiles": 20, "ready_day": 15,
+            "place": "field"}]，ready_day 是本季第几天可以收获。种子钱已付过，收获计入资金；只能用于第一季。
         owned_animals: 已经养着的成年动物（例如从存档导入），格式同 animals；不计购买费，从第 1 天起就有产出。
             只能用于第一季（之后随季末状态带下去）。
         animals: 本季第 1 天新买的动物，"鸡:2,牛:1" 或 {"鸡": 2}（见 data/animals.json、livestock.py）。
@@ -599,6 +608,9 @@ def generate_strategy(
     by_name = {a.name: a for a in data.animals}
     herds = tuple(Herd(by_name[name], n, new=False) for name, n in (prior_state.animals if prior_state else ())
                   if name in by_name)
+    if in_ground and prior_state is not None:
+        raise ValueError("衔接上季状态时不能再给地里已有的作物（上季的作物会自动带过来）")
+    ground, ground_notes = in_ground_crops(in_ground, data.crops, season_key, start_day)
     if owned_animals and prior_state is not None:
         raise ValueError("衔接上季状态时不能再给已有的动物（上季的动物会自动带过来）")
     herds += tuple(Herd(a, n, new=False) for a, n in parse_animals(owned_animals, data.animals).items())
@@ -641,6 +653,8 @@ def generate_strategy(
         guide_query, n_results=n_guides, store=guide_store, fallback_chunks=data.guide_chunks
     )
     carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
+    if ground:
+        carryover += "\n" + describe_in_ground(ground, season_key)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
                                  machines, greenhouse, herds, bundle_text, location, start_day)
     context["coop"] = describe_coop(players, roles)
@@ -658,7 +672,8 @@ def generate_strategy(
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
-                          machines, greenhouse, herds, bundle_needs, location, players, roles, targets, start_day)
+                          machines, greenhouse, herds, bundle_needs, location, players, roles, targets, start_day,
+                          ground)
     system = build_system_prompt(players, achievements=bool(goals_wanted))
     draft = _draft(client, messages, max_retries, system=system, players=players, start_day=start_day)
     attempts = draft.calls
@@ -690,7 +705,7 @@ def generate_strategy(
             break
         draft, evaluation = candidate, candidate_eval
 
-    warnings = list(evaluation.warnings)
+    warnings = list(evaluation.warnings) + ground_notes
     if revisions:
         last = revisions[-1]
         if any(r["accepted"] for r in revisions):
@@ -738,8 +753,8 @@ def generate_strategy(
         achievement_progress=progress,
         achievement_targets=targets,
         achievement_milestones=strategy.achievement_milestones,
-        achievement_progress_end=_progress_after(progress, evaluation, carry_in=prior_state.carry if prior_state
-                                                 else (), data=data, season=season_key,
+        achievement_progress_end=_progress_after(progress, evaluation, carry_in=season_info.carry_in,
+                                                 data=data, season=season_key,
                                                  start_day=start_day) if goals_wanted else None,
         start_day=start_day,
     )
@@ -830,5 +845,6 @@ def generate_plan(
             kwargs["achievement_progress"] = result.achievement_progress_end
         kwargs.pop("animals", None)  # 动物只在第一季买入，之后随季末状态带下去
         kwargs.pop("owned_animals", None)
+        kwargs.pop("in_ground", None)
     out.markdown = render_plan(out, data)
     return out

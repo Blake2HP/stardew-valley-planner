@@ -67,6 +67,57 @@ def harvest_days(crop: Crop, plant_day: int, season: str, bonuses: Bonuses = NO_
     return list(range(first, limit + 1, crop.regrow_days))
 
 
+IN_GROUND_ORIGIN = "地里已有"
+IN_GROUND_PLACES = {"field": "field", "农田": "field", "greenhouse": GREENHOUSE, "温室": GREENHOUSE,
+                    "island": ISLAND, "姜岛": ISLAND}
+
+
+def in_ground_crops(items, crops, season: str, start_day: int = 1) -> tuple[tuple["CarryCrop", ...], list[str]]:
+    """本季开始规划时地里已经种着的作物（例如从存档导入）→ CarryCrop（种子钱已付过）。
+
+    items：[{"crop": 作物名, "tiles": 格数, "ready_day": 本季第几天可以收获, "place": field / greenhouse / island}]。
+    ready_day 可以早于 start_day（已经成熟、今天就能收）；可再生作物之后每隔再生天数收获一次，
+    直到作物能存活的最后一天。来不及成熟的记进提示，不计收获。写错的条目报 ValueError。
+    """
+    by_name = {}
+    for c in crops:
+        for n in c.names if hasattr(c, "names") else (c.name,):
+            by_name[n] = c
+        by_name[c.name_en] = c
+    out, notes = [], []
+    for i, item in enumerate(items or ()):
+        try:
+            crop = by_name[str(item["crop"]).strip()]
+            tiles, ready = int(item["tiles"]), int(item["ready_day"])
+            place = IN_GROUND_PLACES[str(item.get("place") or "field").strip().lower()]
+            if tiles < 1 or ready < 1:
+                raise ValueError
+        except (KeyError, TypeError, ValueError):
+            raise ValueError(f"地里已有的作物第 {i + 1} 条写法不对（需要 crop、tiles、ready_day，"
+                             f"place 只能是 field / greenhouse / island）：{item!r}") from None
+        seasons = GREENHOUSE_HORIZON_SEASONS if place in SEASON_FREE else alive_seasons(crop, season)
+        limit = SEASON_DAYS * seasons
+        first = max(ready, start_day)  # 已经成熟的今天收
+        if first > limit:
+            notes.append(f"ℹ️ 地里已有的{crop.name} ×{tiles} 格要到第 {ready} 天才成熟，换季前来不及收获")
+            days: tuple[int, ...] = ()
+        elif crop.regrow_days:
+            days = tuple(range(first, limit + 1, crop.regrow_days))
+        else:
+            days = (first,)
+        out.append(CarryCrop(crop, tiles, IN_GROUND_ORIGIN, days, place))
+    return tuple(out), notes
+
+
+def describe_in_ground(carry, season: str) -> str:
+    """Prompt【数据参考】里“地里已有的作物”一段。"""
+    if not carry:
+        return ""
+    lines = ["- 地里已经种着（已付过种子钱，不要重复种植，按下列日期安排收获；收获收入程序自动计入）："]
+    lines += [f"  - {c.describe(season)}" for c in carry]
+    return "\n".join(lines)
+
+
 def season_label(season: str, day: int) -> str:
     """把跨季的天数写成“秋季第 2 天”。"""
     s = normalize_season(season)
@@ -370,7 +421,8 @@ def compute_finance(
                      f"（第 {'、'.join(map(str, days))} 天）")
 
     for c in carry_in:
-        add_harvests(c.crop, c.tiles, c.harvest_days, f"{c.crop.name}（上季延续）")
+        add_harvests(c.crop, c.tiles, c.harvest_days,
+                     f"{c.crop.name}（{'地里已有' if c.origin == IN_GROUND_ORIGIN else '上季延续'}）")
     for p in plantings:
         add_harvests(p.crop, p.tiles, p.harvests, f"{p.crop.name}（第 {p.day} 天种）")
 

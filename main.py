@@ -33,7 +33,7 @@ SAVE_FIELDS = {
     "season": "season", "year": "year", "start_day": "start_day", "start_gold": "start_gold",
     "farm_type": "farm_type", "farming_level": "farming_level", "professions": "professions",
     "greenhouse": "greenhouse", "route": "route", "kegs": "kegs", "jars": "jars", "bee_houses": "bee_houses",
-    "owned_animals": "owned_animals", "achievement_progress": "achievement_progress",
+    "owned_animals": "owned_animals", "achievement_progress": "achievement_progress", "in_ground": "in_ground",
 }
 
 
@@ -62,8 +62,8 @@ def apply_save(args: argparse.Namespace, state, explicit: set[str]) -> list[str]
         if dest == "professions":
             value = ",".join(value)
         setattr(args, dest, value)
-    # 季节或年份换了、起始日没写：存档里的日期不适用，从第 1 天开始
-    if ({"season", "year"} & explicit) and "start_day" not in explicit and "start_day" in values:
+    # 季节或年份换了：存档里的日期和地里的作物都不适用（起始日没写时从第 1 天开始）
+    if {"season", "year"} & explicit:
         first = args.season.replace("，", ",").split(",")[0].strip()
         try:
             from stardew_planner.data_loader import normalize_season
@@ -71,8 +71,12 @@ def apply_save(args: argparse.Namespace, state, explicit: set[str]) -> list[str]
         except ValueError:
             same = False
         if not same:
-            args.start_day = 1
-            notes.append("季节或年份和存档不同，从第 1 天开始规划")
+            if "start_day" not in explicit and "start_day" in values:
+                args.start_day = 1
+                notes.append("季节或年份和存档不同，从第 1 天开始规划")
+            if getattr(args, "in_ground", None):
+                args.in_ground = None
+                notes.append("季节或年份和存档不同，存档里地里的作物不导入")
     return notes
 
 
@@ -171,6 +175,7 @@ def run(parser: argparse.ArgumentParser, args: argparse.Namespace, argv: list[st
             state = parse_save(args.save, load_game_data())
         except SaveParseError as e:
             parser.error(f"存档导入失败：{e}")
+        args.in_ground = None
         notes = apply_save(args, state, explicit_dests(parser, argv))
         print("[存档解析摘要]", file=sys.stderr)
         for line in state.summary_lines(load_game_data()):
@@ -227,7 +232,7 @@ def run(parser: argparse.ArgumentParser, args: argparse.Namespace, argv: list[st
         greenhouse=args.greenhouse, bee_houses=args.bee_houses, animals=args.animals,
         route=args.route, location=args.location, players=args.players, roles=args.roles,
         achievements=args.achievements, achievement_progress=args.achievement_progress,
-        start_day=args.start_day, owned_animals=args.owned_animals,
+        start_day=args.start_day, owned_animals=args.owned_animals, in_ground=getattr(args, "in_ground", None),
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

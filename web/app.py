@@ -73,6 +73,13 @@ class Settings:
 # 请求与限流
 # ---------------------------------------------------------------------------
 
+class InGroundCrop(BaseModel):
+    crop: str = Field(min_length=1, max_length=20)
+    tiles: int = Field(ge=1, le=10000)
+    ready_day: int = Field(ge=1, le=28 * 8)
+    place: Literal["field", "greenhouse", "island"] = "field"
+
+
 class GenerateRequest(BaseModel):
     playstyle: str = Field(min_length=1, max_length=100)
     pacing: str = Field(min_length=1, max_length=50)
@@ -90,6 +97,7 @@ class GenerateRequest(BaseModel):
     bee_houses: int = Field(default=0, ge=0, le=1000)
     animals: str | None = Field(default=None, max_length=100)
     owned_animals: str | None = Field(default=None, max_length=200)  # 已经养着的成年动物（存档导入）
+    in_ground: list[InGroundCrop] = Field(default_factory=list, max_length=200)  # 地里已有的作物（存档导入）
     route: Literal["community_center"] | None = None
     location: Literal["pelican_town", "ginger_island"] = "pelican_town"
     greenhouse: bool = False
@@ -331,6 +339,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                 farming_level=req.farming_level, processing_share=req.processing_share, start_gold=req.start_gold,
                 farm_type=req.farm_type, kegs=req.kegs, jars=req.jars, greenhouse=req.greenhouse,
                 bee_houses=req.bee_houses, animals=req.animals or None, owned_animals=req.owned_animals or None,
+                in_ground=[c.model_dump() for c in req.in_ground] or None,
                 route=req.route, location=req.location, players=req.players, roles=roles,
                 achievements=[g.achievement.name for g in goals], achievement_progress=req.achievement_progress or None,
                 start_day=req.start_day,

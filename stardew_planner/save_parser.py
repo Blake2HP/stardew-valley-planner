@@ -8,6 +8,11 @@
 
 容错：每一部分单独解析，缺字段、模组物品、看不懂的值都只记进 warnings，不让整个导入失败。
 物品 ID、职业 ID、农场编号见 data/save_ids.json（按 wiki 核对）。
+
+地里的作物：农场、温室、姜岛农场的耕地（HoeDirt）上的 crop。还要几天成熟按生长阶段算：
+    当前阶段还剩 = phaseDays[currentPhase] − dayOfCurrentPhase，再加上之后各阶段的天数（最后一个阶段是成熟）；
+    已经在最后阶段：第一次成熟就是今天，可再生作物收过一次后（fullyGrown）还要 dayOfCurrentPhase 天。
+成熟日 = 存档日期 + 还要几天。枯死的作物、野生作物（forageCrop）、巨型作物和花盆里的作物不导入。
 """
 
 from __future__ import annotations
@@ -76,6 +81,7 @@ class SaveState:
     friendship: dict[str, int] = field(default_factory=dict)   # 村民（中文名，没收录的用英文名）→ 好感度点数
     money_earned: int | None = None                           # 累计赚取的金币
     players: int = 1                                           # 存档里的玩家数（房主 + 已加入的农场帮手）
+    in_ground: list[dict] = field(default_factory=list)        # 地里的作物：{"crop", "tiles", "ready_day", "place"}
     warnings: list[str] = field(default_factory=list)
 
     # ---- 映射成生成器参数 ----
@@ -118,6 +124,8 @@ class SaveState:
             out["owned_animals"] = dict(self.animals)
         if self.shipped or self.friendship or self.money_earned:
             out["achievement_progress"] = self.progress()
+        if self.in_ground:
+            out["in_ground"] = [dict(x) for x in self.in_ground]
         return out
 
     def form_defaults(self, rules) -> dict:
@@ -159,6 +167,12 @@ class SaveState:
             lines.append("设施：" + "、".join(facilities))
         if self.animals:
             lines.append("动物：" + "、".join(f"{n} {c} 只" for n, c in self.animals.items()))
+        if self.in_ground:
+            where = {"field": "", "greenhouse": "温室，", "island": "姜岛，"}
+            lines.append("地里的作物：" + "、".join(
+                f"{x['crop']} {x['tiles']} 格（{where[x['place']]}"
+                + (f"第 {x['ready_day']} 天成熟）" if x["ready_day"] > (self.start_day or 1) else "已成熟）")
+                for x in self.in_ground))
         if self.players > 1:
             lines.append(f"联机存档：{self.players} 位玩家（只读取了房主的进度）")
         if self.shipped:
@@ -371,6 +385,55 @@ def parse_save(source: bytes | str | Path, data: GameData | None = None, ids: Sa
             listed = "、".join(f"{k} ×{n}" for k, n in skipped.items())
             state.warnings.append(f"这些动物不在 data/animals.json 里（或产品不同），没有计入：{listed}")
 
-    if root.find("locations/GameLocation[name='Farm']/terrainFeatures") is not None:
-        state.warnings.append("地里已经种着的作物没有导入：它们的收获不会计入本季收入")
+    with _section(state, "地里的作物"):
+        _parse_crops(root, state, ids, crops_by_en)
     return state
+
+
+CROP_LOCATIONS = {"Farm": "field", "Greenhouse": "greenhouse", "IslandWest": "island"}
+
+
+def days_to_harvest(crop: ET.Element) -> int | None:
+    """按生长阶段算还要几天可以收获（0 = 今天就能收）；字段不全时返回 None。"""
+    phases = [_int(el.text) for el in crop.findall("phaseDays/int")]
+    phase, day = _int(crop.findtext("currentPhase")), _int(crop.findtext("dayOfCurrentPhase"))
+    if not phases or None in phases or phase is None or day is None:
+        return None
+    last = len(phases) - 1  # 最后一个阶段是成熟（天数是一个很大的占位数）
+    if phase >= last:
+        grown = (crop.findtext("fullyGrown") or "").strip().lower() == "true"
+        return max(0, day) if grown else 0
+    return max(0, phases[phase] - day) + sum(phases[phase + 1:last])
+
+
+def _parse_crops(root: ET.Element, state: SaveState, ids: SaveIds, crops_by_en: dict) -> None:
+    today = state.start_day or 1
+    groups: dict[tuple[str, int, str], int] = {}
+    unknown = unreadable = 0
+    for loc in root.findall("locations/GameLocation"):
+        place = CROP_LOCATIONS.get((loc.findtext("name") or "").strip())
+        if place is None:
+            continue
+        for _, value in _dict_items(loc.find("terrainFeatures")):
+            crop = value.find("TerrainFeature/crop")
+            if crop is None:
+                continue
+            if any((crop.findtext(f) or "").strip().lower() == "true" for f in ("dead", "forageCrop")):
+                continue
+            harvest = (crop.findtext("indexOfHarvest") or "").strip().removeprefix("(O)")
+            name_en = ids.crops.get(harvest)
+            if name_en not in crops_by_en:
+                unknown += 1
+                continue
+            left = days_to_harvest(crop)
+            if left is None:
+                unreadable += 1
+                continue
+            key = (crops_by_en[name_en].name, today + left, place)
+            groups[key] = groups.get(key, 0) + 1
+    state.in_ground = [{"crop": name, "tiles": n, "ready_day": ready, "place": place}
+                       for (name, ready, place), n in sorted(groups.items(), key=lambda x: (x[0][1], x[0][0]))]
+    if unknown:
+        state.warnings.append(f"地里有 {unknown} 格作物不在 data/crops.json 里（模组或 1.6 新作物），没有计入收入")
+    if unreadable:
+        state.warnings.append(f"地里有 {unreadable} 格作物读不出生长阶段，没有计入收入")
