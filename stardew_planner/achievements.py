@@ -190,10 +190,21 @@ def parse_progress(spec, rules: AchievementRules | None, crops) -> Progress:
 
 DIRECT_SOURCES = ("皮埃尔杂货店", "复活节商店")  # 本季能直接买到种子的渠道；沙漠绿洲、旅行货车只算可选
 SEASONS_PER_YEAR = 4
+SEASON_DAYS = 28
 
 
 def _ceil_div(a: int, b: int) -> int:
     return -(-a // b)
+
+
+def _season_share(left: int, seasons_left: int, start_day: int = 1) -> int:
+    """本季要完成的量：还差的量按天数比例分到剩下的季节，本季从第 start_day 天开始时只算剩下的天数。
+
+    本季占 (28 − start_day + 1) / 28 季，之后每季占 1 季：本季 = ⌈还差 × 本季份额 / (剩下季数 − 1 + 本季份额)⌉。
+    从第 1 天开始时就是 ⌈还差 / 剩下季数⌉。
+    """
+    days = SEASON_DAYS - start_day + 1
+    return _ceil_div(left * days, (seasons_left - 1) * SEASON_DAYS + days)
 
 
 @dataclass(frozen=True)
@@ -220,6 +231,7 @@ class SeasonTargets:
     optional: list[CropGap] = field(default_factory=list)   # 本季能种、但种子要去特殊渠道买的作物
     elsewhere: list[CropGap] = field(default_factory=list)  # 其他季节的作物，温室 / 姜岛里也能种（可选）
     anywhere: str = ""                                      # 不受季节限制的种植地点：“温室”“姜岛”
+    start_day: int = 1                                      # 季中开始规划的日子（本季只剩第 start_day-28 天）
     later: list[str] = field(default_factory=list)          # 本季作物，但今年还买不到种子
     shipped_done: list[str] = field(default_factory=list)   # 已经运够的作物
     mono: list[CropGap] = field(default_factory=list)       # 单一栽培：本季可选的作物，选一种出货 need 个
@@ -237,6 +249,13 @@ class SeasonTargets:
         return next((g for g in self.goals if g.achievement.kind == kind), None)
 
     @property
+    def partial_note(self) -> str:
+        """本季从中途开始时的说明：“（本季只剩第 15-28 天，按 14 天的比例分摊）”。"""
+        if self.start_day <= 1:
+            return ""
+        return f"（本季只剩第 {self.start_day}-28 天，按 {SEASON_DAYS - self.start_day + 1} 天的比例分摊）"
+
+    @property
     def friend_gap(self) -> FriendGap | None:
         """本季要求最高的友谊类成就（新结交人数最多；一样多时选还差得多的）。"""
         open_gaps = [f for f in self.friends if f.left > 0]
@@ -250,9 +269,20 @@ class SeasonTargets:
 
 
 def season_targets(goals: list[Goal], progress: Progress, crops, season: str, year: int,
-                   anywhere: str = "") -> SeasonTargets:
-    """anywhere 是不受季节限制的种植地点（“温室”“姜岛”）：其他季节的作物也列为可选（种子要在当季提前买好）。"""
-    t = SeasonTargets(list(goals), progress, max(1, SEASONS_PER_YEAR - progress.seasons_done), anywhere=anywhere)
+                   anywhere: str = "", start_day: int = 1) -> SeasonTargets:
+    """anywhere 是不受季节限制的种植地点（“温室”“姜岛”）：其他季节的作物也列为可选（种子要在当季提前买好）。
+
+    start_day > 1 时本季只剩第 start_day-28 天：来不及成熟的作物不再要求本季种（列进 later），
+    单一栽培和友谊类的本季指标按剩下的天数比例缩小（见 _season_share）。
+    """
+    from .farm_state import alive_seasons  # 避免循环导入
+
+    t = SeasonTargets(list(goals), progress, max(1, SEASONS_PER_YEAR - progress.seasons_done), anywhere=anywhere,
+                      start_day=start_day)
+
+    def too_late(crop) -> bool:
+        return not anywhere and start_day + crop.grow_days > SEASON_DAYS and alive_seasons(crop, season) == 1
+
     by_en = {c.name_en: c for c in crops}
     for g in goals:
         a = g.achievement
@@ -271,6 +301,8 @@ def season_targets(goals: list[Goal], progress: Progress, crops, season: str, ye
                         t.elsewhere.append(CropGap(crop, need, anywhere))
                 elif crop.available_year > year:
                     t.later.append(f"{crop.name}（第 {crop.available_year} 年起）")
+                elif too_late(crop):
+                    t.later.append(f"{crop.name}（第 {start_day} 天起来不及成熟）")
                 elif crop.seed_source.startswith(DIRECT_SOURCES):
                     t.crops.append(CropGap(crop, need, crop.seed_source))
                 else:
@@ -282,15 +314,16 @@ def season_targets(goals: list[Goal], progress: Progress, crops, season: str, ye
                 t.mono_done = done[0].name
                 continue
             for crop in eligible:
-                if season in crop.seasons and crop.available_year <= year:
+                if season in crop.seasons and crop.available_year <= year and not too_late(crop):
                     left = a.target - int(progress.shipped.get(crop.name, 0))
-                    t.mono.append(CropGap(crop, _ceil_div(left, t.seasons_left), crop.seed_source.split("（")[0]))
+                    t.mono.append(CropGap(crop, _season_share(left, t.seasons_left, start_day),
+                                          crop.seed_source.split("（")[0]))
             t.mono.sort(key=lambda c: (c.need, c.crop.name))
         elif a.kind == "friendship":
             people, score = friend_score(progress.points, a, progress.friends.get(a.key, 0))
             left_points = a.target * a.hearts * a.points_per_heart - score
             t.friends.append(FriendGap(g, max(0, a.target - people), left_points,
-                                       _ceil_div(left_points, t.seasons_left)))
+                                       _season_share(left_points, t.seasons_left, start_day)))
         elif a.kind == "earnings":
             t.earnings.append((g, max(0, a.target - progress.earned)))
         else:
@@ -334,7 +367,8 @@ def describe_targets(t: SeasonTargets, rules: AchievementRules) -> str:
             lines.append(f"- {t.title(g)}：{t.mono_done}已经运够 {a.target} 个，本季不用再安排。")
         elif t.mono:
             lines.append(f"- {t.title(g)}：本季集中种一种作物，直接出货至少这么多（按一年内达成，还差的个数平均分到接下来 "
-                         f"{t.seasons_left} 个季节，以后几季要继续种同一种）：{_mono_text(t)}。程序会先留出这些数量直接出货。")
+                         f"{t.seasons_left} 个季节{t.partial_note}，以后几季要继续种同一种）：{_mono_text(t)}。"
+                         "程序会先留出这些数量直接出货。")
         else:
             lines.append(f"- {t.title(g)}：本季没有可以计入的作物，本季不用安排。")
     if gap := t.friend_gap:
@@ -344,7 +378,7 @@ def describe_targets(t: SeasonTargets, rules: AchievementRules) -> str:
         others = [x for x in t.friends if x is not gap]
         lines.append(
             f"- {t.title(gap.goal)}：还差 {gap.left} 人，约 {gap.left_points:,} 点好感度"
-            f"（每人 {a.hearts} 颗心 = {a.hearts} × {a.points_per_heart} = {points} 点），按一年内达成计算还剩 {t.seasons_left} 个季节，"
+            f"（每人 {a.hearts} 颗心 = {a.hearts} × {a.points_per_heart} = {points} 点），按一年内达成计算还剩 {t.seasons_left} 个季节{t.partial_note}，"
             f"本季的日程至少要增加 {gap.per_season:,} 点（每人只算到 {a.hearts} 颗心）。"
             f"程序按日程逐天估算：写了“和{{村民}}聊天”的日子 +{f.talk_daily}；送最爱的礼物 +{f.gift_love}、"
             f"喜欢的 +{f.gift_like}、中立的 +{f.gift_neutral}，生日当天 ×{f.birthday_multiplier}；"
@@ -398,8 +432,9 @@ def talked_to(goal: str, data) -> set[str]:
     return out
 
 
-def friendship_season(goals: dict, data, rules: FriendshipRules, season: str, start: dict) -> dict[str, float]:
-    """按 28 天日程估算季末每位村民的好感度点数（从 start 开始）。
+def friendship_season(goals: dict, data, rules: FriendshipRules, season: str, start: dict,
+                      start_day: int = 1) -> dict[str, float]:
+    """按日程估算季末每位村民的好感度点数（从 start 开始，只算第 start_day-28 天）。
 
     聊天 +talk_daily；送礼按礼物喜好计分、生日当天 ×birthday_multiplier，每周最多 gifts_per_week 次
     （生日礼物不占次数），送满再 +full_week_bonus；已有好感度、当天没聊天的村民 −decay_daily。
@@ -412,7 +447,7 @@ def friendship_season(goals: dict, data, rules: FriendshipRules, season: str, st
     points = {n: float(p) for n, p in start.items()}
     caps = {n.name: (rules.bouquet_cap_hearts if n.marriage else rules.max_hearts) * 250 for n in data.npc_data.npcs}
     weekly: dict[str, int] = {}
-    for day in range(1, 29):
+    for day in range(start_day, SEASON_DAYS + 1):
         goal = goals.get(day, "")
         talked = talked_to(goal, data)
         for name in talked:
@@ -464,6 +499,8 @@ def summary_lines(t: SeasonTargets) -> list[str]:
             extra.append("可选：" + "、".join(f"{c.crop.name}（{c.source}）" for c in t.optional))
         if t.elsewhere:
             extra.append(f"{t.anywhere}里也能种：" + "、".join(c.crop.name for c in t.elsewhere))
+        if late := [x for x in t.later if "来不及成熟" in x]:
+            extra.append("本季来不及：" + "、".join(x.split("（")[0] for x in late))
         if t.shipped_done:
             extra.append("已运够：" + "、".join(t.shipped_done))
         head = f"本季要收获并直接出货 {need}" if need else "本季没有必须种的作物"
@@ -555,7 +592,9 @@ def check_achievements(t: SeasonTargets, units: dict, planted: set, gifts_by_day
                                 "请集中种一种作物！")
     if gap := t.friend_gap:
         g = gap.goal
-        empty = [f"第 {a}-{b} 天" for a, b in WEEKS if not any(gifts_by_day.get(d) for d in range(a, b + 1))]
+        weeks = [(max(a, t.start_day), b) for a, b in WEEKS if b >= t.start_day]  # 季中开始：只看剩下的几周
+        empty = [f"第 {a}-{b} 天" if a < b else f"第 {a} 天" for a, b in weeks
+                 if not any(gifts_by_day.get(d) for d in range(a, b + 1))]
         if empty:
             problems.append(f"{PREFIX}目标包含“{g.label}”，但{'、'.join(empty)}没有安排送礼。"
                             "请每周至少安排一天“送{村民}{礼物}”！")

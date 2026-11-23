@@ -72,6 +72,7 @@ class GenerateRequest(BaseModel):
     pacing: str = Field(min_length=1, max_length=50)
     seasons: list[str] = Field(min_length=1)
     year: int = Field(default=1, ge=1, le=10)
+    start_day: int = Field(default=1, ge=1, le=28)  # 季中重新规划：今天是第一个季节的第几天
     professions: list[str] = Field(default_factory=list, max_length=3)
     fertilizer: str | None = None
     farming_level: int | None = Field(default=None, ge=0, le=14)
@@ -184,6 +185,7 @@ def season_summary(result) -> dict:
         "season": result.season,
         "season_zh": SEASON_ZH[result.season],
         "year": result.year,
+        "start_day": result.start_day,
         "attempts": result.attempts,
         "json_parse_method": result.json_parse_method,
         "start_gold": f.start_gold if f else None,
@@ -297,6 +299,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                 bee_houses=req.bee_houses, animals=req.animals or None,
                 route=req.route, location=req.location, players=req.players, roles=roles,
                 achievements=[g.achievement.name for g in goals], achievement_progress=req.achievement_progress or None,
+                start_day=req.start_day,
             )
             if len(plan) == 1:
                 results = [generate_strategy(req.playstyle, req.pacing, plan[0][0], plan[0][1], **kwargs)]

@@ -43,6 +43,10 @@ def main() -> None:
     parser.add_argument("-s", "--season", default="spring",
                         help="spring/summer/fall/winter 或 春季/夏季…；逗号分隔多个连续季节做跨季规划，如 spring,summer")
     parser.add_argument("-y", "--year", type=int, default=1, help="游戏年份；第 1 年不计入第 2 年起才出售种子的作物")
+    parser.add_argument("--start-day", type=int, default=1,
+                        help="季中重新规划：今天是本季第几天（1-28，默认 1），只规划这天到第 28 天；"
+                             "跨季规划时只有第一个季节从这天开始。第 1 年春季从第 2 天起不再默认开局金币和赠送的种子，"
+                             "期初资金请用 --start-gold 给出")
     parser.add_argument("--provider", default=None, help="anthropic / mock（默认读 LLM_PROVIDER）")
     parser.add_argument("--model", default=None, help="覆盖默认模型名")
     parser.add_argument("-o", "--output", default=None, help="同时保存 Markdown 到文件")
@@ -94,6 +98,8 @@ def main() -> None:
         return
     if args.year < 1:
         parser.error("年份必须 ≥ 1")
+    if not 1 <= args.start_day <= 28:
+        parser.error("起始日必须在 1-28 之间")
     if not 0 <= args.processing_share <= 1:
         parser.error("加工比例必须在 0-1 之间")
     if args.kegs < 0 or args.jars < 0 or args.bee_houses < 0:
@@ -130,6 +136,7 @@ def main() -> None:
         greenhouse=args.greenhouse, bee_houses=args.bee_houses, animals=args.animals,
         route=args.route, location=args.location, players=args.players, roles=args.roles,
         achievements=args.achievements, achievement_progress=args.achievement_progress,
+        start_day=args.start_day,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)

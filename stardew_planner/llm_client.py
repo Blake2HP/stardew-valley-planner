@@ -120,6 +120,7 @@ class MockClient:
         self.model = model or "mock"
 
     _COOP = re.compile(r"## 联机模式（(\d) 人")
+    _TODAY = re.compile(r"今天是本季第 (\d+) 天")
     # 联机时其他玩家的固定分工（P1 用原来的单人日程）
     _COOP_TASKS = {"P2": "下矿井推进", "P3": "海滩钓鱼攒钱", "P4": "采集野菜，和村民聊天"}
 
@@ -127,6 +128,9 @@ class MockClient:
         m = self._SEASON.search(messages[0]["content"]) if messages else None
         season = self._KEYS[m.group(1)] if m else "spring"
         payload = MOCK_RESPONSES[season]
+        today = self._TODAY.search(messages[0]["content"]) if messages else None
+        if today:  # 季中重新规划：只保留今天起的日程、节点和播种
+            payload = self._from_day(payload, int(today.group(1)))
         coop = self._COOP.search(system or "")
         if coop and int(coop.group(1)) > 1:
             n = int(coop.group(1))
@@ -137,6 +141,15 @@ class MockClient:
             payload = {**payload, "macro_strategy": {**payload["macro_strategy"], "achievement_plan": self._ACHIEVEMENT_PLAN},
                        "achievement_milestones": self._ACHIEVEMENT_MILESTONES}
         return json.dumps(payload, ensure_ascii=False)
+
+    @staticmethod
+    def _from_day(payload: dict, start: int) -> dict:
+        def later(items):
+            return [x for x in items if int(x["day"]) >= start]
+        return {**payload,
+                "daily_goals": {d: g for d, g in payload["daily_goals"].items() if int(d) >= start},
+                "key_milestones": later(payload["key_milestones"]),
+                "plantings": later(payload["plantings"])}
 
     _ACHIEVEMENT_PLAN = "按【🏆 成就规划目标】把要求的作物种进种植清单，每周挑一天给新的村民送最爱的礼物，收入优先投入种子。"
     _ACHIEVEMENT_MILESTONES = [

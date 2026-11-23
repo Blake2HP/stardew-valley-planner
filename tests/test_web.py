@@ -260,3 +260,24 @@ def test_bad_achievements(indexed_store, patch, message):
     with make_client(indexed_store) as c:
         r = c.post("/api/generate", json={**BODY, **patch})
     assert r.status_code == 400 and message in r.json()["detail"]
+
+
+def test_generate_from_start_day(indexed_store):
+    body = {**BODY, "seasons": ["spring", "summer"], "start_day": 15, "start_gold": 1000}
+    with make_client(indexed_store) as c:
+        r = c.post("/api/generate", json=body)
+    assert r.status_code == 200
+    spring, summer = r.json()["seasons"]
+    assert (spring["start_day"], summer["start_day"]) == (15, 1)
+    assert "第 1 年春季（第 15–28 天）" in r.json()["markdown"]
+
+
+@pytest.mark.parametrize("day", [0, 29])
+def test_start_day_out_of_range(indexed_store, day):
+    with make_client(indexed_store) as c:
+        assert c.post("/api/generate", json={**BODY, "start_day": day}).status_code == 422
+
+
+def test_index_has_start_day_input(indexed_store):
+    with make_client(indexed_store) as c:
+        assert 'id="startDay"' in c.get("/").text

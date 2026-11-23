@@ -87,16 +87,16 @@ def _every(a: Animal) -> str:
     return "每天" if a.produce_every_days == 1 else f"每 {a.produce_every_days} 天"
 
 
-def produce_days(herd: Herd, season: str) -> list[int]:
-    """这群动物本季产出的日子。"""
+def produce_days(herd: Herd, season: str, start_day: int = 1) -> list[int]:
+    """这群动物本季产出的日子（从第 start_day 天起算；新买的动物在 start_day 当天买入）。"""
     if herd.animal.outdoor_only and season == "winter":
         return []
     every = herd.animal.produce_every_days
-    first = 1 + herd.animal.mature_nights + every if herd.new else every
-    return list(range(first, SEASON_DAYS + 1, every))
+    first = start_day + herd.animal.mature_nights + every if herd.new else every
+    return [d for d in range(first, SEASON_DAYS + 1, every) if d >= start_day]
 
 
-def simulate_livestock(herds: list[Herd], season: str, hay_price: int) -> LivestockResult:
+def simulate_livestock(herds: list[Herd], season: str, hay_price: int, start_day: int = 1) -> LivestockResult:
     result = LivestockResult()
     if not herds:
         return result
@@ -106,19 +106,19 @@ def simulate_livestock(herds: list[Herd], season: str, hay_price: int) -> Livest
 
     for h in herds:
         a = h.animal
-        label = f"{a.name} ×{h.count}" + ("（本季第 1 天买入）" if h.new else "（上季带来）")
+        label = f"{a.name} ×{h.count}" + (f"（本季第 {start_day} 天买入）" if h.new else "（上季带来）")
         if h.new:
             cost = a.buy_price * h.count
             result.purchase_cost += cost
-            add(1, -cost)
-        days = produce_days(h, season)
+            add(start_day, -cost)
+        days = produce_days(h, season, start_day)
         for d in days:
             add(d, a.product_price * h.count)
         n = len(days) * h.count
         result.products[a.product] = result.products.get(a.product, 0) + n
         result.income += n * a.product_price
         if days:
-            grow = f"，第 {1 + a.mature_nights} 天成年" if h.new else ""
+            grow = f"，第 {start_day + a.mature_nights} 天成年" if h.new else ""
             result.lines.append(f"{label}{grow}：{a.product} {len(days)} 次 × {h.count} 只 × {a.product_price}g"
                                 f" = {n * a.product_price}g（第 {days[0]} 天起{_every(a)}一次）")
         else:
@@ -129,28 +129,29 @@ def simulate_livestock(herds: list[Herd], season: str, hay_price: int) -> Livest
 
     if season == "winter":
         total = sum(h.count for h in herds)
-        result.hay_cost = total * SEASON_DAYS * hay_price
-        for day in range(1, SEASON_DAYS + 1):
+        days_left = SEASON_DAYS - start_day + 1
+        result.hay_cost = total * days_left * hay_price
+        for day in range(start_day, SEASON_DAYS + 1):
             add(day, -total * hay_price)
-        result.lines.append(f"冬季干草 = {total} 只 × 28 天 × {hay_price}g = {result.hay_cost}g"
+        result.lines.append(f"冬季干草 = {total} 只 × {days_left} 天 × {hay_price}g = {result.hay_cost}g"
                             "（动物冬季不出门；如果秋天存够了干草，实际支出会更少）")
     return result
 
 
-def describe_herds(herds: list[Herd], season: str, hay_price: int) -> str:
+def describe_herds(herds: list[Herd], season: str, hay_price: int, start_day: int = 1) -> str:
     """Prompt【数据参考】里的畜牧一节。"""
     if not herds:
         return "（玩家没有养动物）"
     lines = []
     for h in herds:
         a = h.animal
-        days = produce_days(h, season)
-        src = "本季第 1 天从玛妮牧场买入" if h.new else "上季带来，已成年"
+        days = produce_days(h, season, start_day)
+        src = f"本季第 {start_day} 天从玛妮牧场买入" if h.new else "上季带来，已成年"
         need = f"，需要{a.building}" + (f"和{a.tool}" if a.tool else "")
         when = f"第 {days[0]} 天起{_every(a)}产 1 个{a.product}（{a.product_price}g），本季共 {len(days)} 次" \
             if days else ("冬季不出门，不产松露" if a.outdoor_only and season == "winter" else "本季来不及产出")
         lines.append(f"- {a.name} ×{h.count}（{src}{need}）：{when}")
-    result = simulate_livestock(herds, season, hay_price)
+    result = simulate_livestock(herds, season, hay_price, start_day)
     lines.append(f"程序计算：产出收入 {result.income}g，买动物 {result.purchase_cost}g，干草 {result.hay_cost}g，"
                  f"畜牧净收支 {result.net:+d}g（只算基础产品，已计入资金）。")
     lines.append("每天的目标都要包含“照料动物”（喂食、抚摸、收产品），用完全相同的措辞写在当天主要任务后面。")

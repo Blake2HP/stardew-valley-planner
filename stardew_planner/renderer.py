@@ -20,6 +20,12 @@ def _cell(text) -> str:
     return str(text).replace("|", "\\|").replace("\n", " ")
 
 
+def day_span(result) -> str:
+    """季中开始规划时的天数范围“（第 12–28 天）”；从第 1 天开始时为空。"""
+    start = getattr(result, "start_day", 1)
+    return f"（第 {start}–28 天）" if start > 1 else ""
+
+
 def render_markdown(result: "StrategyResult", data: GameData | None = None) -> str:
     season_zh = SEASON_ZH[result.season]
     icon = SEASON_ICON[result.season]
@@ -28,8 +34,10 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
 
     # ---- 标题 ----
     out += [
-        f"# {icon} 星露谷物语 · 第 {result.year} 年{season_zh}攻略",
+        f"# {icon} 星露谷物语 · 第 {result.year} 年{season_zh}{day_span(result)}攻略",
         "",
+        *([f"> ⏱️ 季中重新规划：从本季第 {result.start_day} 天开始，第 1-{result.start_day - 1} 天已经过去；"
+           f"收益、资金和校验都只算第 {result.start_day}-28 天。", ""] if result.start_day > 1 else []),
         f"> **玩法风格**：{result.playstyle}　|　**节奏偏好**：{result.pacing}"
         + ("" if result.bonuses.is_empty else f"　|　**{result.bonuses.describe()}**"),
         "",
@@ -89,7 +97,8 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
         out.append("")
 
     # ---- 生日送礼 ----
-    birthdays = data.npc_data.birthdays_in_season(result.season) if data else []
+    birthdays = [n for n in data.npc_data.birthdays_in_season(result.season)
+                 if n.birthday_day >= result.start_day] if data else []
     if birthdays or result.gift_warnings:
         out += ["## 🎂 生日送礼", ""]
         for n in birthdays:
@@ -139,7 +148,7 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
                 "| 作物 | 种子价 | 售价 | 生长天数 | 最早种植 | 整季收获 | 单格净利 | 最佳加工 | 按品质出售策略 |",
                 "|---|---:|---:|:---:|:---:|:---:|---:|---|---|"]
         for r in rank_crops(data, result.season, bonuses=result.bonuses, year=result.year,
-                            processing_share=result.processing_share):
+                            processing_share=result.processing_share, start_day=result.start_day):
             artisan = f"{r.best_artisan} ({r.artisan_unit_price}g)" if r.best_artisan else "-"
             plan = r.sale_plan.summary() if r.sale_plan else "-"
             if r.profit_with_plan is not None:
@@ -149,7 +158,8 @@ def render_markdown(result: "StrategyResult", data: GameData | None = None) -> s
         applied = "未计入职业与肥料加成" if result.bonuses.is_empty else f"已计入 {result.bonuses.describe()}"
         quality = (f"售价为普通品质，净利按品质分布（{result.bonuses.describe_quality()}）取期望值"
                    if result.bonuses.quality_active else "未计入作物品质（全部按普通品质）")
-        out += ["", "> 收益为本地数据计算的估算值（从种子最早开售日起种植、收获后立即补种），"
+        since = f"第 {result.start_day} 天和种子最早开售日中较晚的一天" if result.start_day > 1 else "种子最早开售日"
+        out += ["", f"> 收益为本地数据计算的估算值（从{since}起种植、收获后立即补种），"
                 f"{applied}，{quality}。跨季作物按完整存活期计算、按平均每季净利排序。出售策略不计机器成本与加工时间"
                 + ("" if result.processing_share >= 1 else f"，并假设机器只够加工 {result.processing_share:.0%} 的收获")
                 + "。数值来源：Stardew Valley Wiki（1.6）。", ""]
@@ -164,8 +174,8 @@ def _gold(value: int | None) -> str:
 def render_plan(plan: "PlanResult", data: GameData | None = None) -> str:
     """跨季连续规划：总览表 + 各季攻略（各季标题降一级）。"""
     first, last = plan.results[0], plan.results[-1]
-    span = (f"第 {first.year} 年{SEASON_ZH[first.season]} → 第 {last.year} 年{SEASON_ZH[last.season]}"
-            if len(plan.results) > 1 else f"第 {first.year} 年{SEASON_ZH[first.season]}")
+    head = f"第 {first.year} 年{SEASON_ZH[first.season]}{day_span(first)}"
+    span = (f"{head} → 第 {last.year} 年{SEASON_ZH[last.season]}" if len(plan.results) > 1 else head)
     out = [
         f"# 🗓️ 星露谷物语 · 跨季连续规划（{span}）",
         "",
@@ -187,7 +197,7 @@ def render_plan(plan: "PlanResult", data: GameData | None = None) -> str:
     for r in plan.results:
         f, s = r.finance, r.end_state
         carry = "、".join(f"{c.crop.name} ×{c.tiles}" for c in s.carry) if s and s.carry else "-"
-        out.append(f"| 第 {r.year} 年{SEASON_ZH[r.season]} | {_gold(f.start_gold)} | {f.crop_net}g | "
+        out.append(f"| 第 {r.year} 年{SEASON_ZH[r.season]}{day_span(r)} | {_gold(f.start_gold)} | {f.crop_net}g | "
                    f"{_gold(f.end_gold)} | {_gold(f.end_gold_estimated)} | {carry} |")
     out += ["", "> 种植收支由程序计算；“含模型估算”另加了模型对钓鱼、挖矿等收入的估算，仅供参考。", ""]
     for r in plan.results:

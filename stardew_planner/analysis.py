@@ -229,25 +229,31 @@ def rank_crops(
     bonuses: Bonuses = NO_BONUSES,
     year: int | None = None,
     processing_share: float = 1.0,
+    start_day: int = 1,
 ) -> list[CropProfit]:
     """本季作物按平均每季净利（直接卖）排序；传入 year 时过滤掉当年买不到种子的作物（如第 1 年的大蒜）。
 
     跨季作物按完整存活期计算，并且始终列出（即使排在 top_n 之后），否则模型看不到这个选项。
+    start_day 是季中开始规划的日子：最早种植日 = max(start_day, 种子开售日)，剩余天数里来不及成熟的
+    当季作物不再列出（跨季作物除外，见 too_late_crops）。
     """
     results = []
     for crop in data.crops_in_season(season, year):
-        harvests, profit = season_profit(crop, bonuses=bonuses, season=season)
+        harvests, profit = season_profit(crop, start_day, bonuses=bonuses, season=season)
+        if harvests == 0 and alive_seasons(crop, season) == 1:
+            continue
         rules = data.artisan_rules_for(crop)
         best = max(rules, key=lambda r: bonuses.artisan_unit_price(r, crop), default=None)
         plan = sale_plan(crop, rules, bonuses, processing_share)
-        _, planned = season_profit(crop, bonuses=bonuses, value_per_harvest=plan.expected_best, season=season)
+        _, planned = season_profit(crop, start_day, bonuses=bonuses, value_per_harvest=plan.expected_best,
+                                   season=season)
         results.append(CropProfit(
             crop=crop,
             harvests=harvests,
             profit_per_tile=profit,
             best_artisan=f"{best.machine}→{best.product}" if best else None,
             artisan_unit_price=bonuses.artisan_unit_price(best, crop) if best else None,
-            plant_day=effective_plant_day(crop),
+            plant_day=effective_plant_day(crop, start_day),
             grow_days=bonuses.grow_days(crop),
             sell_price=bonuses.crop_price(crop),
             sale_plan=plan,
@@ -256,6 +262,13 @@ def rank_crops(
         ))
     results.sort(key=lambda r: r.profit_per_season, reverse=True)
     return results[:top_n] + [r for r in results[top_n:] if r.seasons_alive > 1]
+
+
+def too_late_crops(data: GameData, season: str, start_day: int, bonuses: Bonuses = NO_BONUSES,
+                   year: int | None = None) -> list[Crop]:
+    """从 start_day 起已经来不及成熟的当季作物（跨季作物除外）。"""
+    return [c for c in data.crops_in_season(season, year) if alive_seasons(c, season) == 1
+            and season_profit(c, start_day, bonuses=bonuses, season=season)[0] == 0]
 
 
 def build_data_context(
@@ -271,12 +284,16 @@ def build_data_context(
     herds=(),
     bundle_text: str | None = None,
     location: str = "pelican_town",
+    start_day: int = 1,
 ) -> dict[str, str]:
-    """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。"""
+    """把结构化数值整理成可直接塞进 Prompt 的文本片段；攻略片段由 search_guides() 检索后传入。
+
+    start_day > 1 时是季中重新规划：收益按第 start_day 天起算，节日和生日只列还没过的。"""
     crop_lines = ["| 作物 | 种子价 | 售价 | 生长/再生(天) | 最早种植日 | 整季收获次数 | 单格整季净利 | 最佳加工(单价) | 种子来源 "
                   "| 按品质出售策略 | 按策略单格净利 |",
                   "|---|---|---|---|---|---|---|---|---|---|---|"]
-    for r in rank_crops(data, season, bonuses=bonuses, year=year, processing_share=processing_share):
+    for r in rank_crops(data, season, bonuses=bonuses, year=year, processing_share=processing_share,
+                        start_day=start_day):
         c = r.crop
         regrow = f"{r.grow_days}/{c.regrow_days}" if c.regrow_days else f"{r.grow_days}/-"
         artisan = f"{r.best_artisan}({r.artisan_unit_price}g)" if r.best_artisan else "-"
@@ -299,14 +316,19 @@ def build_data_context(
         for r in data.artisan_rules
     ]
 
-    event_lines = [f"- 第 {e.day} 天【{e.name}】：{e.tip}" for e in data.events_in_season(season)]
+    event_lines = [f"- 第 {e.day} 天【{e.name}】：{e.tip}" for e in data.events_in_season(season)
+                   if e.day >= start_day]
 
     listed = {line.split("|")[1].strip() for line in crop_lines[2:]}
     rest = [r for r in rank_crops(data, season, top_n=len(data.crops), bonuses=bonuses, year=year,
-                                  processing_share=processing_share) if r.crop.name not in listed]
+                                  processing_share=processing_share, start_day=start_day) if r.crop.name not in listed]
     if rest:
         crop_lines += ["", "其余本季可种作物（数值同样可用，也可以安排种植，按单格净利排序）："
                        + "、".join(_compact_crop(r) for r in rest)]
+    late = too_late_crops(data, season, start_day, bonuses, year) if start_day > 1 else []
+    if late:
+        crop_lines += ["", f"从第 {start_day} 天起已经来不及成熟、不要再种（种植日 + 生长天数 > 28）："
+                       + "、".join(f"{c.name}（生长 {bonuses.grow_days(c)} 天）" for c in late)]
 
     if greenhouse:
         others = [c for c in data.crops_for_year(year) if normalize_season(season) not in c.seasons]
@@ -317,7 +339,8 @@ def build_data_context(
                        "（在 plantings 里写 \"place\": \"greenhouse\"，日程里写明“温室”）。"
                        f"上表之外，温室还可以种：{listed_other or '无'}。非当季作物的种子要在对应季节提前买好。"]
 
-    notes = [crop_note(r.crop, data.honey) for r in rank_crops(data, season, bonuses=bonuses, year=year)]
+    notes = [crop_note(r.crop, data.honey) for r in rank_crops(data, season, bonuses=bonuses, year=year,
+                                                                start_day=start_day)]
     notes = [n for n in notes if n]
     if notes:
         crop_lines += ["", "作物备注（程序计算）："] + [f"- {n}" for n in notes]
@@ -331,8 +354,8 @@ def build_data_context(
         "guide_excerpts": guide_excerpts or NO_GUIDES_TEXT,
         "bonuses": describe_bonuses(bonuses),
         "carryover": carryover,
-        "npc_birthdays": describe_birthdays(data, season),
-        "livestock": describe_herds(list(herds), normalize_season(season), data.hay_price),
+        "npc_birthdays": describe_birthdays(data, season, start_day),
+        "livestock": describe_herds(list(herds), normalize_season(season), data.hay_price, start_day),
         "bundles": bundle_text or "（没有选择社区中心献祭路线）",
         "tools": describe_tools(data.tool_rules) if data.tool_rules else "（没有工具升级数据）",
         "location": describe_location(data, location),
@@ -340,7 +363,17 @@ def build_data_context(
         "buildings": describe_buildings(data.building_rules),
         "coop": "单人",
         "achievement_block": "",  # 选了成就时由 generate_strategy 填入（见 achievements.py）
+        "today": describe_today(start_day),
     }
+
+
+def describe_today(start_day: int = 1) -> str:
+    """用户 Prompt 开头的“今天是第几天”；从第 1 天开始时为空。"""
+    if start_day <= 1:
+        return ""
+    return (f"⏱️ 季中重新规划：今天是本季第 {start_day} 天，第 1-{start_day - 1} 天已经过去。"
+            f"只规划第 {start_day} 天到第 28 天：daily_goals、key_milestones、plantings、送礼、tool_upgrades 和 "
+            f"constructions 的日期都不能早于第 {start_day} 天；下面的作物收益已按第 {start_day} 天起算。\n\n")
 
 
 def island_crop_lines(data: GameData, bonuses: Bonuses = NO_BONUSES, year: int | None = None) -> list[str]:
@@ -434,11 +467,13 @@ def _items_text(items: tuple[GiftItem, ...], data: GameData, season: str) -> str
     return "、".join(out) or "无专属物品"
 
 
-def describe_birthdays(data: GameData, season: str) -> str:
-    """本季过生日的 NPC 及其最爱 / 喜欢的物品（data/npcs.json），注入 Prompt【数据参考】。"""
+def describe_birthdays(data: GameData, season: str, start_day: int = 1) -> str:
+    """本季过生日的 NPC 及其最爱 / 喜欢的物品（data/npcs.json），注入 Prompt【数据参考】。只列第 start_day 天起的生日。"""
     season = normalize_season(season)
     npc_data = data.npc_data
-    birthdays = npc_data.birthdays_in_season(season)
+    birthdays = [n for n in npc_data.birthdays_in_season(season) if n.birthday_day >= start_day]
+    if not birthdays and start_day > 1:
+        return f"（第 {start_day} 天起本季没有收录的 NPC 过生日）"
     if not birthdays:
         covered = "、".join(n.name for n in npc_data.npcs) or "无"
         return f"（本季没有收录的 NPC 过生日；目前收录：{covered}）"

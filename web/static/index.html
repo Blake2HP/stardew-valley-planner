@@ -135,6 +135,10 @@
           <input id="year" type="number" min="1" max="10" value="1">
         </div>
         <div>
+          <label for="startDay">当前日期（第几天）</label>
+          <input id="startDay" type="number" min="1" max="28" value="1" title="今天是第一个季节的第几天（1-28），只规划这天到第 28 天">
+        </div>
+        <div>
           <label for="startGold">期初资金 <span class="hint">可留空</span></label>
           <input id="startGold" type="number" min="0" placeholder="第 1 年春季默认 500g">
         </div>
@@ -339,7 +343,7 @@ function renderSummary(data) {
     const warn = s.season_warnings.filter((w) => !/换季前一天|继续生长/.test(w)).length + s.gift_warnings.length;
     const carry = s.carry.length ? `跨季：${s.carry.join("、")}` : "无跨季作物";
     return `<div class="stat ${warn ? "warn" : "ok"}">
-      <div class="k">第 ${s.year} 年${escapeText(s.season_zh)} · 期末资金（只算种植）</div>
+      <div class="k">第 ${s.year} 年${escapeText(s.season_zh)}${s.start_day > 1 ? `（第 ${s.start_day}–28 天）` : ""} · 期末资金（只算种植）</div>
       <div class="v">${gold(s.end_gold)}</div>
       <div class="s">${warn ? `⚠️ ${warn} 条需要注意` : "✅ 校验通过"} · ${escapeText(carry)}</div>
     </div>`;
@@ -380,6 +384,7 @@ $("form").addEventListener("submit", async (e) => {
     pacing: $("pacing").value.trim(),
     seasons: seasonList(),
     year: Number($("year").value) || 1,
+    start_day: Number($("startDay").value) || 1,
     professions: [...document.querySelectorAll("#professions input:checked")].map((x) => x.value),
     fertilizer: $("fertilizer").value || null,
     farming_level: numberOrNull("farmingLevel"),

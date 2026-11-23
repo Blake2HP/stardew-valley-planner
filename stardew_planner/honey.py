@@ -40,8 +40,10 @@ def simulate_honey(
     bee_houses: int,
     honey: HoneyRule,
     bonuses: Bonuses,
+    start_day: int = 1,
 ) -> HoneyResult:
-    """blooms：室外的花和它开花（第一次可收获）的日子；bee_houses：室外蜂房数量。"""
+    """blooms：室外的花和它开花（第一次可收获）的日子；bee_houses：室外蜂房数量。
+    start_day：季中开始规划时，只算第 start_day 天起取的蜂蜜。"""
     result = HoneyResult()
     if bee_houses <= 0:
         return result
@@ -50,6 +52,8 @@ def simulate_honey(
         return result
     step = honey.production_days
     for day in range(step, SEASON_DAYS + 1, step):
+        if day < start_day:
+            continue
         open_now = [c for c, start in blooms if start <= day]
         best = max(open_now, key=lambda c: honey.price_for(c), default=None)
         price = honey_price(honey, best, bonuses)

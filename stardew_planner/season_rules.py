@@ -375,8 +375,10 @@ def check_animal_care(daily_goals: dict[int, str], animal_names=()) -> list[str]
             "否则好感和心情下降、产量减少"]
 
 
-def check_gifts(daily_goals: dict[int, str], data: GameData, season: str) -> list[GiftWarning]:
-    """核对送礼任务：礼物最好是该 NPC 最爱 / 喜欢的，不能是不喜欢 / 讨厌的；可以结婚的村民生日当天须有送礼任务。"""
+def check_gifts(daily_goals: dict[int, str], data: GameData, season: str, start_day: int = 1) -> list[GiftWarning]:
+    """核对送礼任务：礼物最好是该 NPC 最爱 / 喜欢的，不能是不喜欢 / 讨厌的；可以结婚的村民生日当天须有送礼任务。
+
+    start_day > 1（季中开始规划）时，第 start_day 天之前的生日已经过去，不再要求送礼。"""
     season = normalize_season(season)
     nd = data.npc_data
     warnings: list[GiftWarning] = []
@@ -404,6 +406,8 @@ def check_gifts(daily_goals: dict[int, str], data: GameData, season: str) -> lis
                                                 prefs + note))
 
     for npc in nd.birthdays_in_season(season):
+        if npc.birthday_day < start_day:
+            continue
         if npc.marriage and npc.birthday_day not in gifted_on.get(npc.name, set()):
             warnings.append(GiftWarning(
                 npc.birthday_day, npc.name,

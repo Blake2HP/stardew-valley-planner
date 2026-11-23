@@ -80,6 +80,7 @@ class StrategyResult:
     achievement_targets: object = None                   # 本季成就缺口（achievements.SeasonTargets）
     achievement_milestones: list = field(default_factory=list)  # 模型给出的成就节点
     achievement_progress_end: object = None              # 本季结束时的成就进度，跨季规划时传给下一季
+    start_day: int = 1                                   # 季中开始规划的日子（只规划第 start_day-28 天）
 
 
 # ---------------------------------------------------------------------------
@@ -144,8 +145,10 @@ def _parse_other_income(raw) -> list[OtherIncome]:
     return out
 
 
-def validate_payload(payload: dict, players: int = 1) -> ParsedStrategy:
+def validate_payload(payload: dict, players: int = 1, start_day: int = 1) -> ParsedStrategy:
+    """校验模型输出的结构。start_day > 1 时 daily_goals 只需覆盖第 start_day-28 天，更早的日子直接丢掉。"""
     errors = []
+    days = range(start_day, SEASON_DAYS + 1)
 
     macro = payload.get("macro_strategy")
     if not isinstance(macro, dict) or not macro.get("pillars"):
@@ -162,9 +165,9 @@ def validate_payload(payload: dict, players: int = 1) -> ParsedStrategy:
     if not isinstance(raw_goals, dict):
         errors.append("daily_goals 必须是对象")
     elif players > 1:  # 联机：每天按玩家写成对象
-        player_goals = parse_player_goals(raw_goals, players, errors)
+        player_goals = {d: g for d, g in parse_player_goals(raw_goals, players, errors).items() if d >= start_day}
         goals = {d: merge_day(g) for d, g in player_goals.items()}
-        missing = [d for d in range(1, SEASON_DAYS + 1) if d not in goals]
+        missing = [d for d in days if d not in goals]
         if missing:
             errors.append(f"daily_goals 缺少或不完整的天数: {missing}")
     else:
@@ -174,9 +177,9 @@ def validate_payload(payload: dict, players: int = 1) -> ParsedStrategy:
             except (TypeError, ValueError):
                 errors.append(f"daily_goals 的键 {k!r} 不是数字")
                 continue
-            if 1 <= day <= SEASON_DAYS and isinstance(v, str) and v.strip():
+            if start_day <= day <= SEASON_DAYS and isinstance(v, str) and v.strip():
                 goals[day] = v.strip()
-        missing = [d for d in range(1, SEASON_DAYS + 1) if d not in goals]
+        missing = [d for d in days if d not in goals]
         if missing:
             errors.append(f"daily_goals 缺少或为空的天数: {missing}")
 
@@ -185,27 +188,27 @@ def validate_payload(payload: dict, players: int = 1) -> ParsedStrategy:
     if errors:
         raise StrategyParseError("；".join(errors))
 
-    return ParsedStrategy(macro, _clean_milestones(milestones), goals, plantings,
+    return ParsedStrategy(macro, _clean_milestones(milestones, start_day), goals, plantings,
                           _parse_other_income(payload.get("other_income")), payload.get("tool_upgrades") or [],
                           payload.get("constructions") or [], player_goals,
-                          _clean_achievement_milestones(payload.get("achievement_milestones")))
+                          _clean_achievement_milestones(payload.get("achievement_milestones"), start_day))
 
 
-def _clean_achievement_milestones(raw) -> list[dict]:
-    """成就节点：可选字段，写错的条目直接丢弃（缺了由成就校验提示），按 day 排序。"""
+def _clean_achievement_milestones(raw, start_day: int = 1) -> list[dict]:
+    """成就节点：可选字段，写错的条目（和早于 start_day 的）直接丢弃（缺了由成就校验提示），按 day 排序。"""
     out = []
     for item in raw if isinstance(raw, list) else []:
         try:
             day, goal = int(item["day"]), str(item["goal"]).strip()
         except (TypeError, KeyError, ValueError):
             continue
-        if 1 <= day <= SEASON_DAYS and goal:
+        if start_day <= day <= SEASON_DAYS and goal:
             out.append({"day": day, "achievement": str(item.get("achievement") or "").strip(), "goal": goal})
     return sorted(out, key=lambda m: m["day"])
 
 
-def _clean_milestones(milestones) -> list[dict]:
-    """只保留 day 能转成 1-28 整数的节点，并按日期排序（修复后的 JSON 里 day 可能是字符串）。"""
+def _clean_milestones(milestones, start_day: int = 1) -> list[dict]:
+    """只保留 day 能转成 start_day-28 整数的节点，并按日期排序（修复后的 JSON 里 day 可能是字符串）。"""
     cleaned = []
     for m in milestones or []:
         if not isinstance(m, dict):
@@ -214,31 +217,31 @@ def _clean_milestones(milestones) -> list[dict]:
             day = int(m.get("day"))
         except (TypeError, ValueError):
             continue
-        if 1 <= day <= SEASON_DAYS:
+        if start_day <= day <= SEASON_DAYS:
             cleaned.append({**m, "day": day})
     return sorted(cleaned, key=lambda m: m["day"])
 
 
-def _lenient_parse(payload: dict, players: int = 1) -> ParsedStrategy:
-    """重试仍失败时的兜底：尽量保留能用的部分，缺失的天数填充占位。"""
+def _lenient_parse(payload: dict, players: int = 1, start_day: int = 1) -> ParsedStrategy:
+    """重试仍失败时的兜底：尽量保留能用的部分，缺失的天数（第 start_day-28 天）填充占位。"""
     macro = payload.get("macro_strategy") if isinstance(payload.get("macro_strategy"), dict) else {}
     raw = payload.get("daily_goals") if isinstance(payload.get("daily_goals"), dict) else {}
     goals, player_goals = {}, {}
     if players > 1:
         parsed = parse_player_goals(raw, players, None)
-        for d in range(1, SEASON_DAYS + 1):
+        for d in range(start_day, SEASON_DAYS + 1):
             player_goals[d] = parsed.get(d) or {p: FALLBACK_GOAL for p in player_ids(players)}
             goals[d] = merge_day(player_goals[d])
-    for d in range(1, SEASON_DAYS + 1):
+    for d in range(start_day, SEASON_DAYS + 1):
         if players > 1:
             break
         v = raw.get(str(d), raw.get(d))
         goals[d] = v.strip() if isinstance(v, str) and v.strip() else FALLBACK_GOAL
-    return ParsedStrategy(macro, _clean_milestones(payload.get("key_milestones")), goals,
+    return ParsedStrategy(macro, _clean_milestones(payload.get("key_milestones"), start_day), goals,
                           _parse_plantings(payload.get("plantings"), None),
                           _parse_other_income(payload.get("other_income")), payload.get("tool_upgrades") or [],
                           payload.get("constructions") or [], player_goals,
-                          _clean_achievement_milestones(payload.get("achievement_milestones")))
+                          _clean_achievement_milestones(payload.get("achievement_milestones"), start_day))
 
 
 def _fallback_warnings(error: str | None, goals: dict[int, str], payload: dict, parsed: ParsedStrategy) -> list[str]:
@@ -271,7 +274,7 @@ class _Draft:
 
 
 def _draft(client: LLMClient, messages: list, max_retries: int, allow_fallback: bool = True,
-           system: str = SYSTEM_PROMPT, players: int = 1) -> _Draft:
+           system: str = SYSTEM_PROMPT, players: int = 1, start_day: int = 1) -> _Draft:
     """调用模型并校验格式；不合格时把错误回传给模型重试。重试用完：能兜底就兜底，否则抛出 StrategyParseError。"""
     messages = list(messages)
     raw, parse_method, calls = "", "", 0
@@ -287,7 +290,7 @@ def _draft(client: LLMClient, messages: list, max_retries: int, allow_fallback: 
         try:
             parsed = extract_json(raw)  # 语法错误在本地修复，不消耗重试次数
             payload, parse_method = parsed.data, parsed.method
-            strategy = validate_payload(payload, players)
+            strategy = validate_payload(payload, players, start_day)
             if truncated:
                 raise StrategyParseError(TRUNCATED_ERROR)
             return _Draft(raw, payload, parse_method, strategy, None, calls, messages)
@@ -296,7 +299,8 @@ def _draft(client: LLMClient, messages: list, max_retries: int, allow_fallback: 
             if attempt == max_retries:
                 if not payload or not allow_fallback:
                     raise StrategyParseError(reason) from e
-                return _Draft(raw, payload, parse_method, _lenient_parse(payload, players), reason, calls, messages)
+                return _Draft(raw, payload, parse_method, _lenient_parse(payload, players, start_day), reason, calls,
+                              messages)
             messages += [
                 {"role": "assistant", "content": raw},
                 {"role": "user", "content": REPAIR_PROMPT_TEMPLATE.format(error=reason)},
@@ -324,6 +328,7 @@ class _Season:
     players: int = 1           # 联机人数（见 coop.py）
     roles: dict = field(default_factory=dict)  # 联机分工 {"P1": "种田"}
     achievements: object = None  # 本季成就缺口（achievements.SeasonTargets）；没选成就时为 None
+    start_day: int = 1           # 季中开始规划的日子
 
 
 @dataclass
@@ -348,11 +353,19 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     island = s.location == "ginger_island"
     plantings, planting_warnings = resolve_plantings(strategy.plantings, data, season_key, s.year, s.bonuses,
                                                      s.greenhouse, notes, s.location)
+    past_problems = []  # 季中开始规划：安排在今天之前的种植、工具升级、建筑（不计入资金，交给模型修正）
+    if s.start_day > 1:
+        past_problems += [f"⚠️ 种植清单第 {p.day} 天的{p.crop.name}早于今天（第 {s.start_day} 天），这些日子已经过去；"
+                          f"请改到第 {s.start_day} 天或之后（这次播种不计入资金）" for p in plantings if p.day < s.start_day]
+        plantings = [p for p in plantings if p.day >= s.start_day]
     upgrades, tool_problems = [], []
     if data.tool_rules is not None:
         closed = {e.day for e in data.events_in_season(season_key)
                   if e.type == "festival" and e.name not in data.tool_rules.open_festivals}
         upgrades, tool_problems = parse_upgrades(strategy.tool_upgrades, data.tool_rules, closed, s.players)
+        past_problems += [f"⚠️ 工具升级：第 {u.day} 天交送{u.tool.name}早于今天（第 {s.start_day} 天），"
+                          f"请改到第 {s.start_day} 天或之后（不计入资金）" for u in upgrades if u.day < s.start_day]
+        upgrades = [u for u in upgrades if u.day >= s.start_day]
         tool_problems += check_upgrades(upgrades, goals, {p.day for p in plantings}, strategy.player_goals or None)
 
     constructions, building_problems = [], []
@@ -360,6 +373,9 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         no_work = {e.day for e in data.events_in_season(season_key)
                    if e.type == "festival" and e.name not in data.building_rules.night_festivals}
         constructions, building_problems = parse_constructions(strategy.constructions, data.building_rules, no_work)
+        past_problems += [f"⚠️ 建筑校验：第 {c.day} 天找罗宾建{c.building.name}早于今天（第 {s.start_day} 天），"
+                          f"请改到第 {s.start_day} 天或之后（不计入资金）" for c in constructions if c.day < s.start_day]
+        constructions = [c for c in constructions if c.day >= s.start_day]
         building_problems += check_constructions(constructions, goals, data.building_rules, no_work)
 
     reservations = []
@@ -379,6 +395,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         fixed_costs=upgrade_costs(upgrades), building_costs=construction_costs(constructions),
         ship_first=keep_for_shipping(s.achievements, season_harvest_units(plantings, carry_in))
         if s.achievements else None,
+        start_day=s.start_day,
     )
     end_state = extract_farm_state(season_key, s.year, plantings, finance, carry_in,
                                    strategy.macro.get("season_goals"))
@@ -386,7 +403,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     carried = s.prior_state.carried_names if s.prior_state else ()
     goal_checks = check_plantings(goals, data, season_key, s.bonuses, s.year, carried, s.greenhouse, island)
     reported = {(w.day, w.crop) for w in goal_checks}
-    problems = [f"⚠️ {w}" for w in goal_checks] + planting_warnings
+    problems = past_problems + [f"⚠️ {w}" for w in goal_checks] + planting_warnings
     problems += late_planting_warnings(plantings, season_key, s.bonuses, reported)
     problems += bus_warnings(plantings, s.year, reported)
     if d.fallback_error is None:  # 兜底时清单本来就不可靠，下面的兜底警告已经说明
@@ -407,7 +424,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         problems += check_achievements(s.achievements, shipped_units(harvested, finance),
                                        {p.crop.name for p in plantings}, gifts_by_day, strategy.macro,
                                        strategy.achievement_milestones, harvested, finance.bundle_units,
-                                       _friend_points(s.achievements.progress, goals, data, season_key))
+                                       _friend_points(s.achievements.progress, goals, data, season_key, s.start_day))
     if data.energy_rules is not None:
         problems += check_energy(goals, plantings, carry_in, data.energy_rules, s.bonuses, s.players)
     note = fertilizer_availability_note(s.bonuses, season_key, s.year, plantings[0].day) if plantings else None
@@ -441,7 +458,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
     elif inserted:
         warnings.append(f"ℹ️ 已自动在第 28 天加入“{goals[SEASON_DAYS].split('；')[-1]}”。")
 
-    gift_warnings = [f"⚠️ {w}" for w in check_gifts(goals, data, season_key)]
+    gift_warnings = [f"⚠️ {w}" for w in check_gifts(goals, data, season_key, s.start_day)]
     return _Evaluation(goals, plantings, finance, end_state, warnings, gift_warnings, problems + gift_warnings,
                        player_goals)
 
@@ -451,14 +468,16 @@ def _season_earned(f: SeasonFinance) -> int:
     return f.crop_revenue + f.processing_net + f.honey_income + max(0, f.livestock_net) + f.other_total
 
 
-def _friend_points(progress: Progress, goals: dict, data: GameData, season: str) -> dict:
+def _friend_points(progress: Progress, goals: dict, data: GameData, season: str, start_day: int = 1) -> dict:
     """按本季日程估算季末每位村民的好感度（从前几季的估算开始）。"""
-    return friendship_season(goals, data, data.achievement_rules.friendship, season, progress.points)
+    return friendship_season(goals, data, data.achievement_rules.friendship, season, progress.points, start_day)
 
 
-def _progress_after(progress: Progress, ev: _Evaluation, carry_in, data: GameData, season: str) -> Progress:
+def _progress_after(progress: Progress, ev: _Evaluation, carry_in, data: GameData, season: str,
+                    start_day: int = 1) -> Progress:
     units = shipped_units(season_harvest_units(ev.plantings, carry_in), ev.finance)  # 只有直接出货的才算运送
-    return advance(progress, units, _friend_points(progress, ev.goals, data, season), _season_earned(ev.finance))
+    return advance(progress, units, _friend_points(progress, ev.goals, data, season, start_day),
+                   _season_earned(ev.finance))
 
 
 def resolve_location(location: str | None) -> str:
@@ -513,6 +532,7 @@ def generate_strategy(
     roles=None,
     achievements=None,
     achievement_progress=None,
+    start_day: int = 1,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -545,6 +565,9 @@ def generate_strategy(
         achievements: 想完成的 Steam 成就，"混合栽培,万人迷" 或列表（见 data/achievements.json、achievements.py）。
         achievement_progress: 已有的成就进度，"防风草=15,万人迷=12" 或 dict，或 generate_plan 传入的
             achievements.Progress；不给时从零算。
+        start_day: 季中重新规划时今天是本季第几天（1-28，默认 1）。只规划第 start_day 天到第 28 天：收益按这天起算，
+            更早的种植、工具升级、建筑会被报出来交给模型修正；第 1 年春季从第 2 天起不再默认开局金币和赠送的种子
+            （期初资金要用 start_gold 给出）。
         revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
             重新生成；只有问题变少才采用新版本。会多调用模型。
     """
@@ -556,6 +579,10 @@ def generate_strategy(
         raise ValueError(f"上季状态只能衔接{expected}，收到第 {year} 年{SEASON_ZH[season_key]}")
     if start_gold is not None and start_gold < 0:
         raise ValueError(f"期初资金必须 ≥ 0，收到 {start_gold}")
+    if isinstance(start_day, bool) or not isinstance(start_day, int) or not 1 <= start_day <= SEASON_DAYS:
+        raise ValueError(f"起始日必须是 1-{SEASON_DAYS} 的整数，收到 {start_day!r}")
+    if start_day > 1 and prior_state is not None:
+        raise ValueError("衔接上季状态时只能从第 1 天开始规划")
     bonuses = resolve_bonuses(professions, fertilizer, farming_level=farming_level)
     if not 0 <= processing_share <= 1:
         raise ValueError(f"加工比例必须在 0-1 之间，收到 {processing_share}")
@@ -590,7 +617,7 @@ def generate_strategy(
     if prior_state is not None:
         gold, gold_estimated = prior_state.gold, prior_state.gold_estimated
     else:
-        if start_gold is None and (season_key, year) == ("spring", 1):
+        if start_gold is None and (season_key, year, start_day) == ("spring", 1, 1):
             start_gold = data.starting_gold
         gold = gold_estimated = start_gold
     # 新存档（第 1 年春季、没有上季状态）有开局赠送的种子
@@ -598,7 +625,8 @@ def generate_strategy(
     if prior_state is not None:
         seed_stock, stock_label = dict(prior_state.seeds), "上季剩余"
     else:
-        seed_stock = data.starting_seed_stock(farm_type) if (season_key, year) == ("spring", 1) else {}
+        # 季中开始时开局赠送的种子早就种下或用掉了
+        seed_stock = data.starting_seed_stock(farm_type) if (season_key, year, start_day) == ("spring", 1, 1) else {}
         stock_label = "开局赠送"
 
     # 1) 检索攻略片段（RAG）+ 数据 → Prompt
@@ -608,11 +636,12 @@ def generate_strategy(
     )
     carryover = render_state_for_prompt(prior_state, start_gold, seed_stock if prior_state is None else None)
     context = build_data_context(data, season_key, guide_excerpts, bonuses, year, carryover, processing_share,
-                                 machines, greenhouse, herds, bundle_text, location)
+                                 machines, greenhouse, herds, bundle_text, location, start_day)
     context["coop"] = describe_coop(players, roles)
     context["energy"] = describe_energy(data.energy_rules, bonuses, players)
     anywhere = "姜岛" if location == "ginger_island" else "温室" if greenhouse else ""
-    targets = season_targets(goals_wanted, progress, data.crops, season_key, year, anywhere) if goals_wanted else None
+    targets = (season_targets(goals_wanted, progress, data.crops, season_key, year, anywhere, start_day)
+               if goals_wanted else None)
     if targets is not None:
         context["achievement_block"] = ("### 【🏆 成就规划目标】（程序计算，data/achievements.json）\n"
                                         + describe_targets(targets, data.achievement_rules) + "\n\n")
@@ -623,9 +652,9 @@ def generate_strategy(
 
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
-                          machines, greenhouse, herds, bundle_needs, location, players, roles, targets)
+                          machines, greenhouse, herds, bundle_needs, location, players, roles, targets, start_day)
     system = build_system_prompt(players, achievements=bool(goals_wanted))
-    draft = _draft(client, messages, max_retries, system=system, players=players)
+    draft = _draft(client, messages, max_retries, system=system, players=players, start_day=start_day)
     attempts = draft.calls
     evaluation = _evaluate(draft, season_info)
     initial_problems = list(evaluation.problems)
@@ -641,7 +670,8 @@ def generate_strategy(
         ]
         record = {"round": round_no, "problems_before": len(evaluation.problems)}
         try:
-            candidate = _draft(client, conversation, 0, allow_fallback=False, system=system, players=players)
+            candidate = _draft(client, conversation, 0, allow_fallback=False, system=system, players=players,
+                               start_day=start_day)
         except StrategyParseError as e:
             attempts += 1
             revisions.append({**record, "problems_after": None, "accepted": False, "error": str(e)[:150]})
@@ -703,7 +733,9 @@ def generate_strategy(
         achievement_targets=targets,
         achievement_milestones=strategy.achievement_milestones,
         achievement_progress_end=_progress_after(progress, evaluation, carry_in=prior_state.carry if prior_state
-                                                 else (), data=data, season=season_key) if goals_wanted else None,
+                                                 else (), data=data, season=season_key,
+                                                 start_day=start_day) if goals_wanted else None,
+        start_day=start_day,
     )
     result.markdown = render_markdown(result, data)
     return result
@@ -758,9 +790,13 @@ def generate_plan(
     client: LLMClient | None = None,
     provider: str | None = None,
     model: str | None = None,
+    start_day: int = 1,
     **kwargs,
 ) -> PlanResult:
-    """跨季连续规划：逐季调用 generate_strategy，把上一季的季末状态注入下一季。"""
+    """跨季连续规划：逐季调用 generate_strategy，把上一季的季末状态注入下一季。
+
+    start_day 只用于第一个季节（季中重新规划），之后的季节都从第 1 天开始。
+    """
     from .renderer import render_plan  # 避免循环导入
 
     plan = parse_seasons(seasons, year)
@@ -773,7 +809,8 @@ def generate_plan(
         try:
             result = generate_strategy(
                 playstyle, pacing, season_key, season_year, client=client, data=data,
-                start_gold=start_gold if state is None else None, prior_state=state, **kwargs,
+                start_gold=start_gold if state is None else None, prior_state=state,
+                start_day=start_day if state is None else 1, **kwargs,
             )
         except Exception as e:
             if not results:  # 第一季就失败：没有可保留的结果，照常抛出

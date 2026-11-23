@@ -329,6 +329,7 @@ def compute_finance(
     fixed_costs: list[tuple[int, int, str]] = (),
     building_costs: list[tuple[int, int, str]] = (),
     ship_first: dict[str, float] | None = None,
+    start_day: int = 1,
 ) -> SeasonFinance:
     """本季种植收支（只算本季内发生的收获；跨季收获计入下一季）。
 
@@ -341,6 +342,7 @@ def compute_finance(
     set_aside 是留给社区中心收集包的作物（bundles.Reservation），留下的按售价从收入里扣掉。
     fixed_costs 是其他固定支出 (日, 金币, 说明)，例如工具升级费；building_costs 是农场建筑费用，格式相同。
     ship_first 是出货类成就要先留下、不交给机器加工的个数；set_aside 里留给收集包的也会先留下，不用再算进来。
+    start_day 是季中开始规划的日子：动物在这天买入、蜂蜜从这天起算（种植清单本身不会早于这天）。
     """
     revenue_by_day: dict[int, float] = {}
     drops_by_day: dict[tuple[str, int], float] = {}  # (作物, 日) → 掉落的种子数（期望）
@@ -440,7 +442,7 @@ def compute_finance(
         blooms += [(p.crop, p.harvests[0]) for p in plantings
                    if p.crop.category == "flower" and not p.in_greenhouse and p.harvests and p.harvests[0] <= SEASON_DAYS]
         honey_season = "spring" if honey_all_seasons else normalize_season(season)  # 姜岛的蜂房冬季也产蜜
-        honey_result = simulate_honey(blooms, honey_season, bee_houses, honey, bonuses)
+        honey_result = simulate_honey(blooms, honey_season, bee_houses, honey, bonuses, start_day)
         lines += honey_result.lines
 
     bundle_value, done = 0, list(bundle_done_in)
@@ -468,7 +470,7 @@ def compute_finance(
 
     livestock = None
     if herds and season is not None:
-        livestock = simulate_livestock(list(herds), normalize_season(season), hay_price)
+        livestock = simulate_livestock(list(herds), normalize_season(season), hay_price, start_day)
         lines += livestock.lines
 
     finance = SeasonFinance(
