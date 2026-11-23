@@ -281,3 +281,42 @@ def test_start_day_out_of_range(indexed_store, day):
 def test_index_has_start_day_input(indexed_store):
     with make_client(indexed_store) as c:
         assert 'id="startDay"' in c.get("/").text
+
+
+SAVE_FIXTURE = __import__("pathlib").Path(__file__).parent / "fixtures" / "Farmer_123456789"
+
+
+def test_import_save_returns_form_defaults(indexed_store):
+    with make_client(indexed_store) as c:
+        r = c.post("/api/import-save", content=SAVE_FIXTURE.read_bytes(),
+                   headers={"Content-Type": "application/octet-stream"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["defaults"]["seasons"] == ["summer"] and d["defaults"]["start_day"] == 12
+    assert d["defaults"]["owned_animals"] == "牛:1,鸡:2,鸭:1" and d["defaults"]["professions"] == ["tiller", "artisan"]
+    assert "日期：第 2 年夏季第 12 天" in d["summary"] and any("Void Chicken" in w for w in d["warnings"])
+
+
+def test_imported_defaults_generate(indexed_store):
+    with make_client(indexed_store) as c:
+        d = c.post("/api/import-save", content=SAVE_FIXTURE.read_bytes()).json()["defaults"]
+        r = c.post("/api/generate", json={**BODY, **d})
+    assert r.status_code == 200 and "鸡 ×2（已经养着）" in r.json()["markdown"]
+
+
+@pytest.mark.parametrize("content, status, message", [
+    (b"", 400, "没有收到存档文件"),
+    (b"<Farmer/>", 400, "SaveGameInfo"),
+    (b"<!DOCTYPE x><SaveGame/>", 400, "DOCTYPE"),
+    (b"x" * 2048, 413, "存档文件太大"),
+])
+def test_import_save_errors(indexed_store, content, status, message):
+    with make_client(indexed_store, max_save_bytes=1024) as c:
+        r = c.post("/api/import-save", content=content)
+    assert r.status_code == status and message in r.json()["detail"]
+
+
+def test_bad_owned_animals(indexed_store):
+    with make_client(indexed_store) as c:
+        r = c.post("/api/generate", json={**BODY, "owned_animals": "恐龙:1"})
+    assert r.status_code == 400

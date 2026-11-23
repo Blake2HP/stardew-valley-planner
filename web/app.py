@@ -1,4 +1,6 @@
-"""网页版 Demo：一个页面 + 两个接口，调用现有的 generate_strategy / generate_plan，不改业务代码。
+"""网页版 Demo：一个页面 + 几个接口，调用现有的 generate_strategy / generate_plan，不改业务代码。
+
+/api/import-save 只解析上传的存档、返回表单默认值，不保存文件（DEMO_MAX_SAVE_MB 限制大小，默认 20MB）。
 
 运行：
     python -m web                         # http://127.0.0.1:8000，默认用 mock（不消耗 API 额度）
@@ -10,6 +12,7 @@
     DEMO_RATE_LIMIT     每个 IP 每小时最多生成几次（默认：mock 不限，真实模型 10 次）
     DEMO_MAX_SEASONS    一次最多规划几个季节（默认 4）
     DEMO_MAX_CONCURRENT 同时进行的生成数（默认 2），超过时直接返回“繁忙”，避免费用失控
+    DEMO_MAX_SAVE_MB    上传存档的大小上限（默认 20）
 """
 
 from __future__ import annotations
@@ -38,8 +41,10 @@ from stardew_planner.achievements import parse_progress, resolve_goals
 from stardew_planner.coop import MAX_PLAYERS, ROLE_WORDS, parse_roles
 from stardew_planner.data_loader import SEASON_ZH, get_guide_store, load_game_data
 from stardew_planner.generator import parse_seasons
+from stardew_planner.livestock import parse_animals
 from stardew_planner.llm_client import ModelRefusal, get_client
 from stardew_planner.playstyles import load_presets
+from stardew_planner.save_parser import SaveParseError, parse_save
 
 try:
     from dotenv import load_dotenv
@@ -61,6 +66,7 @@ class Settings:
         self.max_concurrent = int(os.getenv("DEMO_MAX_CONCURRENT", "2"))
         # 单次模型调用的超时（秒）；网页里不让 SDK 再自动重试，避免一个卡住的请求长期占用生成名额
         self.request_timeout = float(os.getenv("DEMO_REQUEST_TIMEOUT", "300"))
+        self.max_save_bytes = int(float(os.getenv("DEMO_MAX_SAVE_MB", "20")) * 1024 * 1024)
 
 
 # ---------------------------------------------------------------------------
@@ -83,13 +89,14 @@ class GenerateRequest(BaseModel):
     jars: int = Field(default=0, ge=0, le=1000)
     bee_houses: int = Field(default=0, ge=0, le=1000)
     animals: str | None = Field(default=None, max_length=100)
+    owned_animals: str | None = Field(default=None, max_length=200)  # 已经养着的成年动物（存档导入）
     route: Literal["community_center"] | None = None
     location: Literal["pelican_town", "ginger_island"] = "pelican_town"
     greenhouse: bool = False
     players: int = Field(default=1, ge=1, le=MAX_PLAYERS)
     roles: dict[str, str] = Field(default_factory=dict, max_length=MAX_PLAYERS)  # {"P1": "种田"}，空值忽略
     achievements: list[str] = Field(default_factory=list, max_length=60)  # 成就 key 或名字
-    achievement_progress: str | None = Field(default=None, max_length=300)  # 如 "防风草=15,万人迷=12"
+    achievement_progress: str | None = Field(default=None, max_length=1000)  # 如 "防风草=15,万人迷=12"
 
 
 class RateLimiter:
@@ -262,6 +269,32 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                              for a in (data().achievement_rules.achievements if data().achievement_rules else ())],
         }
 
+    @app.post("/api/import-save")
+    async def import_save(request: Request):
+        """请求体是存档文件本身（application/octet-stream）。只在内存里解析，返回表单默认值和摘要，不落盘。"""
+        limit = settings.max_save_bytes
+        too_big = HTTPException(413, f"存档文件太大：最多 {limit / 1024 / 1024:g}MB")
+        declared = request.headers.get("content-length")
+        if declared and declared.isdigit() and int(declared) > limit:
+            raise too_big
+        chunks, size = [], 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > limit:
+                raise too_big
+            chunks.append(chunk)
+        if not size:
+            raise HTTPException(400, "没有收到存档文件")
+        try:
+            save = parse_save(b"".join(chunks), data())
+        except SaveParseError as e:
+            raise HTTPException(400, str(e)) from e
+        return {
+            "defaults": save.form_defaults(data().achievement_rules),
+            "summary": save.summary_lines(data()),
+            "warnings": save.warnings,
+        }
+
     @app.post("/api/generate")
     def generate(req: GenerateRequest, request: Request):
         try:
@@ -272,6 +305,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             if any(len(v) > 30 for v in roles.values()):
                 raise ValueError("每个玩家的分工最多 30 个字")
             roles = parse_roles(roles, req.players)
+            parse_animals(req.owned_animals, data().animals)
             goals = resolve_goals(req.achievements, data().achievement_rules)
             parse_progress(req.achievement_progress, data().achievement_rules, data().crops)
         except ValueError as e:
@@ -296,7 +330,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                 guide_store=guide_store, professions=req.professions, fertilizer=req.fertilizer,
                 farming_level=req.farming_level, processing_share=req.processing_share, start_gold=req.start_gold,
                 farm_type=req.farm_type, kegs=req.kegs, jars=req.jars, greenhouse=req.greenhouse,
-                bee_houses=req.bee_houses, animals=req.animals or None,
+                bee_houses=req.bee_houses, animals=req.animals or None, owned_animals=req.owned_animals or None,
                 route=req.route, location=req.location, players=req.players, roles=roles,
                 achievements=[g.achievement.name for g in goals], achievement_progress=req.achievement_progress or None,
                 start_day=req.start_day,

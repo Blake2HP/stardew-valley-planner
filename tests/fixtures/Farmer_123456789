@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SaveGame xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <player>
+    <name>Blake</name>
+    <farmName>Sunny</farmName>
+    <money>12345</money>
+    <totalMoneyEarned>250000</totalMoneyEarned>
+    <farmingLevel>10</farmingLevel>
+    <professions>
+      <int>1</int>
+      <int>4</int>
+      <int>6</int>
+    </professions>
+    <mailReceived>
+      <string>ccPantry</string>
+      <string>ccBoilerRoom</string>
+    </mailReceived>
+    <basicShipped>
+      <item><key><string>24</string></key><value><int>20</int></value></item>
+      <item><key><string>190</string></key><value><int>3</int></value></item>
+      <item><key><string>(O)400</string></key><value><int>16</int></value></item>
+      <item><key><string>176</string></key><value><int>40</int></value></item>
+      <item><key><string>SomeMod_Banana</string></key><value><int>5</int></value></item>
+    </basicShipped>
+    <friendshipData>
+      <item><key><string>Haley</string></key><value><Friendship><Points>1500</Points><GiftsThisWeek>0</GiftsThisWeek></Friendship></value></item>
+      <item><key><string>Abigail</string></key><value><Friendship><Points>600</Points></Friendship></value></item>
+      <item><key><string>Krobus</string></key><value><Friendship><Points>2600</Points></Friendship></value></item>
+      <item><key><string>Lewis</string></key><value><Friendship><Points>0</Points></Friendship></value></item>
+    </friendshipData>
+  </player>
+  <farmhands>
+    <Farmer><name>Friend</name></Farmer>
+  </farmhands>
+  <locations>
+    <GameLocation xsi:type="Farm">
+      <name>Farm</name>
+      <objects>
+        <item><key><Vector2><X>10</X><Y>10</Y></Vector2></key><value><Object><name>Keg</name><bigCraftable>true</bigCraftable></Object></value></item>
+        <item><key><Vector2><X>11</X><Y>10</Y></Vector2></key><value><Object><name>Keg</name><bigCraftable>true</bigCraftable></Object></value></item>
+        <item><key><Vector2><X>12</X><Y>10</Y></Vector2></key><value><Object><name>Preserves Jar</name><bigCraftable>true</bigCraftable></Object></value></item>
+        <item><key><Vector2><X>13</X><Y>10</Y></Vector2></key><value><Object><name>Bee House</name><bigCraftable>true</bigCraftable></Object></value></item>
+        <item><key><Vector2><X>14</X><Y>10</Y></Vector2></key><value><Object><name>Bee House</name><bigCraftable>true</bigCraftable></Object></value></item>
+        <item><key><Vector2><X>15</X><Y>10</Y></Vector2></key><value><Object><name>Stone</name></Object></value></item>
+      </objects>
+      <terrainFeatures />
+      <animals>
+        <item><key><long>1</long></key><value><FarmAnimal><type>Brown Cow</type></FarmAnimal></value></item>
+      </animals>
+      <buildings>
+        <Building>
+          <indoors xsi:type="AnimalHouse">
+            <animals>
+              <item><key><long>2</long></key><value><FarmAnimal><type>White Chicken</type></FarmAnimal></value></item>
+              <item><key><long>3</long></key><value><FarmAnimal><type>Brown Chicken</type></FarmAnimal></value></item>
+              <item><key><long>4</long></key><value><FarmAnimal><type>Void Chicken</type></FarmAnimal></value></item>
+              <item><key><long>5</long></key><value><FarmAnimal><type>Duck</type></FarmAnimal></value></item>
+            </animals>
+          </indoors>
+        </Building>
+        <Building>
+          <indoors xsi:type="Shed">
+            <objects>
+              <item><key><Vector2><X>1</X><Y>1</Y></Vector2></key><value><Object><name>Keg</name></Object></value></item>
+              <item><key><Vector2><X>2</X><Y>1</Y></Vector2></key><value><Object><name>Bee House</name></Object></value></item>
+            </objects>
+          </indoors>
+        </Building>
+      </buildings>
+    </GameLocation>
+    <GameLocation xsi:type="Town">
+      <name>Town</name>
+      <objects>
+        <item><key><Vector2><X>1</X><Y>1</Y></Vector2></key><value><Object><name>Keg</name></Object></value></item>
+      </objects>
+    </GameLocation>
+  </locations>
+  <currentSeason>summer</currentSeason>
+  <dayOfMonth>12</dayOfMonth>
+  <year>2</year>
+  <whichFarm>1</whichFarm>
+</SaveGame>

@@ -533,6 +533,7 @@ def generate_strategy(
     achievements=None,
     achievement_progress=None,
     start_day: int = 1,
+    owned_animals=None,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -558,6 +559,8 @@ def generate_strategy(
             收益表按每 28 天稳态计算，第 28 天不要求清理农场。
         route: "community_center" 时走社区中心献祭路线：收集包要用的作物先留下、不卖（从收入里扣掉售价），
             今年最后能种某种作物的季节还没留下时报“献祭校验”，交给模型修正（见 bundles.py）。
+        owned_animals: 已经养着的成年动物（例如从存档导入），格式同 animals；不计购买费，从第 1 天起就有产出。
+            只能用于第一季（之后随季末状态带下去）。
         animals: 本季第 1 天新买的动物，"鸡:2,牛:1" 或 {"鸡": 2}（见 data/animals.json、livestock.py）。
             上季带来的动物（prior_state.animals）自动计入、已成年；产出、买动物和冬季干草计入资金。
         bee_houses: 室外蜂房的数量。每 4 天一罐，按室外开着的最值钱的花算花蜜（见 honey.py），计入资金；冬季不产。
@@ -596,6 +599,9 @@ def generate_strategy(
     by_name = {a.name: a for a in data.animals}
     herds = tuple(Herd(by_name[name], n, new=False) for name, n in (prior_state.animals if prior_state else ())
                   if name in by_name)
+    if owned_animals and prior_state is not None:
+        raise ValueError("衔接上季状态时不能再给已有的动物（上季的动物会自动带过来）")
+    herds += tuple(Herd(a, n, new=False) for a, n in parse_animals(owned_animals, data.animals).items())
     herds += tuple(Herd(a, n, new=True) for a, n in parse_animals(animals, data.animals).items())
     route = resolve_route(route)
     location = resolve_location(location)
@@ -823,5 +829,6 @@ def generate_plan(
         if result.achievement_progress_end is not None:  # 成就进度累计到下一季
             kwargs["achievement_progress"] = result.achievement_progress_end
         kwargs.pop("animals", None)  # 动物只在第一季买入，之后随季末状态带下去
+        kwargs.pop("owned_animals", None)
     out.markdown = render_plan(out, data)
     return out

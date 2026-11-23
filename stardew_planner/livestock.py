@@ -106,7 +106,7 @@ def simulate_livestock(herds: list[Herd], season: str, hay_price: int, start_day
 
     for h in herds:
         a = h.animal
-        label = f"{a.name} ×{h.count}" + (f"（本季第 {start_day} 天买入）" if h.new else "（上季带来）")
+        label = f"{a.name} ×{h.count}" + (f"（本季第 {start_day} 天买入）" if h.new else "（已经养着）")
         if h.new:
             cost = a.buy_price * h.count
             result.purchase_cost += cost
@@ -146,7 +146,7 @@ def describe_herds(herds: list[Herd], season: str, hay_price: int, start_day: in
     for h in herds:
         a = h.animal
         days = produce_days(h, season, start_day)
-        src = f"本季第 {start_day} 天从玛妮牧场买入" if h.new else "上季带来，已成年"
+        src = f"本季第 {start_day} 天从玛妮牧场买入" if h.new else "已经养着（上季带来或存档导入），已成年"
         need = f"，需要{a.building}" + (f"和{a.tool}" if a.tool else "")
         when = f"第 {days[0]} 天起{_every(a)}产 1 个{a.product}（{a.product_price}g），本季共 {len(days)} 次" \
             if days else ("冬季不出门，不产松露" if a.outdoor_only and season == "winter" else "本季来不及产出")

@@ -99,6 +99,12 @@
 <main>
   <form id="form" autocomplete="off">
     <div class="card">
+      <label for="saveFile">导入星露谷存档 <span class="hint">可选，1.6 主存档，20MB 以内，只解析不保存</span></label>
+      <input id="saveFile" type="file">
+      <div class="hint" style="margin:4px 0 0">存档文件夹里和文件夹同名的那个文件（如 Name_123456789），不是 SaveGameInfo；Windows 在 %APPDATA%\StardewValley\Saves</div>
+      <div class="preset-note" id="saveNote" hidden></div>
+    </div>
+    <div class="card">
       <label for="playstyle">玩法风格</label>
       <input id="playstyle" type="text" maxlength="100" value="钓鱼赚钱，兼顾种田" required>
       <div class="chips" data-target="playstyle" data-presets="playstyles"></div>
@@ -180,6 +186,10 @@
             <input id="animals" type="text" maxlength="100" placeholder="鸡:2,牛:1">
           </div>
           <div>
+            <label for="ownedAnimals">已有动物 <span class="hint">已成年，不计购买费</span></label>
+            <input id="ownedAnimals" type="text" maxlength="200" placeholder="鸡:4,牛:2">
+          </div>
+          <div>
             <label for="route">路线</label>
             <select id="route">
               <option value="">不指定</option>
@@ -201,7 +211,7 @@
         <p class="hint" style="margin:8px 0 0">✔ 的成就由程序算本季缺口（出货和友谊类还会校验）；其他只写进 Prompt，作为长期目标。</p>
         <div id="achievements"></div>
         <label for="achievementProgress">已有进度 <span class="hint">可留空，从零算</span></label>
-        <input id="achievementProgress" type="text" maxlength="300" placeholder="如 防风草=15,万人迷=12,千万富翁=50000">
+        <input id="achievementProgress" type="text" maxlength="1000" placeholder="如 防风草=15,万人迷=12,千万富翁=50000">
       </details>
 
       <button class="primary" id="submit" type="submit">生成攻略</button>
@@ -325,6 +335,45 @@ function roleMap() {
   return out;
 }
 
+// ---- 导入存档：上传 → 服务器只解析、返回默认值 → 回填表单 ----
+const MAX_SAVE_MB = 20;
+
+function fillForm(d) {
+  const set = (id, v) => { if (v !== undefined && v !== null) $(id).value = v; };
+  if (d.seasons) { $("startSeason").value = d.seasons[0]; $("seasonCount").value = 1; }
+  set("year", d.year); set("startDay", d.start_day); set("startGold", d.start_gold);
+  set("farmingLevel", d.farming_level); set("kegs", d.kegs || 0); set("jars", d.jars || 0);
+  set("beeHouses", d.bee_houses || 0); set("ownedAnimals", d.owned_animals || "");
+  set("achievementProgress", d.achievement_progress || "");
+  if (d.farm_type) $("farmType").value = d.farm_type;
+  $("route").value = d.route || "";
+  $("greenhouse").checked = !!d.greenhouse;
+  for (const el of document.querySelectorAll("#professions input")) el.checked = (d.professions || []).includes(el.value);
+  for (const el of document.querySelectorAll("form details")) {
+    if (el.querySelector("#kegs, #farmingLevel, #achievementProgress")) el.open = true;
+  }
+}
+
+async function importSave(file) {
+  const note = $("saveNote");
+  note.hidden = false;
+  if (file.size > MAX_SAVE_MB * 1024 * 1024) { note.textContent = `存档文件太大：最多 ${MAX_SAVE_MB}MB`; return; }
+  note.textContent = "正在解析存档……";
+  try {
+    const res = await fetch("/api/import-save", {
+      method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file,
+    });
+    const data = await res.json();
+    if (!res.ok) { note.textContent = `存档导入失败：${data.detail}`; return; }
+    fillForm(data.defaults);
+    const items = data.summary.map((s) => `<li>${escapeText(s)}</li>`).join("")
+      + data.warnings.map((w) => `<li class="con">${escapeText(w)}</li>`).join("");
+    note.innerHTML = `<p>✅ 已导入存档并回填下面的表单，可以再改：</p><ul>${items}</ul>`;
+  } catch (e) {
+    note.textContent = `存档导入失败：${e}`;
+  }
+}
+
 function seasonList() {
   const start = SEASONS.findIndex(([k]) => k === $("startSeason").value);
   const n = Number($("seasonCount").value);
@@ -395,6 +444,7 @@ $("form").addEventListener("submit", async (e) => {
     jars: Number($("jars").value) || 0,
     bee_houses: Number($("beeHouses").value) || 0,
     animals: $("animals").value.trim() || null,
+    owned_animals: $("ownedAnimals").value.trim() || null,
     route: $("route").value || null,
     location: $("location").value,
     greenhouse: $("greenhouse").checked,
@@ -478,6 +528,7 @@ $("download").addEventListener("click", () => {
 });
 
 loadOptions().catch(() => showError("无法连接服务器"));
+$("saveFile").addEventListener("change", (e) => { if (e.target.files[0]) importSave(e.target.files[0]); });
 </script>
 </body>
 </html>

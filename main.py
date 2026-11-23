@@ -5,6 +5,7 @@
     python main.py -p "种田为主，兼顾社区中心" -c "速通极限" -s summer --provider anthropic -o guide.md
     python main.py --professions artisan --fertilizer speed_gro --provider mock
     python main.py --season spring,summer,fall --provider mock    # 跨季连续规划
+    python main.py --save "%APPDATA%/StardewValley/Saves/Name_123456789/Name_123456789" --provider mock  # 导入存档
 """
 
 from __future__ import annotations
@@ -27,12 +28,81 @@ except ImportError:
     pass
 
 
-def main() -> None:
+# 存档能填的参数：argparse 的 dest → SaveState.generator_kwargs() 里的键
+SAVE_FIELDS = {
+    "season": "season", "year": "year", "start_day": "start_day", "start_gold": "start_gold",
+    "farm_type": "farm_type", "farming_level": "farming_level", "professions": "professions",
+    "greenhouse": "greenhouse", "route": "route", "kegs": "kegs", "jars": "jars", "bee_houses": "bee_houses",
+    "owned_animals": "owned_animals", "achievement_progress": "achievement_progress",
+}
+
+
+def explicit_dests(parser: argparse.ArgumentParser, argv: list[str]) -> set[str]:
+    """命令行里显式写了的参数（dest）。支持 --opt value、--opt=value、-s value、-svalue。"""
+    out = set()
+    for action in parser._actions:
+        for opt in action.option_strings:
+            if any(a == opt or a.startswith(opt + "=") or (len(opt) == 2 and a.startswith(opt) and not a.startswith("--"))
+                   for a in argv):
+                out.add(action.dest)
+    return out
+
+
+def apply_save(args: argparse.Namespace, state, explicit: set[str]) -> list[str]:
+    """用存档的值填参数；命令行显式写了的以命令行为准。返回说明（哪些被命令行覆盖）。"""
+    values = state.generator_kwargs()
+    notes = []
+    for dest, key in SAVE_FIELDS.items():
+        if key not in values:
+            continue
+        if dest in explicit:
+            notes.append(f"--{dest.replace('_', '-')} 以命令行为准（存档里是 {_show(values[key])}）")
+            continue
+        value = values[key]
+        if dest == "professions":
+            value = ",".join(value)
+        setattr(args, dest, value)
+    # 季节或年份换了、起始日没写：存档里的日期不适用，从第 1 天开始
+    if ({"season", "year"} & explicit) and "start_day" not in explicit and "start_day" in values:
+        first = args.season.replace("，", ",").split(",")[0].strip()
+        try:
+            from stardew_planner.data_loader import normalize_season
+            same = normalize_season(first) == state.season and args.year == state.year
+        except ValueError:
+            same = False
+        if not same:
+            args.start_day = 1
+            notes.append("季节或年份和存档不同，从第 1 天开始规划")
+    return notes
+
+
+def _show(value) -> str:
+    if isinstance(value, (list, tuple)):
+        return ",".join(map(str, value))
+    if isinstance(value, dict):
+        return ",".join(f"{k}:{v}" for k, v in value.items())
+    if hasattr(value, "shipped"):
+        return "存档里的出货和好感度"
+    return str(value)
+
+
+def main(argv: list[str] | None = None) -> None:
     for stream in (sys.stdout, sys.stderr):  # Windows 控制台中文/emoji
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
 
+    parser = build_parser()
+    argv = sys.argv[1:] if argv is None else argv
+    args = parser.parse_args(argv)
+    run(parser, args, argv)
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="星露谷物语最佳攻略生成器")
+    parser.add_argument("--save", default=None,
+                        help="导入《星露谷物语》1.6 主存档（存档文件夹里和文件夹同名的文件，不是 SaveGameInfo）："
+                             "自动填入季节、日期、年份、现金、农场地图、耕种等级、职业、温室、路线、机器、动物和成就进度；"
+                             "命令行另外写了的参数以命令行为准")
     parser.add_argument("-p", "--playstyle", default="钓鱼赚钱，兼顾种田",
                         help="玩法风格，可以自己写；用 --list-playstyles 查看预设玩法和各自的优劣势")
     parser.add_argument("-c", "--pacing", default="休闲慢节奏", help="节奏偏好，可以自己写；预设见 --list-playstyles")
@@ -68,6 +138,8 @@ def main() -> None:
                         help="游戏路线：community_center = 社区中心献祭，收集包要用的作物先留下、不卖，没留下时报献祭校验")
     parser.add_argument("--animals", default=None,
                         help="本季第 1 天新买的动物，如 \"鸡:2,牛:1\"（鸡、鸭、兔子、牛、山羊、绵羊、猪）；产出和成本计入资金")
+    parser.add_argument("--owned-animals", default=None,
+                        help="已经养着的成年动物，写法同 --animals；不计购买费，从第 1 天起就有产出（导入存档时自动填）")
     parser.add_argument("--bee-houses", type=int, default=0,
                         help="室外蜂房数量；每 4 天一罐，按室外开着的最值钱的花算花蜜，计入资金（冬季不产）")
     parser.add_argument("--greenhouse", action="store_true",
@@ -88,7 +160,25 @@ def main() -> None:
                         help="机器能加工的收获比例 0-1（默认 1 = 机器充足）；不足时自动算出“高星直接卖、低星加工”")
     parser.add_argument("--fertilizer", default=None,
                         help="肥料（每格只能一种）：加速 speed_gro / deluxe_speed_gro / hyper_speed_gro，品质 basic_fertilizer / quality_fertilizer / deluxe_fertilizer")
-    args = parser.parse_args()
+    return parser
+
+
+def run(parser: argparse.ArgumentParser, args: argparse.Namespace, argv: list[str]) -> None:
+    if args.save:
+        from stardew_planner.data_loader import load_game_data
+        from stardew_planner.save_parser import SaveParseError, parse_save
+        try:
+            state = parse_save(args.save, load_game_data())
+        except SaveParseError as e:
+            parser.error(f"存档导入失败：{e}")
+        notes = apply_save(args, state, explicit_dests(parser, argv))
+        print("[存档解析摘要]", file=sys.stderr)
+        for line in state.summary_lines(load_game_data()):
+            print(f"  - {line}", file=sys.stderr)
+        for line in notes:
+            print(f"  - {line}", file=sys.stderr)
+        for w in state.warnings:
+            print(f"  ⚠️ {w}", file=sys.stderr)
     if args.list_playstyles:
         print(describe_presets(load_presets()), end="")
         return
@@ -123,7 +213,8 @@ def main() -> None:
         from stardew_planner.data_loader import DEFAULT_DATA_DIR, load_crops
         rules = load_achievement_rules()
         resolve_goals(args.achievements, rules)
-        parse_progress(args.achievement_progress, rules, load_crops(DEFAULT_DATA_DIR / "crops.json"))
+        if isinstance(args.achievement_progress, str):  # 存档导入的是已经解析好的进度
+            parse_progress(args.achievement_progress, rules, load_crops(DEFAULT_DATA_DIR / "crops.json"))
     except ValueError as e:
         parser.error(str(e))
 
@@ -136,7 +227,7 @@ def main() -> None:
         greenhouse=args.greenhouse, bee_houses=args.bee_houses, animals=args.animals,
         route=args.route, location=args.location, players=args.players, roles=args.roles,
         achievements=args.achievements, achievement_progress=args.achievement_progress,
-        start_day=args.start_day,
+        start_day=args.start_day, owned_animals=args.owned_animals,
     )
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)
