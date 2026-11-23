@@ -105,6 +105,7 @@ Claude request settings (all can go in `.env`):
 | `ANTHROPIC_MAX_TOKENS` | `16000` | Output cap, thinking tokens included; a truncated reply is retried |
 | `ANTHROPIC_TIMEOUT` | `300` | Per-request timeout in seconds |
 | `ANTHROPIC_MAX_RETRIES` | `1` | SDK retries for network errors, 429 and 5xx |
+| `ANTHROPIC_CACHE` | `5m` | Prompt caching: the system prompt gets its own cache breakpoint (shared by every season of a multi-season plan) plus top-level automatic caching for the end of the conversation, so format retries and self-corrections read the whole data block from cache. `1h` uses the 1-hour cache (double write price, worth it only when requests are often more than 5 minutes apart); `off` disables it |
 | `ANTHROPIC_FALLBACKS` | `on` | When the model declines for safety reasons, the API reruns the request on another model in the same call (`fallbacks: "default"`), billed at that model's rates; `off` disables it. A final refusal is reported clearly instead of being retried as a JSON error |
 
 ```bash
@@ -214,7 +215,8 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 
 ```
 ├── main.py                     CLI entry point
-├── scripts/eval_llm.py         stability evaluation against the real API
+├── scripts/eval_llm.py         stability evaluation against the real API (with token usage and cache hit rate)
+├── scripts/prompt_stats.py     measures prompt length (by scenario and section)
 ├── web/                        web demo (FastAPI + single page)
 ├── stardew_planner/
 │   ├── data_loader.py          data loading, guide chunking, ChromaDB indexing and semantic search
@@ -309,6 +311,10 @@ python scripts/eval_llm.py --only spring_rush fall_wine    # run only some cases
 python scripts/eval_llm.py --provider mock                 # check the script offline, no API cost
 ```
 
+With a real model the report also has a token usage and cache section: input tokens split into uncached, cache writes and cache reads, plus the cache hit rate.
+
+`scripts/prompt_stats.py` makes no model calls: for a few typical setups (basic, another playstyle, professions and fertilizer, every feature, mid-season start) it reports the system and user prompt length in characters, each section's share, and the prefix shared with the basic setup; `--count-tokens` counts tokens with Anthropic's count_tokens endpoint (needs API credentials). Right now the system prompt is about 3,000 characters and the user prompt about 4,400-7,000; the three largest parts are the crop table, NPC birthdays and achievement targets.
+
 Real providers call the model at least once per run, which costs API credit. `--cases my_cases.json` swaps in your own cases (same fields as `DEFAULT_CASES` in the script). The script exits with code 1 if any run fails.
 
 ## Claude Code skill: `stardew-data-guard`
@@ -350,6 +356,7 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 - [x] 1-4 player co-op (`--players` / `--roles`, also in the web form: per-player schedules, role checks, energy scaled by players, per-player tools; co-op messages start with "⚠️ 联机校验：")
 - [x] Robin's construction timeline (the model outputs `constructions`; no orders on Tuesdays or festivals, festivals push the finish back, one building at a time, cost counted toward gold)
 - [x] Early-game energy (watering energy per day from the planting list; on heavy days food must be planned at least every 3 days, otherwise the model revises)
+- [x] Prompt caching (`ANTHROPIC_CACHE`: the system prompt and the conversation prefix are cached, which helps format retries, self-corrections and multi-season plans most; `scripts/prompt_stats.py` measures prompt length)
 - [x] 1.6 save import (`--save`, or upload on the web page: fills in the date, gold, professions, machines, animals and achievement progress)
 - [x] Mid-season replanning (`--start-day`, also in the web form: plans from today to day 28, with profit, money and checks all counted from today)
 - [x] Steam achievements (`--achievements`, also in the web form: all 49; earnings, friendship, Polyculture and Monoculture get a computed gap, the rest go into the prompt as long-term goals; this season's gap goes into the prompt, and short plantings or gifts are sent back as "⚠️ 成就校验：")
@@ -379,7 +386,6 @@ Exit codes: `0` success, `2` data not in the database, `3` the check found probl
 
 ### 🔭 Future plans
 
-- [ ] **Prompt caching**: the data tables and rules are resent on every call; caching them would noticeably cut API cost and time to first token, most of all for multi-season planning and self-correction
 - [ ] **Local models**: support OpenAI-compatible endpoints such as Ollama / vLLM for fully offline planning
 - [ ] **Advanced livestock and greenhouse**: large and quality products from friendship, the mayonnaise / cheese processing chain, building and tool costs; fruit trees and more indoor crops in the greenhouse
 - [ ] **Export to calendar (.ics)**: import the 28-day schedule straight into a phone or desktop calendar, with reminders on festivals and birthdays

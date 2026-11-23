@@ -36,6 +36,8 @@ EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 # 支持服务端拒答换模型（fallbacks: "default"）的模型；其他模型直接请求
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-fable-5-2"}
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+CACHE_TTLS = ("5m", "1h", "off")
+USAGE_FIELDS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
 
 
 def _env_number(name: str, default: float, cast=float):
@@ -59,7 +61,11 @@ class AnthropicClient:
     - effort 显式设置（默认 medium，可用 ANTHROPIC_EFFORT 调整），不依赖模型默认值；
     - 每次请求的超时默认 300 秒、SDK 自动重试 1 次（SDK 默认是 10 分钟、2 次，最坏要等 30 分钟）；
     - 支持的模型默认开启服务端拒答换模型（fallbacks: "default"，ANTHROPIC_FALLBACKS=off 关闭）；
-      最终仍被拒绝时抛出 ModelRefusal。
+      最终仍被拒绝时抛出 ModelRefusal；
+    - 默认开启 Prompt 缓存（ANTHROPIC_CACHE=5m / 1h / off）：系统 Prompt 单独打一个缓存断点（同样的联机人数和成就设置
+      之间共用，跨季规划的每一季都能读到），再加顶层自动缓存覆盖对话末尾——格式重试、自动修正时第一条用户消息
+      （整份【数据参考】）和之前的输出原样重发，都从缓存读。缓存按前缀逐字节匹配，所以 Prompt 里不能放时间戳之类每次
+      都变的内容（scripts/prompt_stats.py 和测试会检查）。每次请求的用量累计在 self.usage 里。
     """
 
     def __init__(
@@ -88,6 +94,19 @@ class AnthropicClient:
 
             client = anthropic.Anthropic(timeout=self.timeout, max_retries=self.max_retries)  # 读取 ANTHROPIC_API_KEY
         self.client = client
+        self.cache_ttl = (os.getenv("ANTHROPIC_CACHE") or "5m").strip().lower()
+        if self.cache_ttl not in CACHE_TTLS:
+            raise ValueError(f"ANTHROPIC_CACHE 只能是 {' / '.join(CACHE_TTLS)}，收到 {self.cache_ttl!r}")
+        self.usage = dict.fromkeys(USAGE_FIELDS, 0) | {"calls": 0}
+
+    def _cache_control(self) -> dict:
+        return {"type": "ephemeral"} if self.cache_ttl == "5m" else {"type": "ephemeral", "ttl": self.cache_ttl}
+
+    def _record_usage(self, resp) -> None:
+        usage = getattr(resp, "usage", None)
+        self.usage["calls"] += 1
+        for name in USAGE_FIELDS:
+            self.usage[name] += int(getattr(usage, name, 0) or 0)
 
     def complete(self, system: str, messages: list[Message]) -> str:
         params = dict(
@@ -97,10 +116,15 @@ class AnthropicClient:
             messages=messages,
             output_config={"effort": self.effort},
         )
+        if self.cache_ttl != "off":
+            # 系统 Prompt 的显式断点 + 顶层自动缓存（落在最后一条消息上，随对话往后移）；两者 TTL 相同
+            params["system"] = [{"type": "text", "text": system, "cache_control": self._cache_control()}]
+            params["cache_control"] = self._cache_control()
         if self.fallbacks:
             resp = self.client.beta.messages.create(betas=[FALLBACK_BETA], fallbacks="default", **params)
         else:
             resp = self.client.messages.create(**params)
+        self._record_usage(resp)
         if resp.stop_reason == "refusal":
             details = getattr(resp, "stop_details", None)
             raise ModelRefusal(getattr(details, "category", None), getattr(details, "explanation", None))

@@ -14,11 +14,11 @@ from stardew_planner.llm_client import (
 class FakeSDK:
     """记录请求参数；beta.messages.create 和 messages.create 分开记录。"""
 
-    def __init__(self, stop_reason="end_turn", text=None, stop_details=None):
+    def __init__(self, stop_reason="end_turn", text=None, stop_details=None, usage=None):
         self.calls = []
         text = json.dumps(MOCK_RESPONSE, ensure_ascii=False) if text is None else text
         resp = SimpleNamespace(
-            stop_reason=stop_reason, stop_details=stop_details,
+            stop_reason=stop_reason, stop_details=stop_details, usage=usage,
             content=[SimpleNamespace(type="thinking", thinking=""), SimpleNamespace(type="text", text=text)],
         )
 
@@ -35,7 +35,7 @@ class FakeSDK:
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
     for name in ("ANTHROPIC_MODEL", "ANTHROPIC_EFFORT", "ANTHROPIC_FALLBACKS", "ANTHROPIC_TIMEOUT",
-                 "ANTHROPIC_MAX_RETRIES", "ANTHROPIC_MAX_TOKENS"):
+                 "ANTHROPIC_MAX_RETRIES", "ANTHROPIC_MAX_TOKENS", "ANTHROPIC_CACHE"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -144,3 +144,87 @@ def test_mock_accepts_client_options():
 def test_openai_provider_is_gone():
     with pytest.raises(ValueError, match="未知 provider"):
         get_client("openai")
+
+
+# ---------------------------------------------------------------------------
+# Prompt 缓存
+# ---------------------------------------------------------------------------
+
+def test_cache_breakpoints_by_default():
+    sdk = FakeSDK()
+    AnthropicClient(client=sdk).complete("系统规则", [{"role": "user", "content": "数据"}])
+    ((_, kw),) = sdk.calls
+    assert kw["system"] == [{"type": "text", "text": "系统规则", "cache_control": {"type": "ephemeral"}}]
+    assert kw["cache_control"] == {"type": "ephemeral"}          # 顶层自动缓存：覆盖对话末尾
+    assert kw["messages"] == [{"role": "user", "content": "数据"}]  # 消息本身不改
+
+
+def test_cache_ttl_and_off(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_CACHE", "1h")
+    sdk = FakeSDK()
+    AnthropicClient(client=sdk).complete("s", [])
+    kw = sdk.calls[0][1]
+    assert kw["system"][0]["cache_control"] == kw["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+    monkeypatch.setenv("ANTHROPIC_CACHE", "off")
+    sdk = FakeSDK()
+    AnthropicClient(client=sdk).complete("s", [])
+    kw = sdk.calls[0][1]
+    assert kw["system"] == "s" and "cache_control" not in kw
+    monkeypatch.setenv("ANTHROPIC_CACHE", "forever")
+    with pytest.raises(ValueError, match="ANTHROPIC_CACHE"):
+        AnthropicClient(client=FakeSDK())
+
+
+def test_usage_is_accumulated():
+    usage = SimpleNamespace(input_tokens=100, cache_creation_input_tokens=3000, cache_read_input_tokens=5000,
+                            output_tokens=800)
+    client = AnthropicClient(client=FakeSDK(usage=usage))
+    client.complete("s", [])
+    client.complete("s", [])
+    assert client.usage == {"calls": 2, "input_tokens": 200, "cache_creation_input_tokens": 6000,
+                            "cache_read_input_tokens": 10000, "output_tokens": 1600}
+    bare = AnthropicClient(client=FakeSDK())        # 没有 usage 的响应也不出错
+    bare.complete("s", [])
+    assert bare.usage["calls"] == 1 and bare.usage["input_tokens"] == 0
+
+
+def test_prompts_are_byte_stable(data, indexed_store):
+    """缓存按前缀逐字节匹配：同样的参数要生成完全一样的 Prompt；自动修正时原来的对话原样作为前缀。"""
+    from stardew_planner.llm_client import MockClient
+
+    class Recorder(MockClient):
+        def __init__(self):
+            super().__init__()
+            self.calls = []
+
+        def complete(self, system, messages):
+            self.calls.append((system, [dict(m) for m in messages]))
+            return super().complete(system, messages)
+
+    runs = []
+    for _ in range(2):
+        rec = Recorder()
+        generate_strategy("种田", "稳健", "fall", client=rec, data=data, guide_store=indexed_store, kegs=5,
+                          achievements="混合栽培,万人迷", revise_rounds=1)
+        runs.append(rec.calls)
+    assert runs[0] == runs[1]
+    (system, first), (system2, revise) = runs[0][:2]
+    assert system == system2 and revise[:len(first)] == first      # 修正请求以第一次的对话开头
+    assert revise[len(first)]["role"] == "assistant"
+
+
+def test_eval_report_shows_cache_usage():
+    import importlib.util
+    from pathlib import Path
+    path = Path(__file__).resolve().parent.parent / "scripts" / "eval_llm.py"
+    spec = importlib.util.spec_from_file_location("eval_llm", path)
+    mod = importlib.util.module_from_spec(spec)
+    import sys
+    sys.modules["eval_llm"] = mod  # dataclass 需要在 sys.modules 里找到模块
+    spec.loader.exec_module(mod)
+    usage = {"calls": 2, "input_tokens": 100, "cache_creation_input_tokens": 3000, "cache_read_input_tokens": 6900,
+             "output_tokens": 9000}
+    lines = mod.usage_section([mod.RunRecord("a", "a", 1, True, 1.0, usage=usage)])
+    text = "\n".join(lines)
+    assert "10,000 = 100 + 3,000 + 6,900" in text and "| 缓存命中率（读缓存 / 输入合计） | 69% |" in text
+    assert mod.usage_section([mod.RunRecord("a", "a", 1, True, 1.0)]) == []    # mock 没有用量

@@ -101,6 +101,7 @@ Claude 的调用参数（都可以在 `.env` 里改）：
 | `ANTHROPIC_MAX_TOKENS` | `16000` | 输出上限，思考 token 也算在内；被截断时会让模型重写 |
 | `ANTHROPIC_TIMEOUT` | `300` | 单次请求超时（秒） |
 | `ANTHROPIC_MAX_RETRIES` | `1` | SDK 对网络错误、429、5xx 的自动重试次数 |
+| `ANTHROPIC_CACHE` | `5m` | Prompt 缓存：系统 Prompt 单独缓存（跨季规划的每一季共用），再加顶层自动缓存覆盖对话末尾，格式重试和自动修正时整份【数据参考】从缓存读。`1h` 改用 1 小时缓存（写入价格翻倍，只在两次请求常常隔 5 分钟以上时划算），`off` 关闭 |
 | `ANTHROPIC_FALLBACKS` | `on` | 模型出于安全原因拒答时，由 API 在同一次调用里自动换模型重新生成（`fallbacks: "default"`），这次结果按换上的模型计费；`off` 关闭。最终仍被拒绝时给出明确提示，不会当成 JSON 错误重试 |
 
 ```bash
@@ -210,7 +211,8 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 
 ```
 ├── main.py                     命令行入口
-├── scripts/eval_llm.py         真实 API 稳定性评估
+├── scripts/eval_llm.py         真实 API 稳定性评估（含 token 用量与缓存命中率）
+├── scripts/prompt_stats.py     测量 Prompt 长度（按场景、按章节）
 ├── web/                        网页版 Demo（FastAPI + 单页面）
 ├── stardew_planner/
 │   ├── data_loader.py          数据加载、攻略切块、ChromaDB 入库与语义检索
@@ -305,6 +307,10 @@ python scripts/eval_llm.py --only spring_rush fall_wine    # 只跑部分用例
 python scripts/eval_llm.py --provider mock                 # 离线检查脚本本身，不消耗额度
 ```
 
+用真实模型时报告里还有“token 用量与缓存”：输入 token 拆成未缓存、写缓存、读缓存三部分，算出缓存命中率。
+
+`scripts/prompt_stats.py` 不调用模型，按几组典型参数（基础、换玩法、职业肥料、全功能、季中开始）统计系统 Prompt 和用户 Prompt 的字符数、各章节占比，以及和基础场景的共同前缀；加 `--count-tokens` 用 Anthropic 的 count_tokens 接口数 token（需要 API 凭证）。目前系统 Prompt 约 3,000 字，用户 Prompt 约 4,400-7,000 字，最大的三块是作物收益表、NPC 生日和成就目标。
+
 真实 provider 每次运行至少调用一次模型，会产生 API 费用。用 `--cases my_cases.json` 可以换成自定义用例（字段同脚本里的 `DEFAULT_CASES`）。有运行失败时脚本退出码为 1。
 
 ## Claude Code skill：`stardew-data-guard`
@@ -356,6 +362,7 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 - [x] 罗宾的建筑工期（模型输出 `constructions`；周二和节日不能下单，节日不施工顺延，完工前不能再下单，建筑费计入资金）
 - [x] 前期体力（按种植清单算每天手浇的体力，压力大时每 3 天至少安排一次补体力，否则交给模型修正）
 - [x] 导入 1.6 存档（`--save`，网页上可以上传：自动填好日期、现金、职业、机器、动物和成就进度）
+- [x] Prompt 缓存（`ANTHROPIC_CACHE`：系统 Prompt 和整段对话前缀走缓存，格式重试、自动修正、跨季规划受益最大；`scripts/prompt_stats.py` 测量 Prompt 长度）
 - [x] 季中重新规划（`--start-day`，网页上也能填：只规划今天到第 28 天，收益、资金和校验都从今天算起）
 - [x] Steam 成就（`--achievements`，网页上也能选：全部 49 个；赚钱、友谊、混合栽培、单一栽培由程序算缺口，其他写进 Prompt 作为长期目标；本季缺口写进 Prompt，种植和送礼不达标时以“⚠️ 成就校验：”交给模型修正）
 - [x] 姜岛农场（`--location ginger_island`：不受季节限制、换季不枯死、收益表按每 28 天稳态计算）
@@ -375,7 +382,6 @@ python .claude/skills/stardew-data-guard/scripts/sv.py check-schedule plan.json 
 
 ### 🔭 未来路线图
 
-- [ ] **引入 Prompt Caching**：游戏数据表、规则说明这些长上下文每次都要重新发送，缓存后可以明显降低 API 成本和首字延迟，跨季规划和自动修正受益最大
 - [ ] **兼容本地大模型**：支持 Ollama / vLLM 等 OpenAI 兼容接口，实现完全离线的高级规划
 - [ ] **畜牧业与温室进阶**：好感度带来的大号产品和品质、蛋黄酱 / 奶酪等加工链、建筑和工具成本；温室里的果树、更多室内作物
 - [ ] **导出为日历文件 (.ics)**：把生成的 28 天日程一键导入手机或电脑日历，节日和生日当天自动提醒

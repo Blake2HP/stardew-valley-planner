@@ -38,6 +38,7 @@ sys.path.insert(0, str(ROOT))
 from stardew_planner import generate_strategy  # noqa: E402
 from stardew_planner.data_loader import SEASON_ZH, load_game_data  # noqa: E402
 from stardew_planner.generator import FALLBACK_GOAL  # noqa: E402
+from stardew_planner.llm_client import get_client  # noqa: E402
 
 try:
     from dotenv import load_dotenv
@@ -154,6 +155,7 @@ class RunRecord:
     initial_problems: int = 0                   # 自动修正之前程序发现的问题条数
     final_problems: int = 0                     # 最终版本的问题条数
     revisions: list[dict] = field(default_factory=list)
+    usage: dict = field(default_factory=dict)   # 这次运行的 token 用量（含缓存读写），mock 时为空
 
     @property
     def revised(self) -> bool:
@@ -168,17 +170,25 @@ class RunRecord:
         return [w for w in self.season_warnings if categorize(w)[1]]
 
 
-def run_case(case: dict, run: int, args, data) -> RunRecord:
+def _usage_delta(client, before: dict) -> dict:
+    now = getattr(client, "usage", None)
+    return {k: v - before.get(k, 0) for k, v in now.items()} if now else {}
+
+
+def run_case(case: dict, run: int, args, data, client=None) -> RunRecord:
     kwargs = {k: case[k] for k in CASE_PARAMS if k in case}
     started = time.perf_counter()
+    client = client or get_client(args.provider, args.model)
+    before = dict(getattr(client, "usage", None) or {})
     try:
         result = generate_strategy(
-            provider=args.provider, model=args.model, data=data, max_retries=args.max_retries,
+            client=client, data=data, max_retries=args.max_retries,
             revise_rounds=args.revise_rounds, **kwargs,
         )
     except Exception as e:  # 评估要记录所有失败，而不是中断
         return RunRecord(case["id"], case.get("label", case["id"]), run, False,
-                         time.perf_counter() - started, error=f"{type(e).__name__}: {e}"[:300])
+                         time.perf_counter() - started, error=f"{type(e).__name__}: {e}"[:300],
+                         usage=_usage_delta(client, before))
     finance = result.finance
     return RunRecord(
         case_id=case["id"], label=case.get("label", case["id"]), run=run, ok=True,
@@ -192,6 +202,7 @@ def run_case(case: dict, run: int, args, data) -> RunRecord:
         initial_problems=len(result.initial_problems),
         final_problems=len(result.problems),
         revisions=list(result.revisions),
+        usage=_usage_delta(client, before),
     )
 
 
@@ -214,6 +225,26 @@ def fmt_gold(values: list[int]) -> str:
 def cell(text: str, limit: int = 80) -> str:
     text = str(text).replace("|", "\\|").replace("\n", " ")
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def usage_section(records: list[RunRecord]) -> list[str]:
+    """token 用量和缓存命中（mock 没有用量时不输出）。"""
+    used = [r.usage for r in records if r.usage and r.usage.get("calls")]
+    if not used:
+        return []
+    total = {k: sum(u.get(k, 0) for u in used) for k in used[0]}
+    prompt = total["input_tokens"] + total["cache_creation_input_tokens"] + total["cache_read_input_tokens"]
+    return [
+        "## token 用量与缓存", "",
+        "| 指标 | 数值 |", "|---|---|",
+        f"| 调用模型次数 | {total['calls']} |",
+        f"| 输入 token（合计 = 未缓存 + 写缓存 + 读缓存） | {prompt:,} = {total['input_tokens']:,} + "
+        f"{total['cache_creation_input_tokens']:,} + {total['cache_read_input_tokens']:,} |",
+        f"| 缓存命中率（读缓存 / 输入合计） | {pct(total['cache_read_input_tokens'], prompt)} |",
+        f"| 输出 token（含思考） | {total['output_tokens']:,} |",
+        f"| 平均每次调用：输入 / 输出 | {prompt / total['calls']:,.0f} / {total['output_tokens'] / total['calls']:,.0f} |",
+        "",
+    ]
 
 
 def build_report(records: list[RunRecord], cases: list[dict], args) -> str:
@@ -247,6 +278,7 @@ def build_report(records: list[RunRecord], cases: list[dict], args) -> str:
         f"| 平均耗时 | {statistics.mean(r.seconds for r in records):.1f} 秒 |" if records else "| 平均耗时 | - |",
         "",
     ]
+    out += usage_section(records)
 
     # ---- 每个用例 ----
     out += ["## 各用例", "",
@@ -351,13 +383,14 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"没有找到环境变量 {key_env}（可以写在项目根目录的 .env 里），或者用 --provider mock 离线检查脚本")
 
     data = load_game_data()
+    client = get_client(args.provider, args.model)  # 所有运行共用一个客户端，用量累计在 client.usage 里
     records: list[RunRecord] = []
     total = len(cases) * args.runs
     print(f"开始评估：{len(cases)} 个用例 × {args.runs} 次 = {total} 次运行（provider: {args.provider}）", file=sys.stderr)
     try:
         for run in range(1, args.runs + 1):
             for c in cases:
-                rec = run_case(c, run, args, data)
+                rec = run_case(c, run, args, data, client)
                 records.append(rec)
                 status = (f"attempts={rec.attempts}，问题警告 {len(rec.problem_warnings)} 条，期末 {rec.end_gold}g"
                           if rec.ok else f"失败：{rec.error}")
