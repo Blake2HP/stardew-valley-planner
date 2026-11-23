@@ -176,6 +176,18 @@ for state in plan.states:              # farm state at the end of each season
     print(state.next_season, state.gold, state.gold_estimated, state.carried_names)
 ```
 
+Planning options (professions, fertilizer, machines, animals, achievements, start day, ...) are defined with their docs in `PlanOptions` in `stardew_planner/options.py`. Pass them as keyword arguments, or build a `PlanOptions` first:
+
+```python
+from stardew_planner import generate_plan
+from stardew_planner.options import PlanOptions
+
+opts = PlanOptions(start_day=15, start_gold=1000, kegs=10, achievements="混合栽培")
+plan = generate_plan("种田为主", "速通极限", "spring,summer", provider="mock", options=opts)
+```
+
+The CLI, the web app and save import all use these field names. A new planning option only needs a field in `PlanOptions` plus a same-named CLI flag and web field (`tests/test_options.py` checks nothing is missed).
+
 ## How it works
 
 ```
@@ -239,6 +251,7 @@ data/guides/*.md ──► vector search  ─┘   system + user prompt     tole
 │   ├── achievements.py         Steam achievements (season gaps, the prompt block, checks, progress across seasons)
 │   ├── coop.py                 co-op mode (roles, per-player schedules, division checks, co-op rules)
 │   ├── farm_state.py           cross-season harvest simulation, gold, end-of-season farm state
+│   ├── options.py              planning options PlanOptions (field docs, validation, per-season reset)
 │   └── generator.py            generate_strategy() / generate_plan() pipeline
 ├── data/
 │   ├── crops.json              crops: seasons, seed price, sell price, growth/regrow days, yield

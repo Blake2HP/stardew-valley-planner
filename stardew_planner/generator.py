@@ -14,6 +14,7 @@ from .farm_state import (
     render_state_for_prompt, resolve_plantings, season_harvest_units, shipped_units,
 )
 from .json_utils import JSONParseError, ParsedJSON, parse_llm_json
+from .options import PlanOptions
 from .buildings import check_constructions, construction_costs, parse_constructions
 from .bundles import crop_needs, describe_route, reserve, resolve_route, route_warnings, season_needs
 from .achievements import (
@@ -81,6 +82,7 @@ class StrategyResult:
     achievement_milestones: list = field(default_factory=list)  # 模型给出的成就节点
     achievement_progress_end: object = None              # 本季结束时的成就进度，跨季规划时传给下一季
     start_day: int = 1                                   # 季中开始规划的日子（只规划第 start_day-28 天）
+    options: PlanOptions | None = None                   # 这一季用的规划参数
 
 
 # ---------------------------------------------------------------------------
@@ -518,29 +520,10 @@ def generate_strategy(
     data: GameData | None = None,
     guide_store: GuideStore | None = None,
     n_guides: int = 3,
-    professions: Iterable[str] = (),
-    fertilizer: str | None = None,
     max_retries: int = 1,
-    start_gold: int | None = None,
     prior_state: FarmState | None = None,
-    farming_level: int | None = None,
-    processing_share: float = 1.0,
-    revise_rounds: int = 1,
-    farm_type: str | None = None,
-    kegs: int = 0,
-    jars: int = 0,
-    greenhouse: bool = False,
-    bee_houses: int = 0,
-    animals=None,
-    route: str | None = None,
-    location: str | None = None,
-    players: int = 1,
-    roles=None,
-    achievements=None,
-    achievement_progress=None,
-    start_day: int = 1,
-    owned_animals=None,
-    in_ground=None,
+    options: PlanOptions | None = None,
+    **plan_options,
 ) -> StrategyResult:
     """生成某季节的完整攻略。
 
@@ -548,61 +531,32 @@ def generate_strategy(
         playstyle: 玩法风格，例如 "钓鱼赚钱"、"全收集"、"种田为主"。
         pacing: 节奏偏好，例如 "速通极限"、"休闲慢节奏"。
         season: spring/summer/fall/winter 或中文。
-        provider: anthropic / mock（默认读环境变量 LLM_PROVIDER）。
+        provider / model / client: 模型；默认按 provider（环境变量 LLM_PROVIDER）创建客户端。
         guide_store: 攻略向量库，默认使用 data/.chroma_db；不可用时退回关键词检索。
         n_guides: 检索的攻略片段数。
-        professions: 职业，如 ["tiller", "artisan"] 或中文名；10 级职业会自动加入前置的农耕人。
-        fertilizer: 加速肥料：speed_gro / deluxe_speed_gro / hyper_speed_gro（或中文名）。
-        start_gold: 期初资金；不传时第 1 年春季用开局金币（data/farm.json），其他季节为未知。
+        max_retries: 模型输出格式不合格时的重试次数。
         prior_state: 上一季结束时的农场状态（跨季连续规划时由 generate_plan 传入）。
-        farming_level: 耕种等级（0-14）；给出或用了品质肥料时计入作物品质。
-        processing_share: 机器能加工的收获比例（0-1），决定“高星直接卖、低星加工”的分界。
-        farm_type: 农场地图（默认标准农场）；草原农场开局没有赠送的防风草种子。
-        kegs / jars: 小桶、罐头瓶的数量。给出时按机器数量和加工时间模拟加工（见 processing.py），
-            加工净增计入资金；第 28 天还没做完的带到下一季。
-        players / roles: 联机人数（1-4）和分工（"P1:种田, P2:下矿" 或 {"P1": "种田"}）。多人时 daily_goals
-            每天按玩家写成对象，工具按玩家校验，体力阈值按人数放大（见 coop.py）。
-        location: 种植地点，"pelican_town"（默认）或 "ginger_island"。姜岛农场和温室一样不受季节限制、换季不枯死，
-            收益表按每 28 天稳态计算，第 28 天不要求清理农场。
-        route: "community_center" 时走社区中心献祭路线：收集包要用的作物先留下、不卖（从收入里扣掉售价），
-            今年最后能种某种作物的季节还没留下时报“献祭校验”，交给模型修正（见 bundles.py）。
-        in_ground: 地里已经种着的作物（例如从存档导入）：[{"crop": "蓝莓", "tiles": 20, "ready_day": 15,
-            "place": "field"}]，ready_day 是本季第几天可以收获。种子钱已付过，收获计入资金；只能用于第一季。
-        owned_animals: 已经养着的成年动物（例如从存档导入），格式同 animals；不计购买费，从第 1 天起就有产出。
-            只能用于第一季（之后随季末状态带下去）。
-        animals: 本季第 1 天新买的动物，"鸡:2,牛:1" 或 {"鸡": 2}（见 data/animals.json、livestock.py）。
-            上季带来的动物（prior_state.animals）自动计入、已成年；产出、买动物和冬季干草计入资金。
-        bee_houses: 室外蜂房的数量。每 4 天一罐，按室外开着的最值钱的花算花蜜（见 honey.py），计入资金；冬季不产。
-        greenhouse: 温室已修好。模型可以把种植安排在温室（不受季节限制、可再生作物不会枯死，最多 120 格）。
-        achievements: 想完成的 Steam 成就，"混合栽培,万人迷" 或列表（见 data/achievements.json、achievements.py）。
-        achievement_progress: 已有的成就进度，"防风草=15,万人迷=12" 或 dict，或 generate_plan 传入的
-            achievements.Progress；不给时从零算。
-        start_day: 季中重新规划时今天是本季第几天（1-28，默认 1）。只规划第 start_day 天到第 28 天：收益按这天起算，
-            更早的种植、工具升级、建筑会被报出来交给模型修正；第 1 年春季从第 2 天起不再默认开局金币和赠送的种子
-            （期初资金要用 start_gold 给出）。
-        revise_rounds: 自动修正的最多轮数（默认 1，0 = 关闭）。程序校验发现问题时，把问题清单反馈给模型
-            重新生成；只有问题变少才采用新版本。会多调用模型。
+        options / **plan_options: 规划参数（职业、机器、动物、成就、起始日……），字段和说明见 options.PlanOptions；
+            可以传一个 PlanOptions，也可以直接写关键字参数（覆盖 options 里的同名字段）。
     """
+    opts = PlanOptions.build(options, **plan_options).validate()
+    (professions, fertilizer, farming_level, processing_share, start_gold, start_day, farm_type, greenhouse,
+     location, route, animals, owned_animals, in_ground, players, roles, achievements, achievement_progress,
+     revise_rounds) = (
+        opts.professions, opts.fertilizer, opts.farming_level, opts.processing_share, opts.start_gold,
+        opts.start_day, opts.farm_type, opts.greenhouse, opts.location, opts.route, opts.animals,
+        opts.owned_animals, opts.in_ground, opts.players, opts.roles, opts.achievements, opts.achievement_progress,
+        opts.revise_rounds)
     season_key = normalize_season(season)
     if year < 1:
         raise ValueError(f"年份必须 ≥ 1，收到 {year}")
     if prior_state is not None and (prior_state.next_season, prior_state.next_year) != (season_key, year):
         expected = f"第 {prior_state.next_year} 年{SEASON_ZH[prior_state.next_season]}"
         raise ValueError(f"上季状态只能衔接{expected}，收到第 {year} 年{SEASON_ZH[season_key]}")
-    if start_gold is not None and start_gold < 0:
-        raise ValueError(f"期初资金必须 ≥ 0，收到 {start_gold}")
-    if isinstance(start_day, bool) or not isinstance(start_day, int) or not 1 <= start_day <= SEASON_DAYS:
-        raise ValueError(f"起始日必须是 1-{SEASON_DAYS} 的整数，收到 {start_day!r}")
     if start_day > 1 and prior_state is not None:
         raise ValueError("衔接上季状态时只能从第 1 天开始规划")
     bonuses = resolve_bonuses(professions, fertilizer, farming_level=farming_level)
-    if not 0 <= processing_share <= 1:
-        raise ValueError(f"加工比例必须在 0-1 之间，收到 {processing_share}")
-    if revise_rounds < 0:
-        raise ValueError(f"自动修正轮数必须 ≥ 0，收到 {revise_rounds}")
-    if kegs < 0 or jars < 0 or bee_houses < 0:
-        raise ValueError(f"机器数量不能为负数，收到小桶 {kegs}、罐头瓶 {jars}、蜂房 {bee_houses}")
-    machines = {name: n for name, n in (("小桶", kegs), ("罐头瓶", jars), ("蜂房", bee_houses)) if n}
+    machines = opts.machines
     season_zh = SEASON_ZH[season_key]
     data = data or load_game_data()
     by_name = {a.name: a for a in data.animals}
@@ -757,6 +711,7 @@ def generate_strategy(
                                                  data=data, season=season_key,
                                                  start_day=start_day) if goals_wanted else None,
         start_day=start_day,
+        options=opts,
     )
     result.markdown = render_markdown(result, data)
     return result
@@ -806,32 +761,34 @@ def generate_plan(
     seasons: str | Iterable[str] = ("spring", "summer"),
     year: int = 1,
     *,
-    start_gold: int | None = None,
     data: GameData | None = None,
     client: LLMClient | None = None,
     provider: str | None = None,
     model: str | None = None,
-    start_day: int = 1,
+    options: PlanOptions | None = None,
     **kwargs,
 ) -> PlanResult:
     """跨季连续规划：逐季调用 generate_strategy，把上一季的季末状态注入下一季。
 
-    start_day 只用于第一个季节（季中重新规划），之后的季节都从第 1 天开始。
+    规划参数（options 或同名关键字参数，见 options.PlanOptions）里只用于第一季的（期初资金、起始日、新买 / 已有的动物、
+    地里的作物）只给第一季，之后的季节从第 1 天开始，由季末状态接上；成就进度逐季累计。
+    其他关键字参数（guide_store、n_guides、max_retries）原样传给 generate_strategy。
     """
     from .renderer import render_plan  # 避免循环导入
 
     plan = parse_seasons(seasons, year)
     data = data or load_game_data()
     client = client or get_client(provider, model)
+    plan_kwargs = {k: kwargs.pop(k) for k in list(kwargs) if k in PlanOptions.names()}
+    opts = PlanOptions.build(options, **plan_kwargs)
     results: list[StrategyResult] = []
     state: FarmState | None = None
     out = PlanResult(results, planned=plan)
     for season_key, season_year in plan:
         try:
             result = generate_strategy(
-                playstyle, pacing, season_key, season_year, client=client, data=data,
-                start_gold=start_gold if state is None else None, prior_state=state,
-                start_day=start_day if state is None else 1, **kwargs,
+                playstyle, pacing, season_key, season_year, client=client, data=data, prior_state=state,
+                options=opts, **kwargs,
             )
         except Exception as e:
             if not results:  # 第一季就失败：没有可保留的结果，照常抛出
@@ -841,10 +798,6 @@ def generate_plan(
             break
         results.append(result)
         state = result.end_state
-        if result.achievement_progress_end is not None:  # 成就进度累计到下一季
-            kwargs["achievement_progress"] = result.achievement_progress_end
-        kwargs.pop("animals", None)  # 动物只在第一季买入，之后随季末状态带下去
-        kwargs.pop("owned_animals", None)
-        kwargs.pop("in_ground", None)
+        opts = opts.next_season(result.achievement_progress_end)  # 成就进度累计到下一季
     out.markdown = render_plan(out, data)
     return out

@@ -20,6 +20,7 @@ from stardew_planner import generate_plan, generate_strategy
 from stardew_planner.bonuses import resolve_bonuses
 from stardew_planner.data_loader import SEASON_ZH
 from stardew_planner.generator import parse_seasons
+from stardew_planner.options import PlanOptions
 from stardew_planner.playstyles import describe_presets, load_presets
 
 try:
@@ -30,13 +31,8 @@ except ImportError:
     pass
 
 
-# 存档能填的参数：argparse 的 dest → SaveState.generator_kwargs() 里的键
-SAVE_FIELDS = {
-    "season": "season", "year": "year", "start_day": "start_day", "start_gold": "start_gold",
-    "farm_type": "farm_type", "farming_level": "farming_level", "professions": "professions",
-    "greenhouse": "greenhouse", "route": "route", "kegs": "kegs", "jars": "jars", "bee_houses": "bee_houses",
-    "owned_animals": "owned_animals", "achievement_progress": "achievement_progress", "in_ground": "in_ground",
-}
+# 存档能填的参数：季节、年份，加上 PlanOptions 的字段（argparse 的 dest 和字段同名）
+SAVE_FIELDS = ("season", "year", *PlanOptions.names())
 
 
 def explicit_dests(parser: argparse.ArgumentParser, argv: list[str]) -> set[str]:
@@ -54,13 +50,13 @@ def apply_save(args: argparse.Namespace, state, explicit: set[str]) -> list[str]
     """用存档的值填参数；命令行显式写了的以命令行为准。返回说明（哪些被命令行覆盖）。"""
     values = state.generator_kwargs()
     notes = []
-    for dest, key in SAVE_FIELDS.items():
-        if key not in values:
+    for dest in SAVE_FIELDS:
+        if dest not in values:
             continue
         if dest in explicit:
-            notes.append(f"--{dest.replace('_', '-')} 以命令行为准（存档里是 {_show(values[key])}）")
+            notes.append(f"--{dest.replace('_', '-')} 以命令行为准（存档里是 {_show(values[dest])}）")
             continue
-        value = values[key]
+        value = values[dest]
         if dest == "professions":
             value = ",".join(value)
         setattr(args, dest, value)
@@ -196,6 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
                              "meadowlands（或中文名）。草原农场开局没有赠送的防风草种子")
     parser.add_argument("--revise-rounds", type=int, default=1,
                         help="自动修正轮数：程序校验发现问题时反馈给模型修改（默认 1，0 = 关闭；会多调用模型）")
+    parser.set_defaults(in_ground=None)  # 只能从存档导入（--save），命令行没有对应的参数
     parser.add_argument("--start-gold", type=int, default=None,
                         help="期初资金；不传时第 1 年春季用开局金币（data/farm.json），其他季节为未知")
     parser.add_argument("--professions", default="",
@@ -237,7 +234,6 @@ def run(parser: argparse.ArgumentParser, args: argparse.Namespace, argv: list[st
             state = parse_save(args.save, load_game_data())
         except SaveParseError as e:
             parser.error(f"存档导入失败：{e}")
-        args.in_ground = None
         notes = apply_save(args, state, explicit_dests(parser, argv))
         print("[存档解析摘要]", file=sys.stderr)
         for line in state.summary_lines(load_game_data()):
@@ -255,16 +251,6 @@ def run(parser: argparse.ArgumentParser, args: argparse.Namespace, argv: list[st
         return
     if args.year < 1:
         parser.error("年份必须 ≥ 1")
-    if not 1 <= args.start_day <= 28:
-        parser.error("起始日必须在 1-28 之间")
-    if not 0 <= args.processing_share <= 1:
-        parser.error("加工比例必须在 0-1 之间")
-    if args.kegs < 0 or args.jars < 0 or args.bee_houses < 0:
-        parser.error("机器数量不能为负数")
-    if args.revise_rounds < 0:
-        parser.error("自动修正轮数必须 ≥ 0")
-    if args.start_gold is not None and args.start_gold < 0:
-        parser.error("期初资金必须 ≥ 0")
     try:
         seasons = parse_seasons(args.season, args.year)
     except ValueError as e:
@@ -285,17 +271,14 @@ def run(parser: argparse.ArgumentParser, args: argparse.Namespace, argv: list[st
     except ValueError as e:
         parser.error(str(e))
 
-    common = dict(
-        provider=args.provider, model=args.model, start_gold=args.start_gold,
-        professions=[p.key for p in bonuses.professions],
-        fertilizer=bonuses.fertilizer.key if bonuses.fertilizer else None,
-        farming_level=args.farming_level, processing_share=args.processing_share,
-        revise_rounds=args.revise_rounds, farm_type=args.farm_type, kegs=args.kegs, jars=args.jars,
-        greenhouse=args.greenhouse, bee_houses=args.bee_houses, animals=args.animals,
-        route=args.route, location=args.location, players=args.players, roles=args.roles,
-        achievements=args.achievements, achievement_progress=args.achievement_progress,
-        start_day=args.start_day, owned_animals=args.owned_animals, in_ground=getattr(args, "in_ground", None),
-    )
+    try:  # 规划参数：和 PlanOptions 字段同名的命令行参数（职业和肥料用解析后的 key）
+        options = PlanOptions.pick(
+            args, professions=[p.key for p in bonuses.professions],
+            fertilizer=bonuses.fertilizer.key if bonuses.fertilizer else None,
+        ).validate()
+    except ValueError as e:
+        parser.error(str(e))
+    common = dict(provider=args.provider, model=args.model, options=options)
     if len(seasons) > 1:
         result = generate_plan(args.playstyle, args.pacing, [s for s, _ in seasons], args.year, **common)
         failed = result.failed_season

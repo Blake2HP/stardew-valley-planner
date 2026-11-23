@@ -47,6 +47,7 @@ from stardew_planner.achievements import parse_progress, resolve_goals
 from stardew_planner.coop import MAX_PLAYERS, ROLE_WORDS, parse_roles
 from stardew_planner.data_loader import SEASON_ZH, get_guide_store, load_game_data
 from stardew_planner.generator import parse_seasons
+from stardew_planner.options import PlanOptions
 from stardew_planner.livestock import parse_animals
 from stardew_planner.llm_client import ModelRefusal, get_client
 from stardew_planner.playstyles import load_presets
@@ -87,6 +88,8 @@ class Settings:
 
 
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+# 不让网页用户改的规划参数（用默认值）：自动修正轮数直接影响模型调用次数和费用
+SERVER_SIDE_OPTIONS = {"revise_rounds"}
 
 
 # ---------------------------------------------------------------------------
@@ -389,17 +392,13 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                 model_client = llm()
             except Exception as e:  # 服务端配置问题（缺 API key、环境变量写错），不是用户输入的问题
                 raise HTTPException(500, f"服务端模型配置有误：{type(e).__name__}: {e}"[:300]) from e
-            kwargs = dict(
-                data=data(), client=model_client, provider=settings.provider, model=settings.model,
-                guide_store=guide_store, professions=req.professions, fertilizer=req.fertilizer,
-                farming_level=req.farming_level, processing_share=req.processing_share, start_gold=req.start_gold,
-                farm_type=req.farm_type, kegs=req.kegs, jars=req.jars, greenhouse=req.greenhouse,
-                bee_houses=req.bee_houses, animals=req.animals or None, owned_animals=req.owned_animals or None,
-                in_ground=[c.model_dump() for c in req.in_ground] or None,
-                route=req.route, location=req.location, players=req.players, roles=roles,
+            options = PlanOptions.pick(  # 和 PlanOptions 字段同名的请求字段直接取；需要整理的另外给
+                req, animals=req.animals or None, owned_animals=req.owned_animals or None,
+                in_ground=[c.model_dump() for c in req.in_ground] or None, roles=roles,
                 achievements=[g.achievement.name for g in goals], achievement_progress=req.achievement_progress or None,
-                start_day=req.start_day,
             )
+            kwargs = dict(data=data(), client=model_client, provider=settings.provider, model=settings.model,
+                          guide_store=guide_store, options=options)
             if len(plan) == 1:
                 results = [generate_strategy(req.playstyle, req.pacing, plan[0][0], plan[0][1], **kwargs)]
                 markdown_text = results[0].markdown

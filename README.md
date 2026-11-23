@@ -172,6 +172,18 @@ for state in plan.states:              # 每季结束时的农场状态
     print(state.next_season, state.gold, state.gold_estimated, state.carried_names)
 ```
 
+规划参数（职业、肥料、机器、动物、成就、起始日……）的字段和说明都在 `stardew_planner/options.py` 的 `PlanOptions` 里，可以直接写关键字参数，也可以先组好一个 `PlanOptions` 再传：
+
+```python
+from stardew_planner import generate_plan
+from stardew_planner.options import PlanOptions
+
+opts = PlanOptions(start_day=15, start_gold=1000, kegs=10, achievements="混合栽培")
+plan = generate_plan("种田为主", "速通极限", "spring,summer", provider="mock", options=opts)
+```
+
+命令行、网页和存档导入用的都是这份字段名；新加一个规划参数只要在 `PlanOptions` 里加字段，再给命令行和网页加同名的入口（`tests/test_options.py` 会检查有没有漏接）。
+
 ## 工作流程
 
 ```
@@ -235,6 +247,7 @@ data/guides/*.md ──► 向量检索   ─┘   系统 + 用户 Prompt       
 │   ├── achievements.py         Steam 成就（本季缺口、成就规划目标、成就校验、跨季进度）
 │   ├── coop.py                 联机模式（分工、按玩家的日程、分工校验、联机规则）
 │   ├── farm_state.py           跨季收获模拟、资金计算、季末农场状态
+│   ├── options.py              规划参数 PlanOptions（字段说明、取值检查、跨季清理）
 │   └── generator.py            generate_strategy() / generate_plan() 主流程
 ├── data/
 │   ├── crops.json              作物：季节、种子价、售价、生长/再生天数、产量

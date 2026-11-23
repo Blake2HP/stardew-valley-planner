@@ -143,7 +143,6 @@ def cli(argv, save):
     import main
     parser = main.build_parser()
     args = parser.parse_args(argv)
-    args.in_ground = None
     notes = main.apply_save(args, save, main.explicit_dests(parser, argv))
     return args, notes
 
