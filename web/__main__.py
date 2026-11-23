@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> None:
         help="信任哪些反向代理传来的 X-Forwarded-For（逗号分隔的 IP）；默认只信任 127.0.0.1",
     )
     args = parser.parse_args(argv)
+    os.environ["DEMO_HOST"] = args.host  # 只在本机监听时默认开放“读取本机存档”（见 web/app.py）
     uvicorn.run("web.app:app", host=args.host, port=args.port, reload=args.reload,
                 proxy_headers=True, forwarded_allow_ips=args.forwarded_allow_ips)
 

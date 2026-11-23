@@ -6,6 +6,8 @@
     python main.py --professions artisan --fertilizer speed_gro --provider mock
     python main.py --season spring,summer,fall --provider mock    # 跨季连续规划
     python main.py --save "%APPDATA%/StardewValley/Saves/Name_123456789/Name_123456789" --provider mock  # 导入存档
+    python main.py --list-saves                      # 列出本机的存档
+    python main.py --save auto --provider mock       # 自动导入最近玩的存档；只写 --save 时按编号选
 """
 
 from __future__ import annotations
@@ -80,6 +82,44 @@ def apply_save(args: argparse.Namespace, state, explicit: set[str]) -> list[str]
     return notes
 
 
+def format_save_list(saves) -> list[str]:
+    """--list-saves 和交互选择用的编号列表。"""
+    lines = []
+    for i, s in enumerate(saves, 1):
+        lines.append(f"{i}. {s.label}")
+        lines.append(f"   {s.path}")
+    return lines
+
+
+def _ask(prompt: str) -> str:
+    print(prompt, end="", file=sys.stderr, flush=True)  # 提示写到 stderr，不混进攻略输出
+    return input()
+
+
+def resolve_save_arg(value: str, saves, ask=_ask, out=None) -> str:
+    """--save 的值 → 主存档路径。"auto" = 最近玩的；空（只写了 --save）= 列出编号让用户选；其他按路径处理。"""
+    if value not in ("", "auto"):
+        return value
+    out = out or sys.stderr
+    if not saves:
+        from stardew_planner.save_parser import SAVE_DIR_HINTS
+        hints = "；".join(f"{k}：{v}" for k, v in SAVE_DIR_HINTS.items())
+        raise ValueError(f"本机没有找到星露谷存档（默认位置 {hints}），请用 --save <主存档路径> 指定")
+    if value == "auto":
+        print(f"[自动选择最近玩的存档] {saves[0].label}", file=out)
+        return str(saves[0].path)
+    print("本机的星露谷存档（最近玩的在前）：", file=out)
+    for line in format_save_list(saves):
+        print(line, file=out)
+    try:
+        answer = ask(f"请输入编号（1-{len(saves)}）：").strip()
+    except EOFError:
+        raise ValueError("没有读到编号；不能交互时请用 --save auto 或 --save <路径>") from None
+    if not answer.isdigit() or not 1 <= int(answer) <= len(saves):
+        raise ValueError(f"编号应为 1-{len(saves)}，收到 {answer!r}")
+    return str(saves[int(answer) - 1].path)
+
+
 def _show(value) -> str:
     if isinstance(value, (list, tuple)):
         return ",".join(map(str, value))
@@ -103,10 +143,13 @@ def main(argv: list[str] | None = None) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="星露谷物语最佳攻略生成器")
-    parser.add_argument("--save", default=None,
+    parser.add_argument("--save", nargs="?", const="", default=None, metavar="PATH|auto",
                         help="导入《星露谷物语》1.6 主存档（存档文件夹里和文件夹同名的文件，不是 SaveGameInfo）："
                              "自动填入季节、日期、年份、现金、农场地图、耕种等级、职业、温室、路线、机器、动物和成就进度；"
-                             "命令行另外写了的参数以命令行为准")
+                             "命令行另外写了的参数以命令行为准。--save auto = 最近玩的存档；只写 --save 时列出本机存档按编号选")
+    parser.add_argument("--list-saves", action="store_true", help="列出本机找到的星露谷存档（最近玩的在前），然后退出")
+    parser.add_argument("--saves-dir", action="append", default=None,
+                        help="存档根目录（可写多次）；不写时按操作系统找默认位置，用于 --list-saves 和 --save auto")
     parser.add_argument("-p", "--playstyle", default="钓鱼赚钱，兼顾种田",
                         help="玩法风格，可以自己写；用 --list-playstyles 查看预设玩法和各自的优劣势")
     parser.add_argument("-c", "--pacing", default="休闲慢节奏", help="节奏偏好，可以自己写；预设见 --list-playstyles")
@@ -168,6 +211,25 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run(parser: argparse.ArgumentParser, args: argparse.Namespace, argv: list[str]) -> None:
+    if args.list_saves or args.save in ("", "auto"):
+        from stardew_planner.save_parser import SAVE_DIR_HINTS, discover_local_saves, get_default_save_dirs
+        saves = discover_local_saves(args.saves_dir)
+        if args.list_saves:
+            dirs = args.saves_dir or [str(d) for d in get_default_save_dirs()]
+            if not saves:
+                print(f"没有找到星露谷存档（找过：{'、'.join(map(str, dirs))}）。默认位置：")
+                for system, hint in SAVE_DIR_HINTS.items():
+                    print(f"  {system}：{hint}")
+                return
+            print(f"找到 {len(saves)} 个存档（最近玩的在前）：")
+            for line in format_save_list(saves):
+                print(line)
+            print("\n导入：python main.py --save <路径>，或 --save auto 选最近玩的")
+            return
+        try:
+            args.save = resolve_save_arg(args.save, saves)
+        except ValueError as e:
+            parser.error(str(e))
     if args.save:
         from stardew_planner.data_loader import load_game_data
         from stardew_planner.save_parser import SaveParseError, parse_save

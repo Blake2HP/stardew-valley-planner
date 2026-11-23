@@ -18,7 +18,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -194,15 +196,20 @@ def _int(text) -> int | None:
         return None
 
 
-def _parse_xml(raw: bytes) -> ET.Element:
+def _safe_root(raw: bytes) -> ET.Element:
+    """安全解析 XML：拒绝 DOCTYPE / ENTITY，有 defusedxml 时用它。"""
     if _DTD.search(raw):
         raise SaveParseError("存档里不能有 DOCTYPE / ENTITY 声明（星露谷的存档不会有），为了安全拒绝解析")
     try:
-        root = _safe_fromstring(raw) if _safe_fromstring else ET.fromstring(raw)
+        return _safe_fromstring(raw) if _safe_fromstring else ET.fromstring(raw)
     except ET.ParseError as e:
         raise SaveParseError(f"不是有效的 XML 文件：{e}") from None
     except Exception as e:  # defusedxml 拒绝时抛的异常类型不同
         raise SaveParseError(f"存档解析失败：{type(e).__name__}: {e}") from None
+
+
+def _parse_xml(raw: bytes) -> ET.Element:
+    root = _safe_root(raw)
     if root.tag == "Farmer":
         raise SaveParseError("这是 SaveGameInfo（只有存档列表用的摘要）；请选文件夹里和文件夹同名的主存档文件")
     if root.tag != "SaveGame":
@@ -437,3 +444,124 @@ def _parse_crops(root: ET.Element, state: SaveState, ids: SaveIds, crops_by_en: 
         state.warnings.append(f"地里有 {unknown} 格作物不在 data/crops.json 里（模组或 1.6 新作物），没有计入收入")
     if unreadable:
         state.warnings.append(f"地里有 {unreadable} 格作物读不出生长阶段，没有计入收入")
+
+
+# ---------------------------------------------------------------------------
+# 本机存档查找
+# ---------------------------------------------------------------------------
+
+MAX_INFO_BYTES = 4 * 1024 * 1024   # SaveGameInfo 通常只有几 KB
+SAVE_DIR_HINTS = {
+    "Windows": r"%APPDATA%\StardewValley\Saves",
+    "macOS": "~/.config/StardewValley/Saves",
+    "Linux": "~/.config/StardewValley/Saves",
+    "Steam Deck / Flatpak": "~/.var/app/com.valvesoftware.Steam/.config/StardewValley/Saves",
+}
+
+
+def get_default_save_dirs() -> list[Path]:
+    """本机星露谷的默认存档根目录（按操作系统；只返回路径，不检查是否存在）。"""
+    if sys.platform.startswith("win"):
+        appdata = os.environ.get("APPDATA", "")
+        return [Path(appdata) / "StardewValley" / "Saves"] if appdata else []
+    home = Path.home()
+    dirs = [home / ".config" / "StardewValley" / "Saves"]
+    if sys.platform.startswith("linux"):
+        dirs.append(home / ".var" / "app" / "com.valvesoftware.Steam" / ".config" / "StardewValley" / "Saves")
+    return dirs
+
+
+@dataclass(frozen=True)
+class SaveSummary:
+    """存档列表里的一项：来自 SaveGameInfo（读不了时只有文件夹名）。"""
+    folder: str                 # 存档文件夹名，也是主存档的文件名（如 Name_123456789）
+    path: Path                  # 主存档文件
+    modified: float             # 主存档的最后修改时间（时间戳）
+    farmer: str = ""
+    farm_name: str = ""
+    year: int | None = None
+    season: str | None = None
+    day: int | None = None
+    money: int | None = None
+    info_ok: bool = False       # SaveGameInfo 读到了
+
+    @property
+    def label(self) -> str:
+        """下拉框和列表里显示的文字，如“星露农场 - 第1年春季第15天 (3,200g)”。"""
+        from .data_loader import SEASON_ZH
+        if not self.info_ok:
+            return f"{self.folder}（没有读到存档摘要）"
+        name = f"{self.farm_name}农场" if self.farm_name else self.folder
+        when = (f"第{self.year}年{SEASON_ZH[self.season]}第{self.day}天"
+                if self.year and self.season and self.day else "日期未知")
+        gold = f" ({self.money:,}g)" if self.money is not None else ""
+        who = f"，{self.farmer}" if self.farmer else ""
+        return f"{name} - {when}{gold}{who}"
+
+    def as_dict(self) -> dict:
+        return {"folder": self.folder, "label": self.label, "farmer": self.farmer, "farm_name": self.farm_name,
+                "year": self.year, "season": self.season, "day": self.day, "money": self.money,
+                "modified": self.modified, "info_ok": self.info_ok}
+
+
+def _parse_save_info(path: Path) -> dict | None:
+    """读 SaveGameInfo（根元素是 Farmer）；文件缺失、过大或损坏时返回 None。"""
+    try:
+        if not path.is_file() or path.stat().st_size > MAX_INFO_BYTES:
+            return None
+        root = _safe_root(path.read_bytes())
+    except (OSError, SaveParseError):
+        return None
+    if root.tag != "Farmer":
+        return None
+    season = (root.findtext("seasonForSaveGame") or "").strip().lower()
+    if season.isdigit():
+        season = SEASONS[int(season)] if int(season) < len(SEASONS) else ""
+    day = _int(root.findtext("dayOfMonthForSaveGame"))
+    return {
+        "farmer": (root.findtext("name") or "").strip(),
+        "farm_name": (root.findtext("farmName") or "").strip(),
+        "year": _int(root.findtext("yearForSaveGame")),
+        "season": season if season in SEASONS else None,
+        "day": day if day is not None and 1 <= day <= 28 else None,
+        "money": _int(root.findtext("money")),
+    }
+
+
+def discover_local_saves(custom_dirs=None) -> list[SaveSummary]:
+    """扫描存档根目录（默认 get_default_save_dirs()），找出有主存档（和文件夹同名的文件）的存档文件夹。
+
+    按主存档的最后修改时间倒序（最近玩的在前）。SaveGameInfo 缺失或损坏时只显示文件夹名；
+    读不了的目录直接跳过，不报错。
+    """
+    out: list[SaveSummary] = []
+    seen: set[Path] = set()
+    for root in (custom_dirs if custom_dirs is not None else get_default_save_dirs()):
+        root = Path(root)
+        try:
+            folders = [p for p in root.iterdir() if p.is_dir()]
+        except OSError:
+            continue
+        for folder in folders:
+            main = folder / folder.name
+            try:
+                if not main.is_file() or main.resolve() in seen:
+                    continue
+                seen.add(main.resolve())
+                modified = main.stat().st_mtime
+            except OSError:
+                continue
+            info = _parse_save_info(folder / "SaveGameInfo")
+            out.append(SaveSummary(folder.name, main, modified, info_ok=info is not None, **(info or {})))
+    return sorted(out, key=lambda s: s.modified, reverse=True)
+
+
+def find_local_save(folder: str, custom_dirs=None) -> SaveSummary:
+    """按文件夹名找本机存档（只认 discover_local_saves 扫描到的，防止目录穿越）。"""
+    name = str(folder or "").strip()
+    if not name or name in (".", "..") or any(ch in name for ch in "/\\:\0"):
+        raise SaveParseError(f"存档文件夹名不合法：{folder!r}")
+    for s in discover_local_saves(custom_dirs):
+        if s.folder == name:
+            return s
+    raise SaveParseError(f"本机没有找到存档：{name}")

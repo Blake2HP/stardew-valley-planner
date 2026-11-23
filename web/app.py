@@ -2,6 +2,10 @@
 
 /api/import-save 只解析上传的存档、返回表单默认值，不保存文件（DEMO_MAX_SAVE_MB 限制大小，默认 20MB）。
 
+/api/saves/local 和 /api/saves/local/load 读取运行这个服务的电脑上的星露谷存档，会暴露服务器的文件，所以默认只在
+本机运行时开放：python -m web 只监听 127.0.0.1 / localhost / ::1 时自动开启，并且只接受本机发来的请求；
+DEMO_ALLOW_LOCAL_SAVES=1 强制开启（不限来源），=0 强制关闭。读取时只认扫描到的存档文件夹名，防止目录穿越。
+
 运行：
     python -m web                         # http://127.0.0.1:8000，默认用 mock（不消耗 API 额度）
     DEMO_PROVIDER=anthropic python -m web  # 用真实模型（需要 ANTHROPIC_API_KEY）
@@ -13,6 +17,8 @@
     DEMO_MAX_SEASONS    一次最多规划几个季节（默认 4）
     DEMO_MAX_CONCURRENT 同时进行的生成数（默认 2），超过时直接返回“繁忙”，避免费用失控
     DEMO_MAX_SAVE_MB    上传存档的大小上限（默认 20）
+    DEMO_ALLOW_LOCAL_SAVES  1 / 0：强制开启或关闭“读取本机存档”（默认只在本机监听时开启）
+    DEMO_SAVES_DIR      本机存档根目录（默认按操作系统找）
 """
 
 from __future__ import annotations
@@ -44,7 +50,9 @@ from stardew_planner.generator import parse_seasons
 from stardew_planner.livestock import parse_animals
 from stardew_planner.llm_client import ModelRefusal, get_client
 from stardew_planner.playstyles import load_presets
-from stardew_planner.save_parser import SaveParseError, parse_save
+from stardew_planner.save_parser import (
+    SAVE_DIR_HINTS, SaveParseError, discover_local_saves, find_local_save, parse_save,
+)
 
 try:
     from dotenv import load_dotenv
@@ -67,11 +75,27 @@ class Settings:
         # 单次模型调用的超时（秒）；网页里不让 SDK 再自动重试，避免一个卡住的请求长期占用生成名额
         self.request_timeout = float(os.getenv("DEMO_REQUEST_TIMEOUT", "300"))
         self.max_save_bytes = int(float(os.getenv("DEMO_MAX_SAVE_MB", "20")) * 1024 * 1024)
+        # 读取本机存档：off / local（只接受本机请求）/ on（不限来源）
+        flag = os.getenv("DEMO_ALLOW_LOCAL_SAVES", "").strip().lower()
+        if flag in ("1", "true", "yes", "on"):
+            self.local_saves = "on"
+        elif flag in ("0", "false", "no", "off"):
+            self.local_saves = "off"
+        else:
+            self.local_saves = "local" if os.getenv("DEMO_HOST", "") in LOOPBACK else "off"
+        self.saves_dirs = [d for d in os.getenv("DEMO_SAVES_DIR", "").split(os.pathsep) if d] or None
+
+
+LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 
 # ---------------------------------------------------------------------------
 # 请求与限流
 # ---------------------------------------------------------------------------
+
+class LocalSaveRequest(BaseModel):
+    folder: str = Field(min_length=1, max_length=200)
+
 
 class InGroundCrop(BaseModel):
     crop: str = Field(min_length=1, max_length=20)
@@ -277,6 +301,42 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
                              for a in (data().achievement_rules.achievements if data().achievement_rules else ())],
         }
 
+    def local_saves_allowed(request: Request) -> None:
+        """没开启、或者 local 模式下请求不是本机发来的：当作接口不存在（404），不透露任何信息。"""
+        mode = settings.local_saves
+        client_ip = request.client.host if request.client else ""
+        if mode == "off" or (mode == "local" and client_ip not in LOOPBACK):
+            raise HTTPException(404, "Not Found")
+
+    def import_result(save) -> dict:
+        return {
+            "defaults": save.form_defaults(data().achievement_rules),
+            "summary": save.summary_lines(data()),
+            "warnings": save.warnings,
+        }
+
+    @app.get("/api/saves/guide")
+    def saves_guide():
+        """“找不到存档文件？”指引：各系统的默认存档位置（不涉及服务器文件，公网也能用）。"""
+        return {"dirs": SAVE_DIR_HINTS}
+
+    @app.get("/api/saves/local")
+    def local_saves(request: Request):
+        local_saves_allowed(request)
+        return {"saves": [s.as_dict() for s in discover_local_saves(settings.saves_dirs)]}
+
+    @app.post("/api/saves/local/load")
+    def load_local_save(req: LocalSaveRequest, request: Request):
+        local_saves_allowed(request)
+        try:
+            found = find_local_save(req.folder, settings.saves_dirs)  # 只认扫描到的文件夹名，防止目录穿越
+            if found.path.stat().st_size > settings.max_save_bytes:
+                raise HTTPException(413, f"存档文件太大：最多 {settings.max_save_bytes / 1024 / 1024:g}MB")
+            save = parse_save(found.path, data())
+        except SaveParseError as e:
+            raise HTTPException(400, str(e)) from e
+        return import_result(save)
+
     @app.post("/api/import-save")
     async def import_save(request: Request):
         """请求体是存档文件本身（application/octet-stream）。只在内存里解析，返回表单默认值和摘要，不落盘。"""
@@ -297,11 +357,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             save = parse_save(b"".join(chunks), data())
         except SaveParseError as e:
             raise HTTPException(400, str(e)) from e
-        return {
-            "defaults": save.form_defaults(data().achievement_rules),
-            "summary": save.summary_lines(data()),
-            "warnings": save.warnings,
-        }
+        return import_result(save)
 
     @app.post("/api/generate")
     def generate(req: GenerateRequest, request: Request):

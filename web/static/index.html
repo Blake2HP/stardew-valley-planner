@@ -53,6 +53,14 @@
   #achievements .ok { color: var(--green); font-size: 11px; }
   .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
   label.inline { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+  .local-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .local-row select { flex: 1; min-width: 0; }
+  .save-guide { margin-top: 8px; font-size: 13px; }
+  .save-guide summary { cursor: pointer; color: var(--muted); }
+  .save-guide ul { padding-left: 0; list-style: none; margin: 6px 0; }
+  .save-guide li { display: flex; align-items: center; gap: 6px; margin: 4px 0; flex-wrap: wrap; }
+  .save-guide code { word-break: break-all; }
+  .save-guide button { padding: 2px 8px; font-size: 12px; }
   .checks label { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; margin: 0; }
   details { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 10px; }
   summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--green); }
@@ -99,9 +107,21 @@
 <main>
   <form id="form" autocomplete="off">
     <div class="card">
+      <div id="localSaves" hidden>
+        <label for="localSave">本机的星露谷存档 <span class="hint">最近玩的在前</span></label>
+        <div class="local-row">
+          <select id="localSave"></select>
+          <button type="button" class="secondary" id="loadLocal">一键加载</button>
+        </div>
+      </div>
       <label for="saveFile">导入星露谷存档 <span class="hint">可选，1.6 主存档，20MB 以内，只解析不保存</span></label>
       <input id="saveFile" type="file">
-      <div class="hint" style="margin:4px 0 0">存档文件夹里和文件夹同名的那个文件（如 Name_123456789），不是 SaveGameInfo；Windows 在 %APPDATA%\StardewValley\Saves</div>
+      <details class="save-guide" id="saveGuide">
+        <summary>❓ 找不到存档文件？</summary>
+        <p>请选择存档文件夹内<strong>没有后缀名</strong>的主存档文件（和文件夹同名，如 <code>Name_123456789</code>），不要选 <code>SaveGameInfo</code> 或带 <code>_old</code> 的文件。默认位置：</p>
+        <ul id="saveDirs"></ul>
+        <p class="hint">Windows 可以把路径粘贴到文件选择框的地址栏；macOS 在访达里按 ⌘⇧G 粘贴；Steam Deck 要先切到桌面模式。</p>
+      </details>
       <div class="preset-note" id="saveNote" hidden></div>
     </div>
     <div class="card">
@@ -357,15 +377,12 @@ function fillForm(d) {
   }
 }
 
-async function importSave(file) {
+async function applyImport(request) {
   const note = $("saveNote");
   note.hidden = false;
-  if (file.size > MAX_SAVE_MB * 1024 * 1024) { note.textContent = `存档文件太大：最多 ${MAX_SAVE_MB}MB`; return; }
   note.textContent = "正在解析存档……";
   try {
-    const res = await fetch("/api/import-save", {
-      method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file,
-    });
+    const res = await request();
     const data = await res.json();
     if (!res.ok) { note.textContent = `存档导入失败：${data.detail}`; return; }
     fillForm(data.defaults);
@@ -375,6 +392,58 @@ async function importSave(file) {
   } catch (e) {
     note.textContent = `存档导入失败：${e}`;
   }
+}
+
+function importSave(file) {
+  if (file.size > MAX_SAVE_MB * 1024 * 1024) {
+    $("saveNote").hidden = false;
+    $("saveNote").textContent = `存档文件太大：最多 ${MAX_SAVE_MB}MB`;
+    return;
+  }
+  return applyImport(() => fetch("/api/import-save", {
+    method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file,
+  }));
+}
+
+// 本机存档：只有服务在本机运行时接口才可用（否则 404，整块不显示）
+async function loadLocalSaves() {
+  try {
+    const res = await fetch("/api/saves/local");
+    if (!res.ok) return;
+    const { saves } = await res.json();
+    if (!saves.length) return;
+    for (const s of saves) $("localSave").add(new Option(s.label, s.folder));
+    $("localSaves").hidden = false;
+  } catch (e) { /* 拿不到就只用手动上传 */ }
+}
+
+function loadLocal() {
+  const folder = $("localSave").value;
+  if (!folder) return;
+  return applyImport(() => fetch("/api/saves/local/load", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder }),
+  }));
+}
+
+async function loadSaveGuide() {
+  try {
+    const { dirs } = await (await fetch("/api/saves/guide")).json();
+    for (const [system, path] of Object.entries(dirs)) {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${escapeText(system)}</strong> <code>${escapeText(path)}</code> `;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "secondary";
+      btn.textContent = "复制路径";
+      btn.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(path); btn.textContent = "已复制"; }
+        catch (e) { btn.textContent = "复制失败，请手动选中"; }
+        setTimeout(() => { btn.textContent = "复制路径"; }, 1500);
+      });
+      li.appendChild(btn);
+      $("saveDirs").appendChild(li);
+    }
+  } catch (e) { /* 指引加载失败不影响其他功能 */ }
 }
 
 function seasonList() {
@@ -534,6 +603,9 @@ $("download").addEventListener("click", () => {
 
 loadOptions().catch(() => showError("无法连接服务器"));
 $("saveFile").addEventListener("change", (e) => { if (e.target.files[0]) importSave(e.target.files[0]); });
+$("loadLocal").addEventListener("click", loadLocal);
+loadLocalSaves();
+loadSaveGuide();
 </script>
 </body>
 </html>
