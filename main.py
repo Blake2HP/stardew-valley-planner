@@ -192,7 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
                              "meadowlands（或中文名）。草原农场开局没有赠送的防风草种子")
     parser.add_argument("--revise-rounds", type=int, default=1,
                         help="自动修正轮数：程序校验发现问题时反馈给模型修改（默认 1，0 = 关闭；会多调用模型）")
-    parser.set_defaults(in_ground=None)  # 只能从存档导入（--save），命令行没有对应的参数
+    parser.set_defaults(in_ground=None, bundle_done=None)  # 只能从存档导入（--save），命令行没有对应的参数
     parser.add_argument("--start-gold", type=int, default=None,
                         help="期初资金；不传时第 1 年春季用开局金币（data/farm.json），其他季节为未知")
     parser.add_argument("--professions", default="",

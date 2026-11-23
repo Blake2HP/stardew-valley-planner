@@ -331,3 +331,13 @@ def test_imported_crops_in_ground_are_sent(indexed_store):
         bad = c.post("/api/generate", json={**BODY, "in_ground": [{"crop": "蓝莓", "tiles": 1, "ready_day": 3,
                                                                      "place": "roof"}]})
         assert bad.status_code == 422
+
+
+def test_imported_bundles_are_sent(indexed_store):
+    with make_client(indexed_store) as c:
+        d = c.post("/api/import-save", content=SAVE_FIXTURE.read_bytes()).json()["defaults"]
+        assert ["Spring Crops Bundle", "Parsnip"] in d["bundle_done"]
+        r = c.post("/api/generate", json={**BODY, **d, "route": "community_center"})
+        assert r.status_code == 200
+        bad = c.post("/api/generate", json={**BODY, "bundle_done": [["Spring Crops Bundle"]]})
+        assert bad.status_code == 422

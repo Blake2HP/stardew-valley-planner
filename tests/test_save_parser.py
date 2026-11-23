@@ -261,3 +261,44 @@ def test_cli_drops_in_ground_for_other_season(save):
     assert args.in_ground and args.in_ground[0]["crop"] == "萝卜"
     args, notes = cli(["--save", "x", "-s", "fall", "--start-day", "3"], save)
     assert args.in_ground is None and any("地里的作物不导入" in n for n in notes)
+
+
+# ---------------------------------------------------------------------------
+# 已交的收集包
+# ---------------------------------------------------------------------------
+
+def test_bundles_from_save(save):
+    assert save.bundle_done == [
+        ("Spring Crops Bundle", "Parsnip"), ("Spring Crops Bundle", "Potato"),       # 只交了第 1、4 件
+        ("Quality Crops Bundle", "Parsnip"), ("Quality Crops Bundle", "Melon"),      # 4 选 3 已交满：全部算交过
+        ("Quality Crops Bundle", "Pumpkin"), ("Quality Crops Bundle", "Corn"),
+    ]                                                                                # 河鱼收集包和作物无关
+    assert any("不是标准版" in w and "稀有作物" in w for w in save.warnings)
+    assert any("已交的收集包作物：6 项" in line for line in save.summary_lines())
+    assert save.generator_kwargs()["bundle_done"][0] == ["Spring Crops Bundle", "Parsnip"]
+
+
+def test_bundles_skip_reservations(data):
+    from stardew_planner import generate_plan
+    common = dict(client=MockClient(), data=data, revise_rounds=0, route="community_center")
+    plain = generate_strategy("种田", "稳健", "spring", **common)
+    done = generate_strategy("种田", "稳健", "spring", **common,
+                             bundle_done=[("Spring Crops Bundle", "Parsnip"), ("Spring Crops Bundle", "Potato")])
+    def reserved(result):
+        return [line.split("：")[1].split(" ×")[0] for line in result.finance.lines if line.startswith("献祭预留")]
+    assert reserved(plain) == ["防风草", "花椰菜", "土豆"]
+    assert reserved(done) == ["花椰菜"]                                     # 交过的防风草、土豆不再预留
+    assert ("Spring Crops Bundle", "Parsnip") in done.end_state.bundle_done          # 带到下一季
+    plan = generate_plan("种田", "稳健", "spring,summer", **common, bundle_done=[("Spring Crops Bundle", "Parsnip")])
+    assert ("Spring Crops Bundle", "Parsnip") in plan.results[1].end_state.bundle_done
+
+
+@pytest.mark.parametrize("bad", [["Spring Crops Bundle"], [("", "Parsnip")], [123]])
+def test_bad_bundle_done(data, bad):
+    with pytest.raises(ValueError, match="已交的收集包"):
+        generate_strategy("种田", "稳健", "spring", client=MockClient(), data=data, bundle_done=bad)
+
+
+def test_cli_fills_bundles(save):
+    args, _ = cli(["--save", "x", "-s", "fall"], save)
+    assert args.bundle_done[0] == ["Spring Crops Bundle", "Parsnip"]   # 和季节无关，换了季节也导入

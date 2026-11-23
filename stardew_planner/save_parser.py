@@ -84,6 +84,7 @@ class SaveState:
     money_earned: int | None = None                           # 累计赚取的金币
     players: int = 1                                           # 存档里的玩家数（房主 + 已加入的农场帮手）
     in_ground: list[dict] = field(default_factory=list)        # 地里的作物：{"crop", "tiles", "ready_day", "place"}
+    bundle_done: list[tuple[str, str]] = field(default_factory=list)  # 已交的收集包作物 (收集包英文名, 作物英文名)
     warnings: list[str] = field(default_factory=list)
 
     # ---- 映射成生成器参数 ----
@@ -128,6 +129,8 @@ class SaveState:
             out["achievement_progress"] = self.progress()
         if self.in_ground:
             out["in_ground"] = [dict(x) for x in self.in_ground]
+        if self.bundle_done:
+            out["bundle_done"] = [list(x) for x in self.bundle_done]
         return out
 
     def form_defaults(self, rules) -> dict:
@@ -175,6 +178,8 @@ class SaveState:
                 f"{x['crop']} {x['tiles']} 格（{where[x['place']]}"
                 + (f"第 {x['ready_day']} 天成熟）" if x["ready_day"] > (self.start_day or 1) else "已成熟）")
                 for x in self.in_ground))
+        if self.bundle_done:
+            lines.append(f"社区中心已交的收集包作物：{len(self.bundle_done)} 项（献祭路线不再要求预留）")
         if self.players > 1:
             lines.append(f"联机存档：{self.players} 位玩家（只读取了房主的进度）")
         if self.shipped:
@@ -325,7 +330,7 @@ def parse_save(source: bytes | str | Path, data: GameData | None = None, ids: Sa
             pass  # 社区中心已经完成（至少食品储藏室的作物收集包都交了），不需要再预留作物
         else:
             state.route = "community_center"
-            state.warnings.append("社区中心还没修好，已选社区中心献祭路线；已经交过的收集包没有导入，规划里可能会要求重复预留")
+            state.warnings.append("社区中心还没修好，已选社区中心献祭路线（已经交过的收集包作物会导入，不再要求预留）")
 
     with _section(state, "累计赚取的金币"):
         earned = _int(player.findtext("totalMoneyEarned"))
@@ -394,7 +399,56 @@ def parse_save(source: bytes | str | Path, data: GameData | None = None, ids: Sa
 
     with _section(state, "地里的作物"):
         _parse_crops(root, state, ids, crops_by_en)
+    with _section(state, "社区中心收集包"):
+        _parse_bundles(root, state, ids, crops_by_en, data)
     return state
+
+
+def _parse_bundles(root: ET.Element, state: SaveState, ids: SaveIds, crops_by_en: dict, data: GameData) -> None:
+    """已交的收集包作物。
+
+    bundleData：“房间/编号” → “名字/奖励/物品 ID 数量 品质 …/颜色/需要几件//中文名”（需要几件为空 = 全部）；
+    社区中心的 bundles：编号 → 布尔数组，第 j 个表示第 j 件物品交了没有（交满后整组都是 true）。
+    交满的收集包里所有作物都算交过（“4 选 3”这类收集包剩下的也不用再留）。按英文名对应 data/bundles.json
+    的“名字 + Bundle”；对不上的（1.6 的混合版收集包）记一条提示。
+    """
+    definitions = {}
+    for key, value in _dict_items(root.find("bundleData")):
+        index = _int(_key_text(key).rsplit("/", 1)[-1])
+        if index is not None:
+            definitions[index] = _key_text(value).split("/")
+    cc = next((loc for loc in root.findall("locations/GameLocation")
+               if (loc.findtext("name") or "").strip() == "CommunityCenter"), None)
+    flags = {}
+    for key, value in _dict_items(cc.find("bundles") if cc is not None else None):
+        index = _int(_key_text(key))
+        array = next(iter(value), None)
+        if index is not None and array is not None:
+            flags[index] = [(el.text or "").strip().lower() == "true" for el in array]
+    known = {b.name_en: b for b in data.bundles}
+    done: list[tuple[str, str]] = []
+    unknown_names = []
+    for index, fields_ in sorted(definitions.items()):
+        if len(fields_) < 3:
+            continue
+        tokens = fields_[2].split()
+        items = [tokens[i:i + 3] for i in range(0, len(tokens) - 2, 3)]
+        crops = [crops_by_en.get(ids.crops.get(item[0].removeprefix("(O)"))) for item in items]
+        if not any(crops):
+            continue  # 不涉及作物的收集包（鱼、矿石……）和规划无关
+        bundle = known.get(f"{fields_[0]} Bundle")
+        if bundle is None:
+            unknown_names.append(fields_[-1] or fields_[0])
+            continue
+        got = flags.get(index, [])
+        need = _int(fields_[4]) if len(fields_) > 4 and fields_[4].strip() else len(items)
+        complete = sum(got[:len(items)]) >= need
+        for j, crop in enumerate(crops):
+            if crop is not None and (complete or (j < len(got) and got[j])):
+                done.append((bundle.name_en, crop.name_en))
+    state.bundle_done = list(dict.fromkeys(done))
+    if unknown_names:
+        state.warnings.append(f"这些收集包不是标准版（可能是 1.6 的混合版收集包），没有导入：{'、'.join(unknown_names)}")
 
 
 CROP_LOCATIONS = {"Farm": "field", "Greenhouse": "greenhouse", "IslandWest": "island"}

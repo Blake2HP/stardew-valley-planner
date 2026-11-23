@@ -125,6 +125,7 @@ class GenerateRequest(BaseModel):
     animals: str | None = Field(default=None, max_length=100)
     owned_animals: str | None = Field(default=None, max_length=200)  # 已经养着的成年动物（存档导入）
     in_ground: list[InGroundCrop] = Field(default_factory=list, max_length=200)  # 地里已有的作物（存档导入）
+    bundle_done: list[tuple[str, str]] = Field(default_factory=list, max_length=200)  # 已交的收集包作物（存档导入）
     route: Literal["community_center"] | None = None
     location: Literal["pelican_town", "ginger_island"] = "pelican_town"
     greenhouse: bool = False
@@ -395,6 +396,7 @@ def create_app(settings: Settings | None = None, *, client=None, guide_store=Non
             options = PlanOptions.pick(  # 和 PlanOptions 字段同名的请求字段直接取；需要整理的另外给
                 req, animals=req.animals or None, owned_animals=req.owned_animals or None,
                 in_ground=[c.model_dump() for c in req.in_ground] or None, roles=roles,
+                bundle_done=[tuple(x) for x in req.bundle_done] or None,
                 achievements=[g.achievement.name for g in goals], achievement_progress=req.achievement_progress or None,
             )
             kwargs = dict(data=data(), client=model_client, provider=settings.provider, model=settings.model,

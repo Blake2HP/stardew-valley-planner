@@ -83,6 +83,15 @@
         <item><key><Vector2><X>5</X><Y>5</Y></Vector2></key><value><TerrainFeature xsi:type="HoeDirt"><crop><phaseDays><int>1</int><int>2</int><int>2</int><int>2</int><int>2</int><int>99999</int></phaseDays><currentPhase>1</currentPhase><dayOfCurrentPhase>0</dayOfCurrentPhase><indexOfHarvest>24</indexOfHarvest><dead>false</dead></crop></TerrainFeature></value></item>
       </terrainFeatures>
     </GameLocation>
+    <GameLocation xsi:type="CommunityCenter">
+      <name>CommunityCenter</name>
+      <bundles>
+        <item><key><int>0</int></key><value><ArrayOfBoolean><boolean>true</boolean><boolean>false</boolean><boolean>false</boolean><boolean>true</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean></ArrayOfBoolean></value></item>
+        <item><key><int>3</int></key><value><ArrayOfBoolean><boolean>true</boolean><boolean>true</boolean><boolean>false</boolean><boolean>true</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean><boolean>false</boolean></ArrayOfBoolean></value></item>
+        <item><key><int>1</int></key><value><ArrayOfBoolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean></ArrayOfBoolean></value></item>
+        <item><key><int>7</int></key><value><ArrayOfBoolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean><boolean>true</boolean></ArrayOfBoolean></value></item>
+      </bundles>
+    </GameLocation>
     <GameLocation xsi:type="Town">
       <name>Town</name>
       <objects>
@@ -90,6 +99,12 @@
       </objects>
     </GameLocation>
   </locations>
+  <bundleData>
+    <item><key><string>Pantry/0</string></key><value><string>Spring Crops/O 465 20/24 1 0 188 1 0 190 1 0 192 1 0/0///春季作物</string></value></item>
+    <item><key><string>Pantry/1</string></key><value><string>Rare Crops/O 347 1/268 1 0/3///稀有作物</string></value></item>
+    <item><key><string>Pantry/3</string></key><value><string>Quality Crops/BO 15 1/24 5 2 254 5 2 276 5 2 270 5 2/6/3//高品质作物</string></value></item>
+    <item><key><string>Fish Tank/7</string></key><value><string>River Fish/O 685 30/145 1 0 143 1 0 706 1 0 699 1 0/6///河鱼</string></value></item>
+  </bundleData>
   <currentSeason>summer</currentSeason>
   <dayOfMonth>12</dayOfMonth>
   <year>2</year>

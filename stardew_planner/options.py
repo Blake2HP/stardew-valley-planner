@@ -59,6 +59,9 @@ class PlanOptions:
     in_ground: Any = None
     """地里已经种着的作物：[{"crop": "蓝莓", "tiles": 20, "ready_day": 15, "place": "field"}]，
     ready_day 是本季第几天可以收获；种子钱已付过，收获计入资金。只用于第一季。"""
+    bundle_done: Any = None
+    """已经交过的收集包作物：[("Spring Crops Bundle", "Parsnip"), ...]（收集包英文名, 作物英文名），例如从存档导入；
+    献祭路线不再要求预留这些作物。只用于第一季（之后随季末状态带下去）。"""
 
     # ---- 联机与成就 ----
     players: int = 1
@@ -122,5 +125,5 @@ class PlanOptions:
         return replace(self, **cleared)
 
 
-# 只用于第一季：之后的季节由上季的季末状态接上（资金、动物、地里的作物），并从第 1 天开始
-FIRST_SEASON_ONLY = ("start_gold", "start_day", "animals", "owned_animals", "in_ground")
+# 只用于第一季：之后的季节由上季的季末状态接上（资金、动物、地里的作物、已交的收集包），并从第 1 天开始
+FIRST_SEASON_ONLY = ("start_gold", "start_day", "animals", "owned_animals", "in_ground", "bundle_done")

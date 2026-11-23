@@ -332,6 +332,7 @@ class _Season:
     achievements: object = None  # 本季成就缺口（achievements.SeasonTargets）；没选成就时为 None
     start_day: int = 1           # 季中开始规划的日子
     in_ground: tuple = ()        # 本季开始时地里已经种着的作物（farm_state.CarryCrop，例如从存档导入）
+    bundle_done: tuple = ()      # 本季开始时已经交过的收集包作物 (收集包英文名, 作物英文名)
 
     @property
     def carry_in(self) -> tuple:
@@ -399,7 +400,7 @@ def _evaluate(d: _Draft, s: _Season) -> _Evaluation:
         goods_in=s.prior_state.goods if s.prior_state else (), season=season_key, honey=data.honey,
         honey_all_seasons=island,
         herds=s.herds, hay_price=data.hay_price,
-        set_aside=reservations, bundle_done_in=s.prior_state.bundle_done if s.prior_state else (),
+        set_aside=reservations, bundle_done_in=s.bundle_done,
         fixed_costs=upgrade_costs(upgrades), building_costs=construction_costs(constructions),
         ship_first=keep_for_shipping(s.achievements, season_harvest_units(plantings, carry_in))
         if s.achievements else None,
@@ -486,6 +487,21 @@ def _progress_after(progress: Progress, ev: _Evaluation, carry_in, data: GameDat
     units = shipped_units(season_harvest_units(ev.plantings, carry_in), ev.finance)  # 只有直接出货的才算运送
     return advance(progress, units, _friend_points(progress, ev.goals, data, season, start_day),
                    _season_earned(ev.finance))
+
+
+def _bundle_pairs(raw) -> tuple[tuple[str, str], ...]:
+    """已交的收集包作物 → ((收集包英文名, 作物英文名), ...)；写法不对时报 ValueError。"""
+    out = []
+    for item in raw or ():
+        try:
+            bundle, crop = item
+            pair = (str(bundle).strip(), str(crop).strip())
+        except (TypeError, ValueError):
+            raise ValueError(f"已交的收集包应写成 (收集包英文名, 作物英文名)，收到 {item!r}") from None
+        if not all(pair):
+            raise ValueError(f"已交的收集包应写成 (收集包英文名, 作物英文名)，收到 {item!r}")
+        out.append(pair)
+    return tuple(dict.fromkeys(out))
 
 
 def resolve_location(location: str | None) -> str:
@@ -576,7 +592,10 @@ def generate_strategy(
     goals_wanted = resolve_goals(achievements, data.achievement_rules)
     progress = achievement_progress if isinstance(achievement_progress, Progress) \
         else parse_progress(achievement_progress, data.achievement_rules, data.crops)
-    done = set(prior_state.bundle_done) if prior_state else set()
+    if opts.bundle_done and prior_state is not None:
+        raise ValueError("衔接上季状态时不能再给已交的收集包（上季的进度会自动带过来）")
+    bundle_done = tuple(prior_state.bundle_done) if prior_state else _bundle_pairs(opts.bundle_done)
+    done = set(bundle_done)
     bundle_needs = tuple(season_needs(crop_needs(data.bundles, data.crops), season_key, year, done)) if route else ()
     done_labels = [f"{n.label}" for n in crop_needs(data.bundles, data.crops)
                    if (n.bundle.name_en, n.crop.name_en) in done] if route else []
@@ -627,7 +646,7 @@ def generate_strategy(
     # 2) 调用模型 + 校验格式（不合格时把错误回传给模型重试）
     season_info = _Season(data, season_key, year, bonuses, prior_state, gold, gold_estimated, seed_stock, stock_label,
                           machines, greenhouse, herds, bundle_needs, location, players, roles, targets, start_day,
-                          ground)
+                          ground, bundle_done)
     system = build_system_prompt(players, achievements=bool(goals_wanted))
     draft = _draft(client, messages, max_retries, system=system, players=players, start_day=start_day)
     attempts = draft.calls
