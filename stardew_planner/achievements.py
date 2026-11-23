@@ -3,8 +3,8 @@
 用户用 --achievements 指定想完成的成就，--achievement-progress 补充已有进度（不给时从零算）：
 - 程序算出本季的“缺口”，写进【数据参考】的【🏆 成就规划目标】：
   - 混合栽培：本季能买到种子、还没运够的作物各要直接出货几个；
-  - 单一栽培：本季选一种作物，要直接出货几个（还差的个数平均分到今年剩下的季节）；
-  - 友谊类（新朋友……万人迷）：本季要新结交几位村民（还差的人数平均分到今年剩下的季节）；
+  - 单一栽培：本季选一种作物，要直接出货几个（还差的个数平均分到从本次规划起一年内剩下的季节）；
+  - 友谊类（新朋友……万人迷）：本季要新结交几位村民（还差的人数平均分到从本次规划起一年内剩下的季节）；
   - 赚钱类（新手……千万富翁）：还差多少钱，只提示；
   - 其他成就（钓鱼、烹饪、博物馆……）：程序没有相应数据，只把条件写进 Prompt 作为长期目标，不校验；
 - 生成后校验：出货类按预计直接出货个数、友谊类按每周送礼和本季新结交人数，问题以“⚠️ 成就校验：”开头，
@@ -208,7 +208,7 @@ class FriendGap:
     goal: Goal
     left: int          # 还差几个人达到要求的心数（扣掉用户给出的进度和本次规划前几季估算达到的）
     left_points: int   # 还差多少好感度点数（每人最多算到要求的心数）
-    per_season: int    # 本季日程至少要增加的点数 = 还差的点数平均分到今年剩下的季节
+    per_season: int    # 本季日程至少要增加的点数 = 还差的点数平均分到从本次规划起一年内剩下的季节
 
 
 @dataclass
@@ -218,6 +218,8 @@ class SeasonTargets:
     seasons_left: int = SEASONS_PER_YEAR
     crops: list[CropGap] = field(default_factory=list)      # 混合栽培：本季必须直接出货的作物
     optional: list[CropGap] = field(default_factory=list)   # 本季能种、但种子要去特殊渠道买的作物
+    elsewhere: list[CropGap] = field(default_factory=list)  # 其他季节的作物，温室 / 姜岛里也能种（可选）
+    anywhere: str = ""                                      # 不受季节限制的种植地点：“温室”“姜岛”
     later: list[str] = field(default_factory=list)          # 本季作物，但今年还买不到种子
     shipped_done: list[str] = field(default_factory=list)   # 已经运够的作物
     mono: list[CropGap] = field(default_factory=list)       # 单一栽培：本季可选的作物，选一种出货 need 个
@@ -247,19 +249,26 @@ class SeasonTargets:
         return [(n, p / 250) for n, p in ranked if p > 0][:6]
 
 
-def season_targets(goals: list[Goal], progress: Progress, crops, season: str, year: int) -> SeasonTargets:
-    t = SeasonTargets(list(goals), progress, max(1, SEASONS_PER_YEAR - progress.seasons_done))
+def season_targets(goals: list[Goal], progress: Progress, crops, season: str, year: int,
+                   anywhere: str = "") -> SeasonTargets:
+    """anywhere 是不受季节限制的种植地点（“温室”“姜岛”）：其他季节的作物也列为可选（种子要在当季提前买好）。"""
+    t = SeasonTargets(list(goals), progress, max(1, SEASONS_PER_YEAR - progress.seasons_done), anywhere=anywhere)
     by_en = {c.name_en: c for c in crops}
     for g in goals:
         a = g.achievement
         if a.kind == "ship_each_crop":
             for name_en in a.crops:
                 crop = by_en.get(name_en)
-                if crop is None or season not in crop.seasons:
+                in_season = crop is not None and season in crop.seasons
+                if crop is None or not (in_season or anywhere):
                     continue
                 need = a.target - int(progress.shipped.get(crop.name, 0))
                 if need <= 0:
-                    t.shipped_done.append(crop.name)
+                    if in_season:
+                        t.shipped_done.append(crop.name)
+                elif not in_season:
+                    if crop.available_year <= year:
+                        t.elsewhere.append(CropGap(crop, need, anywhere))
                 elif crop.available_year > year:
                     t.later.append(f"{crop.name}（第 {crop.available_year} 年起）")
                 elif crop.seed_source.startswith(DIRECT_SOURCES):
@@ -312,6 +321,9 @@ def describe_targets(t: SeasonTargets, rules: AchievementRules) -> str:
         if t.optional:
             opt = "、".join(f"{c.crop.name} {c.need} 个（{c.source}）" for c in t.optional)
             lines.append(f"  - 可选（种子要去特殊渠道买，本季不强制）：{opt}")
+        if t.elsewhere:
+            names = "、".join(f"{c.crop.name} {c.need} 个" for c in t.elsewhere)
+            lines.append(f"  - 可选（其他季节的作物，{t.anywhere}里也能种；种子只在当季出售，要提前买好，本季不强制）：{names}")
         if t.later:
             lines.append(f"  - 今年还买不到种子：{'、'.join(t.later)}")
         if t.shipped_done:
@@ -321,7 +333,7 @@ def describe_targets(t: SeasonTargets, rules: AchievementRules) -> str:
         if t.mono_done:
             lines.append(f"- {t.title(g)}：{t.mono_done}已经运够 {a.target} 个，本季不用再安排。")
         elif t.mono:
-            lines.append(f"- {t.title(g)}：本季集中种一种作物，直接出货至少这么多（还差的个数平均分到今年剩下的 "
+            lines.append(f"- {t.title(g)}：本季集中种一种作物，直接出货至少这么多（按一年内达成，还差的个数平均分到接下来 "
                          f"{t.seasons_left} 个季节，以后几季要继续种同一种）：{_mono_text(t)}。程序会先留出这些数量直接出货。")
         else:
             lines.append(f"- {t.title(g)}：本季没有可以计入的作物，本季不用安排。")
@@ -332,7 +344,7 @@ def describe_targets(t: SeasonTargets, rules: AchievementRules) -> str:
         others = [x for x in t.friends if x is not gap]
         lines.append(
             f"- {t.title(gap.goal)}：还差 {gap.left} 人，约 {gap.left_points:,} 点好感度"
-            f"（每人 {a.hearts} 颗心 = {a.hearts} × {a.points_per_heart} = {points} 点），今年还剩 {t.seasons_left} 个季节，"
+            f"（每人 {a.hearts} 颗心 = {a.hearts} × {a.points_per_heart} = {points} 点），按一年内达成计算还剩 {t.seasons_left} 个季节，"
             f"本季的日程至少要增加 {gap.per_season:,} 点（每人只算到 {a.hearts} 颗心）。"
             f"程序按日程逐天估算：写了“和{{村民}}聊天”的日子 +{f.talk_daily}；送最爱的礼物 +{f.gift_love}、"
             f"喜欢的 +{f.gift_like}、中立的 +{f.gift_neutral}，生日当天 ×{f.birthday_multiplier}；"
@@ -446,13 +458,16 @@ def summary_lines(t: SeasonTargets) -> list[str]:
     """攻略里“🏆 成就规划”一节的程序计算部分（Markdown 列表）。"""
     out = []
     if g := t.goal("ship_each_crop"):
-        need = "、".join(f"{c.crop.name} {c.need} 个" for c in t.crops) or "无"
+        need = "、".join(f"{c.crop.name} {c.need} 个" for c in t.crops)
         extra = []
         if t.optional:
             extra.append("可选：" + "、".join(f"{c.crop.name}（{c.source}）" for c in t.optional))
+        if t.elsewhere:
+            extra.append(f"{t.anywhere}里也能种：" + "、".join(c.crop.name for c in t.elsewhere))
         if t.shipped_done:
             extra.append("已运够：" + "、".join(t.shipped_done))
-        out.append(f"- **{t.title(g)}**：本季要收获并直接出货 {need}" + (f"（{'；'.join(extra)}）" if extra else ""))
+        head = f"本季要收获并直接出货 {need}" if need else "本季没有必须种的作物"
+        out.append(f"- **{t.title(g)}**：{head}" + (f"（{'；'.join(extra)}）" if extra else ""))
     if g := t.goal("ship_one_crop"):
         text = (f"{t.mono_done}已经运够" if t.mono_done else
                 f"本季选一种作物直接出货（{_mono_text(t)}）" if t.mono else "本季没有可以计入的作物")
@@ -490,7 +505,7 @@ def keep_for_shipping(t: SeasonTargets, harvested: dict | None = None) -> dict[s
 
     留给收集包的由 compute_finance 按 set_aside 另外留下，不在这里算。
     """
-    keep = {c.crop.name: float(c.need) for c in t.crops + t.optional}
+    keep = {c.crop.name: float(c.need) for c in t.crops + t.optional + t.elsewhere}
     if choice := _mono_choice(t, harvested or {}):
         keep[choice.crop.name] = max(keep.get(choice.crop.name, 0), choice.need)
     return keep

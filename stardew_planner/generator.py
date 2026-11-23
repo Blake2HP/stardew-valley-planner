@@ -611,7 +611,8 @@ def generate_strategy(
                                  machines, greenhouse, herds, bundle_text, location)
     context["coop"] = describe_coop(players, roles)
     context["energy"] = describe_energy(data.energy_rules, bonuses, players)
-    targets = season_targets(goals_wanted, progress, data.crops, season_key, year) if goals_wanted else None
+    anywhere = "姜岛" if location == "ginger_island" else "温室" if greenhouse else ""
+    targets = season_targets(goals_wanted, progress, data.crops, season_key, year, anywhere) if goals_wanted else None
     if targets is not None:
         context["achievement_block"] = ("### 【🏆 成就规划目标】（程序计算，data/achievements.json）\n"
                                         + describe_targets(targets, data.achievement_rules) + "\n\n")

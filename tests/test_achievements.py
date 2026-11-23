@@ -9,6 +9,7 @@ import pytest
 from stardew_planner import generate_strategy
 from stardew_planner.achievements import (
     Progress, describe_targets, load_achievement_rules, parse_progress, resolve_goals, season_targets,
+    keep_for_shipping, summary_lines,
 )
 from stardew_planner.llm_client import MockClient
 
@@ -433,3 +434,18 @@ def test_talk_detection(data):
     assert talked_to("和海莉、阿比盖尔聊天，钓鱼", data) == {"海莉", "阿比盖尔"}
     assert talked_to("送海莉向日葵，钓鱼", data) == set()   # 送礼不算聊天
     assert talked_to("钓鱼；跟潘妮打招呼", data) == {"潘妮"}
+
+
+def test_greenhouse_and_island_list_other_season_crops(rules, data):
+    goals = resolve_goals("混合栽培", rules)
+    field = season_targets(goals, Progress(), data.crops, "winter", 1)
+    assert field.crops == [] and field.elsewhere == []
+    assert summary_lines(field)[0].endswith("本季没有必须种的作物")          # 冬季不写“出货 无”
+    green = season_targets(goals, Progress(shipped={"防风草": 15}), data.crops, "winter", 1, "温室")
+    names = {c.crop.name for c in green.elsewhere}
+    assert {"土豆", "甜瓜", "南瓜"} <= names and "防风草" not in names    # 已运够的不再列
+    assert "洋蓟" not in names                                              # 第 2 年才有种子
+    assert "温室里也能种：" in summary_lines(green)[0]
+    assert "土豆" in keep_for_shipping(green)                              # 温室里种了也先留出货
+    island = season_targets(goals, Progress(), data.crops, "spring", 1, "姜岛")
+    assert "土豆" in {c.crop.name for c in island.crops} and "甜瓜" in {c.crop.name for c in island.elsewhere}
